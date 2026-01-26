@@ -1,92 +1,111 @@
-# NotifyX Monorepo
+<div align="center">
+  <img src="https://raw.githubusercontent.com/lucide-react/lucide/main/icons/bell-ring.svg" width="80" height="80" alt="NotifyX Logo" />
+  <h1>NotifyX</h1>
+  <p><strong>A high-performance, developer-first notification engine for modern applications.</strong></p>
 
-NotifyX is a powerful and scalable notification service designed to handle complex notification workflows across multiple providers (FCM, HMS, APNS, Web Push, etc.).
-
-## Project Structure
-
-This is a monorepo containing the following components:
-
-- **[api](file:///Users/awsqi/Documents/aws/notifyX/api)**: The backend API service built with Bun, Express, and Prisma.
-- **[portal](file:///Users/awsqi/Documents/aws/notifyX/portal)**: The frontend administration portal built with React, Vite, and Tailwind CSS.
-- **[docs](file:///Users/awsqi/Documents/aws/notifyX/docs)**: Documentation regarding user journeys and architecture.
-
-## Tech Stack
-
-- **Runtime**: [Bun](https://bun.sh/)
-- **Backend Framework**: [Express](https://expressjs.com/)
-- **Database ORM**: [Prisma](https://www.prisma.io/) (PostgreSQL)
-- **Message Queue**: [BullMQ](https://docs.bullmq.io/) (Redis)
-- **Object Storage**: [MinIO](https://min.io/) (S3 compatible)
-- **Frontend Framework**: [React](https://react.dev/)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+  [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh/)
+  [![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+</div>
 
 ---
 
-## Getting Started
+## 🚀 Overview
+
+NotifyX is a scalable notification service built to simplify complex multi-channel communication workflows. Whether you're sending transactional push notifications via FCM, HMS, or APNS, or managing marketing campaigns through a unified portal, NotifyX provides the infrastructure you need to deliver messages reliably and at scale.
+
+## ✨ Key Features
+
+- **Multi-Channel Delivery**: Support for FCM (Google), HMS (Huawei), APNS (Apple), and Web Push.
+- **Queue-Based Processing**: High-throughput message processing powered by [BullMQ](https://docs.bullmq.io/).
+- **Dynamic Campaign Management**: Create, schedule, and monitor notification campaigns via a modern dashboard.
+- **Scalable Architecture**: Designed to handle millions of notifications with ease.
+- **Developer First**: Clean RESTful API with automated OpenAPI documentation and type-safe clients.
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    Client[Client Apps / Admin Portal] --> API[Express API - Bun]
+    API --> DB[(PostgreSQL - Prisma)]
+    API --> Redis[(Redis - BullMQ)]
+    Redis --> Workers[Background Workers]
+    Workers --> Providers{Delivery Providers}
+    Providers --> FCM[FCM]
+    Providers --> HMS[HMS]
+    Providers --> APNS[APNS]
+    Providers --> WebPush[Web Push]
+    API --> MinIO[(MinIO - Object Storage)]
+```
+
+## 🛠️ Project Structure
+
+This monorepo is organized into two primary components:
+
+- **[`/api`](file:///Users/awsqi/Documents/aws/notifyX/api)**: The core notification engine (Bun + Express + Prisma).
+- **[`/portal`](file:///Users/awsqi/Documents/aws/notifyX/portal)**: The administration dashboard (React + Vite + Tailwind CSS).
+
+---
+
+## 🏁 Getting Started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/docs/installation) installed locally.
-- [Docker](https://www.docker.com/products/docker-desktop/) and Docker Compose.
+- **[Bun](https://bun.sh/)**: The fast all-in-one JavaScript runtime.
+- **[Docker](https://www.docker.com/)**: For running infrastructure services.
 
-### 1. Set up Infrastructure
+### 1. Infrastructure Setup
 
-Spin up the required services (PostgreSQL, Redis, MinIO) using Docker Compose:
+NotifyX requires PostgreSQL, Redis, and MinIO. Launch them using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-### 2. Set up Backend API
-
-Navigate to the `api` directory and follow these steps:
+### 2. Backend API Setup
 
 ```bash
 cd api
-cp .env.example .env
+cp .env.example .env  # Configure your credentials
 bun install
-bun run db:migrate
-bun run dev
+bun run db:migrate    # Run migrations
+bun run dev           # Start the engine
 ```
 
-The API will be available at `http://localhost:3000`. You can view the API documentation at `http://localhost:3000/docs`.
+> **API Docs**: Access the interactive Swagger reference at `http://localhost:3000/docs`.
 
-### 3. Set up Frontend Portal
-
-Navigate to the `portal` directory and follow these steps:
+### 3. Frontend Portal Setup
 
 ```bash
 cd portal
-cp .env.example .env
+cp .env.example .env  # Point VITE_API_URL to the API
 bun install
-bun run dev
+bun run dev           # Open the dashboard
 ```
-
-The Portal will be available at `http://localhost:5173`.
 
 ---
 
-## Development Commands
+## 💻 Tech Stack
 
-### Root
+- **Runtime**: [Bun](https://bun.sh/)
+- **ORM**: [Prisma](https://www.prisma.io/)
+- **Messaging**: [BullMQ](https://bullmq.io/) & [IORedis](https://github.com/luin/ioredis)
+- **Frontend**: [React 19](https://react.dev/), [Vite](https://vitejs.dev/), [Tailwind CSS 4](https://tailwindcss.com/)
+- **UI Components**: [Radix UI](https://www.radix-ui.com/) & [Lucide Icons](https://lucide.dev/)
 
-- `docker-compose up -d`: Start infrastructure services.
-- `docker-compose down`: Stop infrastructure services.
+## 🤝 Contributing
 
-### API (`/api`)
+We welcome contributions! Please check out our [contribution guidelines](CONTRIBUTING.md) (coming soon) and feel free to open issues or pull requests.
 
-- `bun run dev`: Start API in development mode with watch.
-- `bun run db:generate`: Generate Prisma client.
-- `bun run db:migrate`: Run database migrations.
-- `bun test`: Run API tests.
+## 🛡️ Security
 
-### Portal (`/portal`)
+If you discover a security vulnerability, please send an e-mail to security@notifyx.dev instead of using the public issue tracker.
 
-- `bun run dev`: Start Portal in development mode.
-- `bun run build`: Build Portal for production.
-- `bun run lint`: Run linting.
+## 📄 License
 
-## License
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-MIT
+---
+
+<p align="center">Built with ❤️ by the NotifyX Team</p>
