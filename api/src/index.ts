@@ -25,9 +25,6 @@ const port = process.env.PORT || 3000;
 // Re-export prisma for controllers (backward compatibility)
 export { prisma };
 
-import { initWorker, shutdownWorkers } from './workers/notification';
-import { startScheduler, stopScheduler } from './workers/scheduler';
-
 // Security middleware (before everything else)
 app.use(securityHeaders);
 app.use(cors({
@@ -44,12 +41,6 @@ app.use(rateLimit());
 
 // Authentication
 app.use(authenticate);
-
-// Start Worker
-initWorker();
-
-// Start Scheduler (polls for scheduled notifications, campaigns, A/B tests)
-startScheduler();
 
 import { collectMetrics, getPrometheusMetrics } from './services/metrics';
 
@@ -144,12 +135,6 @@ const shutdown = async (signal: string) => {
         console.log('[API] HTTP server closed');
 
         try {
-            // Stop scheduler first
-            stopScheduler();
-
-            // Shutdown workers (let them finish current jobs)
-            await shutdownWorkers();
-
             // Close queues
             await closeQueues();
 

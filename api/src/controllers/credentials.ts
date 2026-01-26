@@ -1,28 +1,8 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../services/database';
 import { AppError } from '../utils/response';
-import crypto from 'crypto';
-
-const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY || 'default-secret-key-must-be-32-bytes!';
-
-function encrypt(text: string): any {
-    const iv = crypto.randomBytes(16);
-    const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return { iv: iv.toString('hex'), encryptedData: encrypted.toString('hex') };
-}
-
-function decrypt(text: any): string {
-    const iv = Buffer.from(text.iv, 'hex');
-    const encryptedText = Buffer.from(text.encryptedData, 'hex');
-    const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-}
+import { encrypt, decrypt } from '../utils/crypto';
+import { clearAppProviderCache } from '../services/push-providers';
 
 // 1. Create Credential Version
 export const createCredentialVersion = async (req: Request, res: Response, next: any) => {
@@ -218,7 +198,13 @@ export const activateCredential = async (req: Request, res: Response, next: any)
 
         const version = await prisma.credentialVersion.findUnique({
             where: { id: credentialVersionId },
-            include: { credential: true }
+            include: {
+                credential: {
+                    include: {
+                        appEnvironment: true
+                    }
+                }
+            }
         });
 
         if (!version) {
@@ -243,7 +229,10 @@ export const activateCredential = async (req: Request, res: Response, next: any)
             })
         ]);
 
-        // Clear cache for this provider (TODO: Implement cache clearing)
+        // Clear cache for this provider across all processes via Redis Pub/Sub
+        const appId = version.credential.appEnvironment.appId;
+        const provider = version.credential.provider as any;
+        clearAppProviderCache(appId, provider);
 
         await prisma.auditLog.create({
             data: {

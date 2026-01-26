@@ -9,6 +9,8 @@ import { HMSProvider } from './hms';
 import { APNSProvider } from './apns';
 import { WebPushProvider } from './web';
 import { prisma } from '../database';
+import { decrypt } from '../../utils/crypto';
+import { getRedisClient, getSubscriberClient } from '../redis';
 
 export * from './types';
 
@@ -18,8 +20,46 @@ let globalHms: HMSProvider | null = null;
 let globalApns: APNSProvider | null = null;
 let globalWeb: WebPushProvider | null = null;
 
-// Cache for per-app provider instances
-const appProviderCache = new Map<string, Map<ProviderType, PushProvider>>();
+// Cache for per-app provider instances with TTL support
+interface CacheEntry {
+    provider: PushProvider;
+    expiresAt: number;
+}
+const appProviderCache = new Map<string, Map<ProviderType, CacheEntry>>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour TTL fallback
+
+// Redis Pub/Sub channel for cache invalidation across processes
+const INVALIDATION_CHANNEL = 'cache:invalidate:credentials';
+
+/**
+ * Initialize Cache Sync (Subscriber)
+ */
+export function initCacheSync() {
+    const subscriber = getSubscriberClient();
+    subscriber.subscribe(INVALIDATION_CHANNEL, (err) => {
+        if (err) console.error('[PushProvider] Failed to subscribe to invalidation channel:', err.message);
+    });
+
+    subscriber.on('message', (channel, message) => {
+        if (channel === INVALIDATION_CHANNEL) {
+            try {
+                const { appId, provider } = JSON.parse(message);
+                console.log(`[PushProvider] Remote cache invalidation for ${appId} (provider: ${provider || 'all'})`);
+
+                if (provider) {
+                    appProviderCache.get(appId)?.delete(provider as ProviderType);
+                } else {
+                    appProviderCache.delete(appId);
+                }
+            } catch (error) {
+                console.error('[PushProvider] Error processing invalidation message:', error);
+            }
+        }
+    });
+}
+
+// Automatically init sync if subscriber is available (for worker/api processes)
+initCacheSync();
 
 export type ProviderType = 'fcm' | 'hms' | 'apns' | 'web';
 
@@ -81,12 +121,13 @@ export function getGlobalProvider(provider: ProviderType): PushProvider | null {
 export async function getAppProvider(appId: string, provider: ProviderType): Promise<PushProvider | null> {
     // Check cache first
     const appCache = appProviderCache.get(appId);
-    if (appCache?.has(provider)) {
-        return appCache.get(provider)!;
+    const cached = appCache?.get(provider);
+
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.provider;
     }
 
     // Load active credentials from database (via AppEnvironment -> Credential -> CredentialVersion)
-    // Defaulting to PROD for now as per current worker implementation
     const appEnv = await prisma.appEnvironment.findUnique({
         where: { appId_env: { appId, env: 'PROD' } },
         include: {
@@ -107,13 +148,11 @@ export async function getAppProvider(appId: string, provider: ProviderType): Pro
     const activeVersion = credential?.versions[0];
 
     if (!credential || !activeVersion) {
-        // Fallback to global provider
         return getGlobalProvider(provider);
     }
 
-    // Create provider with app-specific credentials
-    // Note: encryptedJson should be decrypted here. Using as-is for now (assuming mock/test env or transparent encryption)
-    const creds = activeVersion.encryptedJson as unknown as ProviderCredentials;
+    // Decrypt credentials
+    const creds = JSON.parse(decrypt(activeVersion.encryptedJson)) as ProviderCredentials;
     let providerInstance: PushProvider | null = null;
 
     switch (provider) {
@@ -131,19 +170,22 @@ export async function getAppProvider(appId: string, provider: ProviderType): Pro
             break;
     }
 
-    // Cache the provider
+    // Cache the provider with TTL
     if (providerInstance) {
         if (!appProviderCache.has(appId)) {
             appProviderCache.set(appId, new Map());
         }
-        appProviderCache.get(appId)!.set(provider, providerInstance);
+        appProviderCache.get(appId)!.set(provider, {
+            provider: providerInstance,
+            expiresAt: Date.now() + CACHE_TTL_MS
+        });
     }
 
     return providerInstance;
 }
 
 /**
- * Clear cached provider for an app (call when credentials are updated)
+ * Clear cached provider for an app and publish invalidation
  */
 export function clearAppProviderCache(appId: string, provider?: ProviderType): void {
     if (provider) {
@@ -151,6 +193,10 @@ export function clearAppProviderCache(appId: string, provider?: ProviderType): v
     } else {
         appProviderCache.delete(appId);
     }
+
+    // Publish to cluster
+    const redis = getRedisClient();
+    redis.publish(INVALIDATION_CHANNEL, JSON.stringify({ appId, provider }));
 }
 
 /**
