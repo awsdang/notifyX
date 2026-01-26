@@ -24,8 +24,8 @@ export function clearApiKeyCache(): void {
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
     // Skip auth for health check, docs, metrics, and admin routes (admin has own auth)
-    if (req.path === '/health' || 
-        req.path === '/openapi.json' || 
+    if (req.path === '/health' ||
+        req.path === '/openapi.json' ||
         req.path.startsWith('/reference') ||
         req.path.startsWith('/metrics') ||
         req.path.startsWith('/admin')) {
@@ -58,15 +58,13 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     next();
 }
 
-// Optional: Extract app context from API key (for multi-tenant)
-export interface AuthContext {
-    apiKey: string;
-    keyId?: string;
-}
+import type { AuthContext } from '../interfaces/middleware/auth';
+
+export type { AuthContext };
 
 export function getAuthContext(req: Request): AuthContext | null {
     const apiKey = req.headers['x-api-key'] as string;
     if (!apiKey) return null;
-    
+
     return { apiKey };
 }

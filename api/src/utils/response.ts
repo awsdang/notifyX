@@ -12,21 +12,9 @@ export class AppError extends Error {
     }
 }
 
-export interface ApiResponse<T> {
-    success: boolean;
-    data?: T;
-    error?: {
-        code?: string;
-        message: string;
-        details?: any;
-    };
-    meta?: {
-        page?: number;
-        limit?: number;
-        total?: number;
-        totalPages?: number;
-    };
-}
+import type { ApiResponse } from '../interfaces/utils/response';
+
+export type { ApiResponse };
 
 export const sendSuccess = <T>(res: Response, data: T, statusCode = 200) => {
     const response: ApiResponse<T> = {

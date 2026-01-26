@@ -3,7 +3,17 @@
  * Supports both global (env-based) and per-app credentials
  */
 
-import type { PushProvider, PushMessage, PushResult } from './types';
+import type {
+    PushProvider,
+    PushMessage,
+    PushResult,
+    FCMCredentials,
+    APNSCredentials,
+    HMSCredentials,
+    WebPushCredentials,
+    ProviderCredentials,
+    ProviderType
+} from '../../interfaces/services/push-providers/types';
 import { FCMProvider } from './fcm';
 import { HMSProvider } from './hms';
 import { APNSProvider } from './apns';
@@ -13,6 +23,15 @@ import { decrypt } from '../../utils/crypto';
 import { getRedisClient, getSubscriberClient } from '../redis';
 
 export * from './types';
+
+export type {
+    FCMCredentials,
+    APNSCredentials,
+    HMSCredentials,
+    WebPushCredentials,
+    ProviderCredentials,
+    ProviderType
+};
 
 // Global singleton instances (fallback when no per-app credentials)
 let globalFcm: FCMProvider | null = null;
@@ -60,38 +79,6 @@ export function initCacheSync() {
 
 // Automatically init sync if subscriber is available (for worker/api processes)
 initCacheSync();
-
-export type ProviderType = 'fcm' | 'hms' | 'apns' | 'web';
-
-/**
- * Credential types for each provider
- */
-export interface FCMCredentials {
-    projectId: string;
-    clientEmail: string;
-    privateKey: string;
-}
-
-export interface APNSCredentials {
-    keyId: string;
-    teamId: string;
-    bundleId: string;
-    privateKey: string;
-    production: boolean;
-}
-
-export interface HMSCredentials {
-    appId: string;
-    appSecret: string;
-}
-
-export interface WebPushCredentials {
-    vapidPublicKey: string;
-    vapidPrivateKey: string;
-    subject: string;
-}
-
-export type ProviderCredentials = FCMCredentials | APNSCredentials | HMSCredentials | WebPushCredentials;
 
 /**
  * Get global provider instance (env-based config)

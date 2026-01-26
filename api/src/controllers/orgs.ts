@@ -13,7 +13,6 @@ import {
     updateRoleSchema,
     addMemberSchema,
     updateMemberSchema,
-    type CreateOrgInput,
 } from '../schemas/orgs';
 
 /**

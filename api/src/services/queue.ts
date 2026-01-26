@@ -5,6 +5,9 @@
 
 import { Queue } from 'bullmq';
 import { getRedisClient } from './redis';
+import type { Priority, NotificationJobData, DeliveryJobData } from '../interfaces/services/queue';
+
+export type { Priority, NotificationJobData, DeliveryJobData };
 
 export const NORMAL_QUEUE_NAME = 'notifications-normal';
 export const HIGH_QUEUE_NAME = 'notifications-high';
@@ -57,21 +60,6 @@ export const webQueue = new Queue(WEB_QUEUE_NAME, {
     connection: redisConnection,
     defaultJobOptions: defaultOptions,
 });
-
-export type Priority = 'LOW' | 'NORMAL' | 'HIGH';
-
-export interface NotificationJobData {
-    notificationId: string;
-    queuedAt: number;
-}
-
-export interface DeliveryJobData {
-    notificationId: string;
-    deviceId: string;
-    appId: string;
-    provider: string;
-    priority: Priority;
-}
 
 export async function addNotificationToQueue(
     notificationId: string,

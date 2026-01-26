@@ -6,43 +6,7 @@
 import { prisma } from './database';
 import { getQueueHealth } from './queue';
 import { checkRedisHealth } from './redis';
-
-interface Metrics {
-    timestamp: string;
-    uptime: number;
-    memory: {
-        used: number;
-        total: number;
-        percentage: number;
-    };
-    notifications: {
-        total: number;
-        sent: number;
-        failed: number;
-        queued: number;
-        today: number;
-    };
-    deliveries: {
-        total: number;
-        delivered: number;
-        failed: number;
-        pending: number;
-        successRate: number;
-    };
-    queues: {
-        normal: { waiting: number; active: number; failed: number };
-        high: { waiting: number; active: number; failed: number };
-    };
-    apps: number;
-    users: number;
-    devices: {
-        total: number;
-        active: number;
-    };
-    dlq: {
-        unprocessed: number;
-    };
-}
+import type { Metrics } from '../interfaces/services/metrics';
 
 const startTime = Date.now();
 
@@ -136,8 +100,8 @@ export async function collectMetrics(): Promise<Metrics> {
         },
         deliveries: {
             ...delStats,
-            successRate: delStats.total > 0 
-                ? Math.round((delStats.delivered / delStats.total) * 100) 
+            successRate: delStats.total > 0
+                ? Math.round((delStats.delivered / delStats.total) * 100)
                 : 100,
         },
         queues: queueHealth,
@@ -158,7 +122,7 @@ export async function collectMetrics(): Promise<Metrics> {
  */
 export async function getPrometheusMetrics(): Promise<string> {
     const m = await collectMetrics();
-    
+
     return `
 # HELP notifyx_uptime_seconds Server uptime in seconds
 # TYPE notifyx_uptime_seconds counter

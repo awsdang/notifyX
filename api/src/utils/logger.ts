@@ -3,20 +3,9 @@
  * Production-ready logging with levels and metadata
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import type { LogLevel, LogEntry } from '../interfaces/utils/logger';
 
-interface LogEntry {
-    timestamp: string;
-    level: LogLevel;
-    message: string;
-    service: string;
-    metadata?: Record<string, unknown>;
-    error?: {
-        name: string;
-        message: string;
-        stack?: string;
-    };
-}
+export type { LogLevel, LogEntry };
 
 const LOG_LEVELS: Record<LogLevel, number> = {
     debug: 0,

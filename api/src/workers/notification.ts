@@ -20,19 +20,7 @@ import {
 } from '../services/queue';
 import { sendPush, type ProviderType, type PushMessage } from '../services/push-providers';
 import { addToDeadLetterQueue } from '../services/deadLetterQueue';
-
-interface NotificationPayload {
-    userIds?: string[];
-    adhocContent?: {
-        title?: string;
-        subtitle?: string;
-        body?: string;
-        image?: string;
-        actionUrl?: string;
-        data?: Record<string, string>;
-    };
-    variables?: Record<string, string>;
-}
+import type { NotificationPayload } from '../interfaces/workers/notification';
 
 const redisConnection = getRedisClient();
 
