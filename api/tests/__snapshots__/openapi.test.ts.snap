@@ -1,0 +1,814 @@
+// Bun Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OpenAPI Spec should capture snapshot 1`] = `
+{
+  "components": {
+    "schemas": {},
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http",
+      },
+    },
+  },
+  "info": {
+    "description": "API for NotifyX service",
+    "title": "NotifyX API",
+    "version": "1.0.0",
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/apps": {
+      "get": {
+        "deprecated": undefined,
+        "description": "Get all applications",
+        "operationId": undefined,
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "items": {},
+                      "type": "array",
+                    },
+                    "success": {
+                      "type": "boolean",
+                    },
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "List of apps",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+      "post": {
+        "deprecated": undefined,
+        "description": "Create a new application",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "CreateAppRequest",
+                "properties": {
+                  "defaultLanguage": {
+                    "default": "en",
+                    "example": "en",
+                    "type": "string",
+                  },
+                  "name": {
+                    "example": "My App",
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "platforms": {
+                    "additionalProperties": false,
+                    "example": {
+                      "android": true,
+                      "ios": true,
+                    },
+                    "properties": {
+                      "android": {
+                        "default": false,
+                        "type": "boolean",
+                      },
+                      "huawei": {
+                        "default": false,
+                        "type": "boolean",
+                      },
+                      "ios": {
+                        "default": false,
+                        "type": "boolean",
+                      },
+                      "web": {
+                        "default": false,
+                        "type": "boolean",
+                      },
+                    },
+                    "required": [
+                      "android",
+                      "ios",
+                      "web",
+                      "huawei",
+                    ],
+                    "type": "object",
+                  },
+                },
+                "required": [
+                  "name",
+                  "defaultLanguage",
+                  "platforms",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "success": {
+                      "type": "boolean",
+                    },
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "App created successfully",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/apps/{id}": {
+      "get": {
+        "deprecated": undefined,
+        "description": "Get an application by ID",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "success": {
+                      "type": "boolean",
+                    },
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "App details",
+          },
+          "404": {
+            "description": "App not found",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/events/{eventName}": {
+      "post": {
+        "deprecated": undefined,
+        "description": "Send an event",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "eventName",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "externalUserId": {
+                    "example": "user-123",
+                    "type": "string",
+                  },
+                  "payload": {
+                    "additionalProperties": {},
+                    "example": {
+                      "orderId": "123",
+                    },
+                    "type": "object",
+                  },
+                  "priority": {
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                    ],
+                    "example": "HIGH",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "externalUserId",
+                  "payload",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "description": "Event processed",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/notifications": {
+      "post": {
+        "deprecated": undefined,
+        "description": "Create a notification",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "CreateNotificationRequest",
+                "properties": {
+                  "actionUrl": {
+                    "example": "https://example.com/action",
+                    "format": "uri",
+                    "type": "string",
+                  },
+                  "appId": {
+                    "example": "app-xyz",
+                    "type": "string",
+                  },
+                  "body": {
+                    "example": "World",
+                    "type": "string",
+                  },
+                  "data": {
+                    "additionalProperties": {
+                      "type": "string",
+                    },
+                    "example": {
+                      "orderId": "123",
+                    },
+                    "type": "object",
+                  },
+                  "image": {
+                    "example": "https://example.com/image.png",
+                    "format": "uri",
+                    "type": "string",
+                  },
+                  "priority": {
+                    "default": "NORMAL",
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                    ],
+                    "example": "NORMAL",
+                    "type": "string",
+                  },
+                  "sendAt": {
+                    "example": "2024-01-01T12:00:00Z",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "type": "string",
+                  },
+                  "subtitle": {
+                    "example": "Subtitle",
+                    "type": "string",
+                  },
+                  "templateId": {
+                    "example": "tmpl-123",
+                    "type": "string",
+                  },
+                  "title": {
+                    "example": "Hello",
+                    "type": "string",
+                  },
+                  "type": {
+                    "enum": [
+                      "transactional",
+                      "campaign",
+                    ],
+                    "example": "transactional",
+                    "type": "string",
+                  },
+                  "userIds": {
+                    "example": [
+                      "user-1",
+                      "user-2",
+                    ],
+                    "items": {
+                      "type": "string",
+                    },
+                    "type": "array",
+                  },
+                },
+                "required": [
+                  "appId",
+                  "type",
+                  "priority",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "201": {
+            "description": "Notification created",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/templates": {
+      "get": {
+        "deprecated": undefined,
+        "description": "Get templates",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "query",
+            "name": "appId",
+            "required": false,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "description": "List of templates",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+      "post": {
+        "deprecated": undefined,
+        "description": "Create a template",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "CreateTemplateRequest",
+                "properties": {
+                  "appId": {
+                    "example": "app-xyz",
+                    "type": "string",
+                  },
+                  "body": {
+                    "example": "Your order has been created.",
+                    "type": "string",
+                  },
+                  "eventName": {
+                    "example": "order_created",
+                    "type": "string",
+                  },
+                  "image": {
+                    "type": "string",
+                  },
+                  "language": {
+                    "enum": [
+                      "en",
+                      "ar",
+                      "ku",
+                    ],
+                    "example": "en",
+                    "type": "string",
+                  },
+                  "subtitle": {
+                    "type": "string",
+                  },
+                  "title": {
+                    "example": "Order #{orderId}",
+                    "type": "string",
+                  },
+                  "type": {
+                    "enum": [
+                      "transactional",
+                      "campaign",
+                    ],
+                    "example": "transactional",
+                    "type": "string",
+                  },
+                  "variables": {
+                    "example": [
+                      "orderId",
+                    ],
+                    "items": {
+                      "type": "string",
+                    },
+                    "type": "array",
+                  },
+                },
+                "required": [
+                  "appId",
+                  "type",
+                  "eventName",
+                  "language",
+                  "title",
+                  "body",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "201": {
+            "description": "Template created",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/templates/{id}": {
+      "delete": {
+        "deprecated": undefined,
+        "description": "Delete template",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "204": {
+            "description": "Template deleted",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+      "get": {
+        "deprecated": undefined,
+        "description": "Get template by ID",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "description": "Template details",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+      "put": {
+        "deprecated": undefined,
+        "description": "Update template",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "UpdateTemplateRequest",
+                "properties": {
+                  "appId": {
+                    "example": "app-xyz",
+                    "type": "string",
+                  },
+                  "body": {
+                    "example": "Your order has been created.",
+                    "type": "string",
+                  },
+                  "eventName": {
+                    "example": "order_created",
+                    "type": "string",
+                  },
+                  "image": {
+                    "type": "string",
+                  },
+                  "language": {
+                    "enum": [
+                      "en",
+                      "ar",
+                      "ku",
+                    ],
+                    "example": "en",
+                    "type": "string",
+                  },
+                  "subtitle": {
+                    "type": "string",
+                  },
+                  "title": {
+                    "example": "Order #{orderId}",
+                    "type": "string",
+                  },
+                  "type": {
+                    "enum": [
+                      "transactional",
+                      "campaign",
+                    ],
+                    "example": "transactional",
+                    "type": "string",
+                  },
+                  "variables": {
+                    "example": [
+                      "orderId",
+                    ],
+                    "items": {
+                      "type": "string",
+                    },
+                    "type": "array",
+                  },
+                },
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "description": "Template updated",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/users": {
+      "post": {
+        "deprecated": undefined,
+        "description": "Register or update a user",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "RegisterUserRequest",
+                "properties": {
+                  "appId": {
+                    "example": "app-xyz",
+                    "type": "string",
+                  },
+                  "externalUserId": {
+                    "example": "user-123",
+                    "type": "string",
+                  },
+                  "language": {
+                    "example": "en",
+                    "type": "string",
+                  },
+                  "timezone": {
+                    "example": "UTC",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "externalUserId",
+                  "appId",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "description": "User registered",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+    "/users/device": {
+      "post": {
+        "deprecated": undefined,
+        "description": "Register a device",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "RegisterDeviceRequest",
+                "properties": {
+                  "platform": {
+                    "enum": [
+                      "android",
+                      "ios",
+                      "web",
+                      "huawei",
+                    ],
+                    "example": "android",
+                    "type": "string",
+                  },
+                  "provider": {
+                    "enum": [
+                      "fcm",
+                      "hms",
+                    ],
+                    "example": "fcm",
+                    "type": "string",
+                  },
+                  "pushToken": {
+                    "example": "fcm-token-123",
+                    "type": "string",
+                  },
+                  "userId": {
+                    "example": "user-123",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "userId",
+                  "platform",
+                  "pushToken",
+                  "provider",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "description": "Device registered",
+          },
+        },
+        "summary": undefined,
+        "tags": undefined,
+      },
+    },
+  },
+  "servers": [
+    {
+      "url": "/v1",
+    },
+  ],
+}
+`;

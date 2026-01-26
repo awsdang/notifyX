@@ -1,0 +1,52 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Bun
+node_modules/
+bun.lock
+dist/
+.npm
+.eslintcache
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Local database / Docker data
+postgres_data/
+redis_data/
+minio_data/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Testing
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Coverage
+coverage/
+docs/
+# Build artifacts
+api_structure_2026-01-19_12-22.txt
+openapi.json
+portal/openapi.json
+api/openapi.json

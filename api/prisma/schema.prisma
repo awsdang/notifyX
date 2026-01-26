@@ -1,0 +1,659 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["metrics"]
+}
+
+// ===========================================
+// Phase 1: Governance Foundation
+// ===========================================
+
+enum Environment {
+  UAT
+  PROD
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apps    App[]
+  members OrgMember[]
+  roles   Role[]
+  assets  Asset[]
+
+  @@map("organizations")
+}
+
+enum AssetType {
+  CSV_AUDIENCE
+  IMAGE
+  OTHER
+}
+
+model OrgMember {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  adminUserId String   @map("admin_user_id")
+  roleId      String   @map("role_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  adminUser AdminUser    @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  role      Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, adminUserId])
+  @@index([orgId])
+  @@index([adminUserId])
+  @@map("org_members")
+}
+
+model Asset {
+  id        String    @id @default(uuid())
+  orgId     String?   @map("org_id")
+  appId     String    @map("app_id")
+  type      AssetType
+  url       String
+  mimeType  String    @map("mime_type")
+  size      Int
+  sha256    String
+  createdBy String?   @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([appId])
+  @@index([orgId])
+  @@map("assets")
+}
+
+model CampaignApproval {
+  id                   String   @id @default(uuid())
+  campaignId           String   @map("campaign_id")
+  approvedBy           String   @map("approved_by")
+  approvedAt           DateTime @default(now()) @map("approved_at")
+  campaignSnapshotHash String   @map("campaign_snapshot_hash")
+  note                 String?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("campaign_approvals")
+}
+
+model Role {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  members     OrgMember[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String @id @default(uuid())
+  key         String @unique
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AppEnvironment {
+  id        String      @id @default(uuid())
+  appId     String      @map("app_id")
+  env       Environment
+  isEnabled Boolean     @default(true) @map("is_enabled")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+  credentials Credential[]
+  webhooks    WebhookEndpoint[]
+
+  @@unique([appId, env])
+  @@index([appId])
+  @@map("app_environments")
+}
+
+model AppPolicy {
+  id                         String  @id @default(uuid())
+  appId                      String  @unique @map("app_id")
+  allowCsv                   Boolean @default(true) @map("allow_csv")
+  allowSegments              Boolean @default(true) @map("allow_segments")
+  allowHighPriorityCampaigns Boolean @default(true) @map("allow_high_priority_campaigns")
+  csvMaxSizeBytes            Int     @default(5242880) @map("csv_max_size_bytes")
+  imageMaxSizeBytes          Int     @default(2097152) @map("image_max_size_bytes")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("app_policies")
+}
+
+// ===========================================
+// Apps & Credentials
+// ===========================================
+
+model App {
+  id              String   @id @default(uuid())
+  name            String
+  orgId           String?  @map("org_id")
+  bundleId        String?  @map("bundle_id")
+  packageName     String?  @map("package_name")
+  platforms       Json     // { android: boolean, ios: boolean, web: boolean, huawei: boolean }
+  defaultLanguage String   @map("default_language")
+  isKilled        Boolean  @default(false) @map("is_killed")
+  webhookUrl      String?  @map("webhook_url")
+  webhookSecret   String?  @map("webhook_secret")
+  webhookEnabled  Boolean  @default(false) @map("webhook_enabled")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  org           Organization?          @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  environments  AppEnvironment[]
+  policy        AppPolicy?
+  users         User[]
+  templates     NotificationTemplate[]
+  notifications Notification[]
+  managers      AppManager[]
+  auditLogs     AuditLog[]
+
+  @@index([orgId])
+  @@map("apps")
+}
+
+// Per-environment credential container
+model Credential {
+  id               String   @id @default(uuid())
+  appEnvironmentId String   @map("app_environment_id")
+  provider         String
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  appEnvironment AppEnvironment      @relation(fields: [appEnvironmentId], references: [id], onDelete: Cascade)
+  versions       CredentialVersion[]
+
+  @@unique([appEnvironmentId, provider])
+  @@index([appEnvironmentId])
+  @@map("credentials")
+}
+
+model CredentialVersion {
+  id            String    @id @default(uuid())
+  credentialId  String    @map("credential_id")
+  version       Int
+  encryptedJson Json      @map("encrypted_json")
+  isActive      Boolean   @default(false) @map("is_active")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  credential Credential          @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  testRuns   CredentialTestRun[]
+
+  @@unique([credentialId, version])
+  @@index([credentialId])
+  @@index([isActive])
+  @@map("credential_versions")
+}
+
+model CredentialTestRun {
+  id                  String               @id @default(uuid())
+  credentialVersionId String               @map("credential_version_id")
+  status              CredentialTestStatus
+  errorCode           String?              @map("error_code")
+  errorMessage        String?              @map("error_message")
+  providerResponse    Json?                @map("provider_response")
+  testedBy            String?              @map("tested_by")
+  createdAt           DateTime             @default(now()) @map("created_at")
+
+  credentialVersion CredentialVersion @relation(fields: [credentialVersionId], references: [id], onDelete: Cascade)
+
+  @@index([credentialVersionId])
+  @@map("credential_test_runs")
+}
+
+enum CredentialTestStatus {
+  SUCCESS
+  FAILED
+}
+
+model WebhookEndpoint {
+  id               String   @id @default(uuid())
+  appEnvironmentId String   @map("app_environment_id")
+  url              String
+  secret           String
+  enabled          Boolean  @default(true)
+  eventsJson       Json     @map("events_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  appEnvironment AppEnvironment @relation(fields: [appEnvironmentId], references: [id], onDelete: Cascade)
+
+  @@index([appEnvironmentId])
+  @@map("webhook_endpoints")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  externalUserId String    @map("external_user_id")
+  appId          String    @map("app_id")
+  language       String    @default("en")
+  timezone       String    @default("UTC")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  app     App      @relation(fields: [appId], references: [id])
+  devices Device[]
+
+  @@unique([appId, externalUserId])
+  @@index([appId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Device {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  platform        String
+  pushToken       String    @map("push_token")
+  provider        String
+  isActive        Boolean   @default(true) @map("is_active")
+  lastSeenAt      DateTime  @default(now()) @map("last_seen_at")
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  tokenInvalidAt  DateTime? @map("token_invalid_at")
+  deactivatedAt      DateTime? @map("deactivated_at")
+  deactivatedBy      String?   @map("deactivated_by")
+  deactivationReason String?   @map("deactivation_reason")
+  deactivationNote   String?   @map("deactivation_note")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@unique([pushToken, provider])
+  @@index([userId])
+  @@index([isActive])
+  @@index([provider, isActive])
+  @@map("devices")
+}
+
+model IdempotencyKey {
+  id             String   @id @default(uuid())
+  appId          String   @map("app_id")
+  key            String
+  notificationId String   @map("notification_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  expiresAt      DateTime @map("expires_at")
+
+  @@unique([appId, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  type      String   // transactional, campaign
+  language  String
+  eventName String   @map("event_name")
+  title     String
+  subtitle  String?
+  body      String
+  image     String?
+  variables Json?
+  createdAt DateTime @default(now())
+
+  app           App            @relation(fields: [appId], references: [id])
+  notifications Notification[]
+
+  @@map("notification_templates")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  appId      String   @map("app_id")
+  type       String   // transactional, campaign
+  status     String
+  templateId String?  @map("template_id")
+  variantId  String?  @map("variant_id") // For A/B testing
+  campaignId String?  @map("campaign_id") // For bulk campaigns
+  payload    Json?
+  sendAt     DateTime @default(now()) @map("send_at")
+  priority   String   @default("NORMAL")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  app        App                   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  template   NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  variant    ABTestVariant?        @relation("VariantNotifications", fields: [variantId], references: [id], onDelete: SetNull)
+  deliveries NotificationDelivery[]
+
+  @@index([sendAt, status])
+  @@index([appId, status])
+  @@index([appId, createdAt])
+  @@index([status, priority])
+  @@index([campaignId])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String    @id @default(uuid())
+  notificationId String    @map("notification_id")
+  deviceId       String    @map("device_id")
+  provider       String
+  status         String
+  failureCategory String? @map("failure_category")
+  providerReason  String? @map("provider_reason")
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  errorCode      String?   @map("error_code")
+  sentAt         DateTime? @map("sent_at")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device       Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  retryJobs    RetryJob[]
+
+  @@index([notificationId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([status, createdAt])
+  @@index([provider, status])
+  @@map("notification_deliveries")
+}
+
+model RetryJob {
+  id            String   @id @default(uuid())
+  deliveryId    String   @map("delivery_id")
+  nextAttemptAt DateTime @map("next_attempt_at")
+  attempt       Int
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  delivery NotificationDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([nextAttemptAt])
+  @@index([deliveryId])
+  @@map("retry_jobs")
+}
+
+// Dead Letter Queue for failed notifications
+model DeadLetterQueue {
+  id             String   @id @default(uuid())
+  notificationId String?  @map("notification_id")
+  deliveryId     String?  @map("delivery_id")
+  provider       String
+  payload        Json
+  errorMessage   String   @map("error_message")
+  errorCode      String?  @map("error_code")
+  attempts       Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  processedAt    DateTime? @map("processed_at")
+
+  @@index([createdAt])
+  @@index([processedAt])
+  @@index([provider])
+  @@map("dead_letter_queue")
+}
+
+// ===========================================
+// Admin Users & Role-Based Access Control
+// ===========================================
+
+enum AdminRole {
+  SUPER_ADMIN         // Full access to everything
+  APP_MANAGER         // Can manage specific apps and their credentials
+  MARKETING_MANAGER   // Can create/manage templates and view statistics
+}
+
+model AdminUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         AdminRole @default(MARKETING_MANAGER)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  orgMemberships OrgMember[]
+  managedApps    AppManager[]
+  sessions       AdminSession[]
+  auditLogs      AuditLog[]
+
+  @@index([email])
+  @@index([role, isActive])
+  @@map("admin_users")
+}
+
+// Many-to-many: App Managers can manage specific apps
+model AppManager {
+  id          String   @id @default(uuid())
+  adminUserId String   @map("admin_user_id")
+  appId       String   @map("app_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  app       App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([adminUserId, appId])
+  @@index([adminUserId])
+  @@index([appId])
+  @@map("app_managers")
+}
+
+// Session management for admin portal
+model AdminSession {
+  id          String   @id @default(uuid())
+  adminUserId String   @map("admin_user_id")
+  token       String   @unique
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  userAgent   String?  @map("user_agent")
+  ipAddress   String?  @map("ip_address")
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  adminUserId String?  @map("admin_user_id")
+  action      String
+  resource    String
+  resourceId  String?  @map("resource_id")
+  appId       String?  @map("app_id")
+  details     Json     @default("{}")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  app       App?       @relation(fields: [appId], references: [id], onDelete: SetNull)
+
+  @@index([adminUserId, createdAt])
+  @@index([resource, resourceId])
+  @@index([appId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ===========================================
+// A/B Testing
+// ===========================================
+
+enum ABTestStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model ABTest {
+  id              String       @id @default(uuid())
+  appId           String       @map("app_id")
+  name            String
+  description     String?
+  status          ABTestStatus @default(DRAFT)
+  
+  // Targeting
+  targetingMode   String       @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
+  targetUserIds   Json?        @map("target_user_ids") // Array of user IDs for USER_LIST mode
+  csvFileUrl      String?      @map("csv_file_url") // S3/MinIO URL for CSV mode
+  
+  // Scheduling
+  scheduledAt     DateTime?    @map("scheduled_at")
+  startedAt       DateTime?    @map("started_at")
+  completedAt     DateTime?    @map("completed_at")
+  
+  createdBy       String?      @map("created_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  variants        ABTestVariant[]
+  assignments     ABTestAssignment[]
+
+  @@index([appId, status])
+  @@index([status, scheduledAt])
+  @@map("ab_tests")
+}
+
+model ABTestVariant {
+  id             String   @id @default(uuid())
+  testId         String   @map("test_id")
+  name           String   // "A", "B", "C", etc.
+  weight         Int      @default(50) // Percentage weight (0-100)
+  
+  // Notification content
+  title          String
+  subtitle       String?
+  body           String
+  image          String?
+  
+  // Stats
+  sentCount      Int      @default(0) @map("sent_count")
+  deliveredCount Int      @default(0) @map("delivered_count")
+  failedCount    Int      @default(0) @map("failed_count")
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  test           ABTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
+  assignments    ABTestAssignment[]
+  notifications  Notification[] @relation("VariantNotifications")
+
+  @@index([testId])
+  @@map("ab_test_variants")
+}
+
+model ABTestAssignment {
+  id        String   @id @default(uuid())
+  testId    String   @map("test_id")
+  userId    String   @map("user_id")
+  variantId String   @map("variant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  test    ABTest        @relation(fields: [testId], references: [id], onDelete: Cascade)
+  variant ABTestVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, userId])
+  @@index([testId])
+  @@index([userId])
+  @@map("ab_test_assignments")
+}
+
+// ===========================================
+// Bulk Notification Campaigns
+// ===========================================
+
+enum CampaignStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SCHEDULED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id              String         @id @default(uuid())
+  appId           String         @map("app_id")
+  name            String
+  description     String?
+  status          CampaignStatus @default(DRAFT)
+  
+  // Targeting
+  targetingMode   String         @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
+  targetUserIds   Json?          @map("target_user_ids") // For USER_LIST mode
+  csvFileUrl      String?        @map("csv_file_url") // For CSV mode
+  totalTargets    Int            @default(0) @map("total_targets")
+  processedCount  Int            @default(0) @map("processed_count")
+  
+  // Content
+  title           String
+  subtitle        String?
+  body            String
+  image           String?
+  
+  // Scheduling
+  scheduledAt     DateTime?      @map("scheduled_at")
+  startedAt       DateTime?      @map("started_at")
+  completedAt     DateTime?      @map("completed_at")
+  
+  // Stats
+  sentCount       Int            @default(0) @map("sent_count")
+  deliveredCount  Int            @default(0) @map("delivered_count")
+  failedCount     Int            @default(0) @map("failed_count")
+  
+  priority        String         @default("NORMAL")
+  createdBy       String?        @map("created_by")
+  
+  audienceSourceType String?  @map("audience_source_type")
+  audienceAssetId    String?  @map("audience_asset_id")
+  audienceHash       String?  @map("audience_hash")
+  estimatedReach     Int?     @map("estimated_reach")
+  
+  approvals       CampaignApproval[]
+  
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([appId, status])
+  @@index([status, scheduledAt])
+  @@map("campaigns")
+}

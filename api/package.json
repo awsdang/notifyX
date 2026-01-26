@@ -1,0 +1,60 @@
+{
+  "name": "api",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "prepare": "bun run db:generate",
+    "build": "bun build ./src/index.ts --outfile ./dist/index.js --target bun",
+    "start": "bun run ./dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "stress-test": "tsx scripts/stress-test.ts",
+    "test": "bun test tests --exclude tests/providers",
+    "test:all": "bun test tests",
+    "test:providers": "bun test tests/providers",
+    "test:apps": "bun test tests/apps.test.ts",
+    "test:users": "bun test tests/users.test.ts",
+    "test:notifications": "bun test tests/notifications.test.ts",
+    "test:campaigns": "bun test tests/campaigns.test.ts tests/campaigns_replay.test.ts tests/campaigns_csv.test.ts tests/campaign-approvals.test.ts",
+    "test:abtests": "bun test tests/abtests.test.ts",
+    "test:rate": "bun test tests/rate-limit.test.ts",
+    "test:rbac": "bun test tests/rbac.test.ts",
+    "test:credentials": "bun test tests/credentials_workflow.test.ts",
+    "test:templates": "bun test tests/templates.test.ts",
+    "test:audit": "bun test tests/audit.test.ts",
+    "test:webhooks": "bun test tests/webhooks.test.ts tests/webhook-signing.test.ts",
+    "generate:openapi": "tsx scripts/generate-openapi.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.0.6",
+    "prisma": "6",
+    "tsx": "^4.21.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.4.0",
+    "@prisma/client": "6",
+    "@scalar/express-api-reference": "^0.8.32",
+    "@types/multer": "^2.0.0",
+    "bullmq": "^5.66.5",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ioredis": "^5.9.1",
+    "jsonwebtoken": "^9.0.3",
+    "minio": "^8.0.6",
+    "multer": "^2.0.2",
+    "zod": "^4.3.5"
+  }
+}
