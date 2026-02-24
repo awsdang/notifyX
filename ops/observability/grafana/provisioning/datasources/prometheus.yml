@@ -1,0 +1,3 @@
+# Legacy placeholder file.
+# Active Grafana datasource provisioning is defined in:
+# ops/observability/grafana/provisioning/datasources/notifyx-datasource.yml

@@ -1,0 +1,34 @@
+groups:
+  - name: notifyx-alerts
+    rules:
+      - alert: NotifyXHighFailureRatio
+        expr: |
+          (
+            sum(rate(notifyx_notifications_failed_total[5m]))
+            /
+            clamp_min(sum(rate(notifyx_notifications_sent_total[5m])) + sum(rate(notifyx_notifications_failed_total[5m])), 1)
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NotifyX failure ratio is high"
+          description: "Notification failures exceeded 15% over 5 minutes."
+
+      - alert: NotifyXQueueDepthGrowing
+        expr: sum(notifyx_queue_depth) > 2000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NotifyX queue depth high"
+          description: "Queue depth is above 2000 for 10 minutes."
+
+      - alert: NotifyXProviderAuthFailures
+        expr: sum(rate(notifyx_notifications_failed_total{reason="PROVIDER_AUTH"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Provider auth failures detected"
+          description: "Provider auth-related failures are increasing."
