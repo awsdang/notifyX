@@ -1,0 +1,118 @@
+name: API Quality Gates
+
+on:
+  pull_request:
+    paths:
+      - api/**
+      - .github/workflows/api-quality-gates.yml
+  push:
+    branches:
+      - main
+    paths:
+      - api/**
+      - .github/workflows/api-quality-gates.yml
+
+jobs:
+  quality-check:
+    name: Typecheck + OpenAPI Contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/notifyx
+      REDIS_URL: redis://localhost:6379
+      CREDENTIAL_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Prisma generate
+        run: bun run db:generate
+
+      - name: Run quality checks
+        run: bun run quality:check
+
+  integration-check:
+    name: Integration (API + DB + Redis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notifyx
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d notifyx"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/notifyx
+      REDIS_URL: redis://localhost:6379
+      CREDENTIAL_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      API_KEY_HASH_SECRET: integration-secret
+      TEST_API_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Prisma generate
+        run: bun run db:generate
+
+      - name: Prisma migrate deploy
+        run: bun run db:migrate:prod
+
+      - name: Start API
+        run: bun run dev > /tmp/api.log 2>&1 &
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:3000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"
+          cat /tmp/api.log
+          exit 1
+
+      - name: Run integration-focused tests
+        run: bun test tests/openapi.test.ts tests/apps.test.ts tests/users.test.ts tests/notifications.test.ts
