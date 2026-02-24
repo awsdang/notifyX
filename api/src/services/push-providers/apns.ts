@@ -106,6 +106,33 @@ export class APNSProvider implements PushProvider {
         try {
             const jwt = await this.getJWT();
             const url = `${this.getBaseUrl()}/3/device/${message.token}`;
+            const normalizedData: Record<string, string> = {};
+
+            for (const [key, value] of Object.entries(message.data || {})) {
+                if (value === undefined || value === null) continue;
+                normalizedData[key] = String(value);
+            }
+
+            if (message.actionUrl) {
+                normalizedData.actionUrl = message.actionUrl;
+            }
+
+            const safeActions = (message.actions || [])
+                .filter((action: any) => action?.action && action?.title && action?.url)
+                .slice(0, 2)
+                .map((action: any) => ({
+                    action: String(action.action),
+                    title: String(action.title),
+                    url: String(action.url),
+                }));
+
+            if (safeActions.length > 0) {
+                normalizedData.actions = JSON.stringify(safeActions);
+            }
+
+            for (const action of safeActions) {
+                normalizedData[`actionUrl_${action.action}`] = action.url;
+            }
 
             const apnsPayload = {
                 aps: {
@@ -116,8 +143,9 @@ export class APNSProvider implements PushProvider {
                     sound: message.sound || 'default',
                     badge: message.badge,
                     'mutable-content': message.image ? 1 : 0,
+                    ...(safeActions.length > 0 ? { category: 'notifyx-open-links' } : {}),
                 },
-                ...(message.data || {}),
+                ...normalizedData,
                 ...(message.image && { image: message.image }),
             };
 

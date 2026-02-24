@@ -15,10 +15,20 @@ export const registerSchema = z.object({
     role: z.enum(['SUPER_ADMIN', 'APP_MANAGER', 'MARKETING_MANAGER']).optional().meta({ example: 'SUPER_ADMIN' }),
 }).register(registry, { id: 'RegisterRequest' });
 
+export const signupSchema = z.object({
+    email: z.email().meta({ example: 'invitee@example.com' }),
+    password: z.string().min(8).meta({ example: 'password' }),
+    name: z.string().min(2).meta({ example: 'Jane Doe' }),
+}).register(registry, { id: 'SignupRequest' });
+
 export const changePasswordSchema = z.object({
     currentPassword: z.string().min(8).meta({ example: 'password' }),
     newPassword: z.string().min(8).meta({ example: 'password' }),
 }).register(registry, { id: 'ChangePasswordRequest' });
+
+export const updateAdminAppsSchema = z.object({
+    appIds: z.array(z.uuid()).max(500).meta({ example: ['app-xyz'] }),
+}).register(registry, { id: 'UpdateAdminAppsRequest' });
 
 // Model Schemas
 export const adminUserSchema = z.object({
@@ -60,5 +70,4 @@ export const assignmentResponseSchema = responseSchema(z.object({
     adminUser: z.object({ email: z.string().email().meta({ example: 'user@example.com' }), name: z.string().meta({ example: 'John Doe' }) }),
     app: z.object({ name: z.string().meta({ example: 'My App' }) }),
 })).register(registry, { id: 'AssignmentResponse' });
-
 

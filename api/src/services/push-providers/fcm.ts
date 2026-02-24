@@ -108,6 +108,50 @@ export class FCMProvider implements PushProvider {
         return `${signatureInput}.${signature}`;
     }
 
+    private buildDataPayload(message: PushMessage): Record<string, string> | undefined {
+        const normalizedData: Record<string, string> = {};
+
+        for (const [key, value] of Object.entries(message.data || {})) {
+            if (value === undefined || value === null) continue;
+            normalizedData[key] = String(value);
+        }
+
+        normalizedData.title = message.title;
+        normalizedData.body = message.body;
+
+        if (message.subtitle) {
+            normalizedData.subtitle = message.subtitle;
+        }
+
+        if (message.image) {
+            normalizedData.image = message.image;
+        }
+
+        if (message.actionUrl) {
+            normalizedData.actionUrl = message.actionUrl;
+        }
+
+        const safeActions = (message.actions || [])
+            .filter((action: any) => action?.action && action?.title)
+            .map((action: any) => ({
+                action: String(action.action),
+                title: String(action.title),
+                ...(action?.url ? { url: String(action.url) } : {}),
+            }));
+
+        if (safeActions.length > 0) {
+            normalizedData.actions = JSON.stringify(safeActions);
+        }
+
+        for (const action of safeActions) {
+            if (action.url) {
+                normalizedData[`actionUrl_${action.action}`] = action.url;
+            }
+        }
+
+        return Object.keys(normalizedData).length > 0 ? normalizedData : undefined;
+    }
+
     async send(message: PushMessage): Promise<PushResult> {
         if (!this.config) {
             return {
@@ -122,6 +166,7 @@ export class FCMProvider implements PushProvider {
         try {
             const accessToken = await this.getAccessToken();
             const url = `https://fcm.googleapis.com/v1/projects/${this.config.projectId}/messages:send`;
+            const dataPayload = this.buildDataPayload(message);
 
             const fcmMessage = {
                 message: {
@@ -131,11 +176,15 @@ export class FCMProvider implements PushProvider {
                         body: message.body,
                         ...(message.image && { image: message.image }),
                     },
-                    data: message.data,
+                    ...(dataPayload ? { data: dataPayload } : {}),
                     android: {
                         priority: 'high' as const,
+                        ...(message.ttl ? { ttl: `${Math.max(0, message.ttl)}s` } : {}),
+                        ...(message.collapseKey ? { collapse_key: message.collapseKey } : {}),
                         notification: {
                             sound: message.sound || 'default',
+                            ...(message.icon && { icon: message.icon }),
+                            ...(message.image && { image: message.image }),
                         },
                     },
                     apns: {
@@ -145,6 +194,7 @@ export class FCMProvider implements PushProvider {
                                 badge: message.badge,
                             },
                         },
+                        ...(message.image ? { fcm_options: { image: message.image } } : {}),
                     },
                 },
             };

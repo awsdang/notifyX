@@ -1,225 +1,468 @@
-import type { Request, Response, NextFunction } from 'express';
-import { prisma } from '../services/database';
-import { registerUserSchema, registerDeviceSchema } from '../schemas/users';
-import { sendSuccess } from '../utils/response';
+import type { Request, Response, NextFunction } from "express";
+import { prisma } from "../services/database";
+import {
+  registerUserSchema,
+  registerDeviceSchema,
+  updateUserNicknameSchema,
+} from "../schemas/users";
+import { sendSuccess } from "../utils/response";
+import { hashToken, encryptToken } from "../utils/crypto";
+import { canAccessAppId } from "../middleware/tenantScope";
+import { invalidateCache } from "../middleware/cacheMiddleware";
+import { triggerAutomation } from "../services/automation-engine";
+
+const normalizeNickname = (nickname?: string | null) => {
+  const trimmed = nickname?.trim();
+  return trimmed ? trimmed : null;
+};
 
 // Get users with pagination and filtering
-export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { appId, search, page = '1', limit = '20' } = req.query;
-        const pageNum = Math.max(1, parseInt(page as string, 10));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
-        const skip = (pageNum - 1) * limitNum;
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { appId, search, page = "1", limit = "20" } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
+    const skip = (pageNum - 1) * limitNum;
 
-        const where: any = { deletedAt: null };
-        if (appId) where.appId = appId;
-        if (search) {
-            where.externalUserId = { contains: search as string, mode: 'insensitive' };
+    const where: any = { deletedAt: null };
+    if (appId) where.appId = appId;
+    if (req.accessibleAppIds !== null && req.accessibleAppIds !== undefined) {
+      where.appId = appId
+        ? {
+          equals: String(appId),
+          in: req.accessibleAppIds,
         }
-
-        const [users, total] = await Promise.all([
-            prisma.user.findMany({
-                where,
-                skip,
-                take: limitNum,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    app: { select: { id: true, name: true } },
-                    _count: { select: { devices: true } },
-                },
-            }),
-            prisma.user.count({ where }),
-        ]);
-
-        sendSuccess(res, {
-            users,
-            pagination: {
-                page: pageNum,
-                limit: limitNum,
-                total,
-                totalPages: Math.ceil(total / limitNum),
-            },
-        });
-    } catch (error) {
-        next(error);
+        : { in: req.accessibleAppIds };
     }
+    if (search) {
+      where.OR = [
+        {
+          externalUserId: {
+            contains: search as string,
+            mode: "insensitive",
+          },
+        },
+        {
+          nickname: {
+            contains: search as string,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: "desc" },
+        include: {
+          app: { select: { id: true, name: true } },
+          _count: {
+            select: {
+              devices: { where: { isActive: true, tokenInvalidAt: null } },
+            },
+          },
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    sendSuccess(res, {
+      users,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Get a single user with their devices
-export const getUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { id } = req.params as { id: string };
+export const getUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
 
-        const user = await prisma.user.findUnique({
-            where: { id },
-            include: {
-                app: { select: { id: true, name: true } },
-                devices: {
-                    orderBy: { lastSeenAt: 'desc' },
-                },
-            },
-        });
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        app: { select: { id: true, name: true } },
+        devices: {
+          orderBy: { lastSeenAt: "desc" },
+        },
+      },
+    });
 
-        if (!user || user.deletedAt) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-
-        sendSuccess(res, user);
-    } catch (error) {
-        next(error);
+    if (!user || user.deletedAt) {
+      return res
+        .status(404)
+        .json({ error: true, message: "User not found", data: null });
     }
+
+    if (!canAccessAppId(req, user.appId)) {
+      return res
+        .status(404)
+        .json({ error: true, message: "User not found", data: null });
+    }
+
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update a user nickname
+export const updateUserNickname = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { nickname } = updateUserNicknameSchema.parse(req.body);
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, appId: true, deletedAt: true },
+    });
+
+    if (!existing || existing.deletedAt || !canAccessAppId(req, existing.appId)) {
+      return res
+        .status(404)
+        .json({ error: true, message: "User not found", data: null });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        nickname: normalizeNickname(nickname),
+      },
+    });
+
+    await Promise.all([invalidateCache("/users"), invalidateCache("/devices")]);
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Get devices with pagination and filtering
-export const getDevices = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { userId, platform, provider, isActive, page = '1', limit = '20' } = req.query;
-        const pageNum = Math.max(1, parseInt(page as string, 10));
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
-        const skip = (pageNum - 1) * limitNum;
+export const getDevices = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const {
+      userId,
+      appId,
+      platform,
+      provider,
+      isActive,
+      page = "1",
+      limit = "20",
+    } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
+    const skip = (pageNum - 1) * limitNum;
 
-        const where: any = {};
-        if (userId) where.userId = userId;
-        if (platform) where.platform = platform;
-        if (provider) where.provider = provider;
-        if (isActive !== undefined) where.isActive = isActive === 'true';
-
-        const [devices, total] = await Promise.all([
-            prisma.device.findMany({
-                where,
-                skip,
-                take: limitNum,
-                orderBy: { lastSeenAt: 'desc' },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            externalUserId: true,
-                            app: { select: { id: true, name: true } },
-                        },
-                    },
-                },
-            }),
-            prisma.device.count({ where }),
-        ]);
-
-        sendSuccess(res, {
-            devices,
-            pagination: {
-                page: pageNum,
-                limit: limitNum,
-                total,
-                totalPages: Math.ceil(total / limitNum),
-            },
-        });
-    } catch (error) {
-        next(error);
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (platform) where.platform = platform;
+    if (provider) where.provider = provider;
+    if (isActive !== undefined) where.isActive = isActive === "true";
+    if (appId) {
+      where.user = {
+        ...(where.user || {}),
+        appId: { equals: String(appId) },
+      };
     }
+    if (req.accessibleAppIds !== null && req.accessibleAppIds !== undefined) {
+      where.user = {
+        ...(where.user || {}),
+        appId: {
+          ...(where.user?.appId || {}),
+          in: req.accessibleAppIds,
+        },
+      };
+    }
+
+    const [devices, total] = await Promise.all([
+      prisma.device.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { lastSeenAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              externalUserId: true,
+              nickname: true,
+              app: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      prisma.device.count({ where }),
+    ]);
+
+    sendSuccess(res, {
+      devices,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Deactivate a device
-export const deactivateDevice = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { id } = req.params as { id: string };
-        const { reason, note } = req.body;
-        const adminUser = (req as any).adminUser;
+export const deactivateDevice = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { reason, note } = (req.body || {}) as {
+      reason?: string;
+      note?: string;
+    };
+    const adminUser = req.adminUser;
 
-        const device = await prisma.device.update({
-            where: { id },
-            data: {
-                isActive: false,
-                deactivatedAt: new Date(),
-                deactivatedBy: adminUser?.id,
-                deactivationReason: reason,
-                deactivationNote: note
-            },
-        });
-
-        sendSuccess(res, device);
-    } catch (error) {
-        next(error);
+    // Verify device belongs to an accessible app
+    const existing = await prisma.device.findUnique({
+      where: { id },
+      include: { user: { select: { appId: true } } },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Device not found", data: null });
     }
+
+    // Check tenant scoping
+    if (
+      req.accessibleAppIds !== null &&
+      req.accessibleAppIds !== undefined &&
+      !req.accessibleAppIds.includes(existing.user.appId)
+    ) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Device not found", data: null });
+    }
+
+    const device = await prisma.device.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedBy: adminUser?.id,
+        deactivationReason: reason,
+        deactivationNote: note,
+      },
+    });
+
+    await Promise.all([invalidateCache("/devices"), invalidateCache("/users")]);
+    sendSuccess(res, device);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reactivate a device
+export const activateDevice = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const existing = await prisma.device.findUnique({
+      where: { id },
+      include: { user: { select: { appId: true } } },
+    });
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Device not found", data: null });
+    }
+
+    if (
+      req.accessibleAppIds !== null &&
+      req.accessibleAppIds !== undefined &&
+      !req.accessibleAppIds.includes(existing.user.appId)
+    ) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Device not found", data: null });
+    }
+
+    const device = await prisma.device.update({
+      where: { id },
+      data: {
+        isActive: true,
+        tokenInvalidAt: null,
+        deactivatedAt: null,
+        deactivatedBy: null,
+        deactivationReason: null,
+        deactivationNote: null,
+      },
+    });
+
+    await Promise.all([invalidateCache("/devices"), invalidateCache("/users")]);
+    sendSuccess(res, device);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Delete a user (soft delete)
-export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { id } = req.params as { id: string };
+export const deleteUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
 
-        const user = await prisma.user.update({
-            where: { id },
-            data: { deletedAt: new Date() },
-        });
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, appId: true },
+    });
 
-        // Also deactivate all their devices
-        await prisma.device.updateMany({
-            where: { userId: id },
-            data: { isActive: false },
-        });
-
-        sendSuccess(res, user);
-    } catch (error) {
-        next(error);
+    if (!existing || !canAccessAppId(req, existing.appId)) {
+      return res
+        .status(404)
+        .json({ error: true, message: "User not found", data: null });
     }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    // Also deactivate all their devices
+    await prisma.device.updateMany({
+      where: { userId: id },
+      data: { isActive: false },
+    });
+
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const registerUser = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const data = registerUserSchema.parse(req.body);
+export const registerUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = registerUserSchema.parse(req.body);
 
-        // Upsert user
-        const user = await prisma.user.upsert({
-            where: {
-                appId_externalUserId: {
-                    appId: data.appId,
-                    externalUserId: data.externalUserId,
-                },
-            },
-            update: {
-                language: data.language,
-                timezone: data.timezone,
-            },
-            create: {
-                appId: data.appId,
-                externalUserId: data.externalUserId,
-                language: data.language ?? 'en',
-                timezone: data.timezone ?? 'UTC',
-            },
-        });
+    // Upsert user
+    const user = await prisma.user.upsert({
+      where: {
+        appId_externalUserId: {
+          appId: data.appId,
+          externalUserId: data.externalUserId,
+        },
+      },
+      update: {
+        language: data.language,
+        timezone: data.timezone,
+        ...(data.nickname !== undefined
+          ? { nickname: normalizeNickname(data.nickname) }
+          : {}),
+      },
+      create: {
+        appId: data.appId,
+        externalUserId: data.externalUserId,
+        language: data.language ?? "en",
+        timezone: data.timezone ?? "UTC",
+        nickname: normalizeNickname(data.nickname),
+      },
+    });
 
-        sendSuccess(res, user);
-    } catch (error) {
-        next(error);
-    }
+    // Fire "On Registration" automation trigger
+    await triggerAutomation(user.appId, "On Registration", {
+      userId: user.id,
+      externalUserId: user.externalUserId,
+    });
+
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const registerDevice = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const data = registerDeviceSchema.parse(req.body);
+export const registerDevice = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = registerDeviceSchema.parse(req.body);
 
-        const device = await prisma.device.upsert({
-            where: {
-                pushToken_provider: {
-                    pushToken: data.pushToken,
-                    provider: data.provider,
-                },
-            },
-            update: {
-                userId: data.userId, // Reassign
-                isActive: true,
-                lastSeenAt: new Date(),
-            },
-            create: {
-                userId: data.userId,
-                platform: data.platform,
-                pushToken: data.pushToken,
-                provider: data.provider,
-                isActive: true,
-            },
-        });
+    // Hash token for lookups, encrypt for storage — never store raw
+    const tokenHashed = hashToken(data.pushToken);
+    const encryptedPushToken = encryptToken(data.pushToken);
 
-        sendSuccess(res, device);
-    } catch (error) {
-        next(error);
-    }
+    const device = await prisma.device.upsert({
+      where: {
+        tokenHash_provider: {
+          tokenHash: tokenHashed,
+          provider: data.provider,
+        },
+      },
+      update: {
+        userId: data.userId, // Reassign
+        pushToken: encryptedPushToken,
+        isActive: true,
+        lastSeenAt: new Date(),
+      },
+      create: {
+        userId: data.userId,
+        platform: data.platform,
+        pushToken: encryptedPushToken,
+        tokenHash: tokenHashed,
+        provider: data.provider,
+        isActive: true,
+      },
+    });
+
+    // Return device without exposing encrypted token
+    sendSuccess(res, {
+      id: device.id,
+      userId: device.userId,
+      platform: device.platform,
+      provider: device.provider,
+      isActive: device.isActive,
+      lastSeenAt: device.lastSeenAt,
+      createdAt: device.createdAt,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

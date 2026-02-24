@@ -4,7 +4,7 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["metrics"]
 }
 
@@ -25,6 +25,7 @@ model Organization {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   apps    App[]
+  apiKeys ApiKey[]
   members OrgMember[]
   roles   Role[]
   assets  Asset[]
@@ -134,7 +135,7 @@ model AppEnvironment {
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
-  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app         App               @relation(fields: [appId], references: [id], onDelete: Cascade)
   credentials Credential[]
   webhooks    WebhookEndpoint[]
 
@@ -167,7 +168,7 @@ model App {
   orgId           String?  @map("org_id")
   bundleId        String?  @map("bundle_id")
   packageName     String?  @map("package_name")
-  platforms       Json     // { android: boolean, ios: boolean, web: boolean, huawei: boolean }
+  platforms       Json // { android: boolean, ios: boolean, web: boolean, huawei: boolean }
   defaultLanguage String   @map("default_language")
   isKilled        Boolean  @default(false) @map("is_killed")
   webhookUrl      String?  @map("webhook_url")
@@ -182,11 +183,39 @@ model App {
   users         User[]
   templates     NotificationTemplate[]
   notifications Notification[]
+  apiKeys       ApiKey[]
   managers      AppManager[]
+  accessInvites AppAccessInvite[]
   auditLogs     AuditLog[]
+  automations   Automation[]
+  automationTriggers AutomationTrigger[]
 
   @@index([orgId])
   @@map("apps")
+}
+
+model ApiKey {
+  id            String    @id @default(uuid())
+  appId         String    @map("app_id")
+  orgId         String?   @map("org_id")
+  name          String
+  keyHash       String    @map("key_hash")
+  scopes        String[]  @default([])
+  isActive      Boolean   @default(true) @map("is_active")
+  lastUsedAt    DateTime? @map("last_used_at")
+  createdBy     String?   @map("created_by")
+  rotatedFromId String?   @map("rotated_from_id")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  app App           @relation(fields: [appId], references: [id], onDelete: Cascade)
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([appId, keyHash])
+  @@index([appId, isActive])
+  @@index([orgId])
+  @@index([lastUsedAt])
+  @@map("api_keys")
 }
 
 // Per-environment credential container
@@ -263,6 +292,7 @@ model WebhookEndpoint {
 model User {
   id             String    @id @default(uuid())
   externalUserId String    @map("external_user_id")
+  nickname       String?   @map("nickname")
   appId          String    @map("app_id")
   language       String    @default("en")
   timezone       String    @default("UTC")
@@ -270,8 +300,9 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  app     App      @relation(fields: [appId], references: [id])
-  devices Device[]
+  app                  App                   @relation(fields: [appId], references: [id])
+  devices              Device[]
+  automationExecutions AutomationExecution[]
 
   @@unique([appId, externalUserId])
   @@index([appId])
@@ -280,26 +311,28 @@ model User {
 }
 
 model Device {
-  id              String    @id @default(uuid())
-  userId          String    @map("user_id")
-  platform        String
-  pushToken       String    @map("push_token")
-  provider        String
-  isActive        Boolean   @default(true) @map("is_active")
-  lastSeenAt      DateTime  @default(now()) @map("last_seen_at")
-  tokenExpiresAt  DateTime? @map("token_expires_at")
-  tokenInvalidAt  DateTime? @map("token_invalid_at")
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  platform           String
+  pushToken          String    @map("push_token") // Encrypted at application layer
+  tokenHash          String    @map("token_hash") // SHA-256 hash for lookups (never log raw token)
+  provider           String
+  isActive           Boolean   @default(true) @map("is_active")
+  lastSeenAt         DateTime  @default(now()) @map("last_seen_at")
+  tokenExpiresAt     DateTime? @map("token_expires_at")
+  tokenInvalidAt     DateTime? @map("token_invalid_at")
   deactivatedAt      DateTime? @map("deactivated_at")
   deactivatedBy      String?   @map("deactivated_by")
   deactivationReason String?   @map("deactivation_reason")
   deactivationNote   String?   @map("deactivation_note")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deliveries NotificationDelivery[]
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries           NotificationDelivery[]
+  automationExecutions AutomationExecution[]
 
-  @@unique([pushToken, provider])
+  @@unique([tokenHash, provider])
   @@index([userId])
   @@index([isActive])
   @@index([provider, isActive])
@@ -322,7 +355,7 @@ model IdempotencyKey {
 model NotificationTemplate {
   id        String   @id @default(uuid())
   appId     String   @map("app_id")
-  type      String   // transactional, campaign
+  type      String // transactional, campaign
   language  String
   eventName String   @map("event_name")
   title     String
@@ -341,7 +374,7 @@ model NotificationTemplate {
 model Notification {
   id         String   @id @default(uuid())
   appId      String   @map("app_id")
-  type       String   // transactional, campaign
+  type       String // transactional, campaign
   status     String
   templateId String?  @map("template_id")
   variantId  String?  @map("variant_id") // For A/B testing
@@ -353,9 +386,9 @@ model Notification {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  app        App                   @relation(fields: [appId], references: [id], onDelete: Cascade)
-  template   NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  variant    ABTestVariant?        @relation("VariantNotifications", fields: [variantId], references: [id], onDelete: SetNull)
+  app        App                    @relation(fields: [appId], references: [id], onDelete: Cascade)
+  template   NotificationTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  variant    ABTestVariant?         @relation("VariantNotifications", fields: [variantId], references: [id], onDelete: SetNull)
   deliveries NotificationDelivery[]
 
   @@index([sendAt, status])
@@ -367,19 +400,19 @@ model Notification {
 }
 
 model NotificationDelivery {
-  id             String    @id @default(uuid())
-  notificationId String    @map("notification_id")
-  deviceId       String    @map("device_id")
-  provider       String
-  status         String
-  failureCategory String? @map("failure_category")
-  providerReason  String? @map("provider_reason")
-  attempts       Int       @default(0)
-  lastError      String?   @map("last_error")
-  errorCode      String?   @map("error_code")
-  sentAt         DateTime? @map("sent_at")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  notificationId  String    @map("notification_id")
+  deviceId        String    @map("device_id")
+  provider        String
+  status          String
+  failureCategory String?   @map("failure_category")
+  providerReason  String?   @map("provider_reason")
+  attempts        Int       @default(0)
+  lastError       String?   @map("last_error")
+  errorCode       String?   @map("error_code")
+  sentAt          DateTime? @map("sent_at")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   device       Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -409,15 +442,15 @@ model RetryJob {
 
 // Dead Letter Queue for failed notifications
 model DeadLetterQueue {
-  id             String   @id @default(uuid())
-  notificationId String?  @map("notification_id")
-  deliveryId     String?  @map("delivery_id")
+  id             String    @id @default(uuid())
+  notificationId String?   @map("notification_id")
+  deliveryId     String?   @map("delivery_id")
   provider       String
   payload        Json
-  errorMessage   String   @map("error_message")
-  errorCode      String?  @map("error_code")
-  attempts       Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at")
+  errorMessage   String    @map("error_message")
+  errorCode      String?   @map("error_code")
+  attempts       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
   processedAt    DateTime? @map("processed_at")
 
   @@index([createdAt])
@@ -431,9 +464,16 @@ model DeadLetterQueue {
 // ===========================================
 
 enum AdminRole {
-  SUPER_ADMIN         // Full access to everything
-  APP_MANAGER         // Can manage specific apps and their credentials
-  MARKETING_MANAGER   // Can create/manage templates and view statistics
+  SUPER_ADMIN // Full access to everything
+  APP_MANAGER // Can manage specific apps and their credentials
+  MARKETING_MANAGER // Can create/manage templates and view statistics
+}
+
+enum AppAccessInviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
 }
 
 model AdminUser {
@@ -449,6 +489,8 @@ model AdminUser {
 
   orgMemberships OrgMember[]
   managedApps    AppManager[]
+  sentAppInvites AppAccessInvite[] @relation("AppAccessInviteInvitedBy")
+  acceptedAppInvites AppAccessInvite[] @relation("AppAccessInviteAcceptedBy")
   sessions       AdminSession[]
   auditLogs      AuditLog[]
 
@@ -471,6 +513,29 @@ model AppManager {
   @@index([adminUserId])
   @@index([appId])
   @@map("app_managers")
+}
+
+model AppAccessInvite {
+  id                 String                @id @default(uuid())
+  email              String
+  role               AdminRole             @default(MARKETING_MANAGER)
+  appId              String                @map("app_id")
+  invitedByAdminUserId String?             @map("invited_by_admin_user_id")
+  acceptedByAdminUserId String?            @map("accepted_by_admin_user_id")
+  status             AppAccessInviteStatus @default(PENDING)
+  acceptedAt         DateTime?             @map("accepted_at")
+  expiresAt          DateTime?             @map("expires_at")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+  invitedByAdminUser AdminUser? @relation("AppAccessInviteInvitedBy", fields: [invitedByAdminUserId], references: [id], onDelete: SetNull)
+  acceptedByAdminUser AdminUser? @relation("AppAccessInviteAcceptedBy", fields: [acceptedByAdminUserId], references: [id], onDelete: SetNull)
+
+  @@unique([appId, email])
+  @@index([email, status])
+  @@index([appId, status])
+  @@map("app_access_invites")
 }
 
 // Session management for admin portal
@@ -525,28 +590,28 @@ enum ABTestStatus {
 }
 
 model ABTest {
-  id              String       @id @default(uuid())
-  appId           String       @map("app_id")
-  name            String
-  description     String?
-  status          ABTestStatus @default(DRAFT)
-  
-  // Targeting
-  targetingMode   String       @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
-  targetUserIds   Json?        @map("target_user_ids") // Array of user IDs for USER_LIST mode
-  csvFileUrl      String?      @map("csv_file_url") // S3/MinIO URL for CSV mode
-  
-  // Scheduling
-  scheduledAt     DateTime?    @map("scheduled_at")
-  startedAt       DateTime?    @map("started_at")
-  completedAt     DateTime?    @map("completed_at")
-  
-  createdBy       String?      @map("created_by")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  id          String       @id @default(uuid())
+  appId       String       @map("app_id")
+  name        String
+  description String?
+  status      ABTestStatus @default(DRAFT)
 
-  variants        ABTestVariant[]
-  assignments     ABTestAssignment[]
+  // Targeting
+  targetingMode String  @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
+  targetUserIds Json?   @map("target_user_ids") // Array of user IDs for USER_LIST mode
+  csvFileUrl    String? @map("csv_file_url") // S3/MinIO URL for CSV mode
+
+  // Scheduling
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  variants    ABTestVariant[]
+  assignments ABTestAssignment[]
 
   @@index([appId, status])
   @@index([status, scheduledAt])
@@ -554,27 +619,27 @@ model ABTest {
 }
 
 model ABTestVariant {
-  id             String   @id @default(uuid())
-  testId         String   @map("test_id")
-  name           String   // "A", "B", "C", etc.
-  weight         Int      @default(50) // Percentage weight (0-100)
-  
-  // Notification content
-  title          String
-  subtitle       String?
-  body           String
-  image          String?
-  
-  // Stats
-  sentCount      Int      @default(0) @map("sent_count")
-  deliveredCount Int      @default(0) @map("delivered_count")
-  failedCount    Int      @default(0) @map("failed_count")
-  
-  createdAt      DateTime @default(now()) @map("created_at")
+  id     String @id @default(uuid())
+  testId String @map("test_id")
+  name   String // "A", "B", "C", etc.
+  weight Int    @default(50) // Percentage weight (0-100)
 
-  test           ABTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
-  assignments    ABTestAssignment[]
-  notifications  Notification[] @relation("VariantNotifications")
+  // Notification content
+  title    String
+  subtitle String?
+  body     String
+  image    String?
+
+  // Stats
+  sentCount      Int @default(0) @map("sent_count")
+  deliveredCount Int @default(0) @map("delivered_count")
+  failedCount    Int @default(0) @map("failed_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  test          ABTest             @relation(fields: [testId], references: [id], onDelete: Cascade)
+  assignments   ABTestAssignment[]
+  notifications Notification[]     @relation("VariantNotifications")
 
   @@index([testId])
   @@map("ab_test_variants")
@@ -606,54 +671,172 @@ enum CampaignStatus {
   APPROVED
   SCHEDULED
   PROCESSING
+  SENDING
   COMPLETED
   CANCELLED
 }
 
 model Campaign {
-  id              String         @id @default(uuid())
-  appId           String         @map("app_id")
-  name            String
-  description     String?
-  status          CampaignStatus @default(DRAFT)
-  
+  id          String         @id @default(uuid())
+  appId       String         @map("app_id")
+  name        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+
   // Targeting
-  targetingMode   String         @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
-  targetUserIds   Json?          @map("target_user_ids") // For USER_LIST mode
-  csvFileUrl      String?        @map("csv_file_url") // For CSV mode
-  totalTargets    Int            @default(0) @map("total_targets")
-  processedCount  Int            @default(0) @map("processed_count")
-  
+  targetingMode  String  @default("ALL") @map("targeting_mode") // ALL, USER_LIST, CSV
+  targetUserIds  Json?   @map("target_user_ids") // For USER_LIST mode
+  csvFileUrl     String? @map("csv_file_url") // For CSV mode
+  totalTargets   Int     @default(0) @map("total_targets")
+  processedCount Int     @default(0) @map("processed_count")
+
   // Content
-  title           String
-  subtitle        String?
-  body            String
-  image           String?
-  
+  title    String
+  subtitle String?
+  body     String
+  image    String?
+
   // Scheduling
-  scheduledAt     DateTime?      @map("scheduled_at")
-  startedAt       DateTime?      @map("started_at")
-  completedAt     DateTime?      @map("completed_at")
-  
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
   // Stats
-  sentCount       Int            @default(0) @map("sent_count")
-  deliveredCount  Int            @default(0) @map("delivered_count")
-  failedCount     Int            @default(0) @map("failed_count")
-  
-  priority        String         @default("NORMAL")
-  createdBy       String?        @map("created_by")
-  
-  audienceSourceType String?  @map("audience_source_type")
-  audienceAssetId    String?  @map("audience_asset_id")
-  audienceHash       String?  @map("audience_hash")
-  estimatedReach     Int?     @map("estimated_reach")
-  
-  approvals       CampaignApproval[]
-  
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  sentCount      Int @default(0) @map("sent_count")
+  deliveredCount Int @default(0) @map("delivered_count")
+  failedCount    Int @default(0) @map("failed_count")
+
+  priority  String  @default("NORMAL")
+  createdBy String? @map("created_by")
+
+  audienceSourceType String? @map("audience_source_type")
+  audienceAssetId    String? @map("audience_asset_id")
+  audienceHash       String? @map("audience_hash")
+  estimatedReach     Int?    @map("estimated_reach")
+
+  approvals CampaignApproval[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([appId, status])
   @@index([status, scheduledAt])
   @@map("campaigns")
+}
+
+// ===========================================
+// Suppression (opt-out, abuse, legal holds)
+// ===========================================
+
+model Suppression {
+  id        String    @id @default(uuid())
+  appId     String    @map("app_id")
+  userId    String?   @map("user_id") // Suppress a user
+  deviceId  String?   @map("device_id") // Suppress a device
+  reason    String // UNSUBSCRIBE, ABUSE, LEGAL_HOLD, MANUAL
+  note      String?
+  createdBy String?   @map("created_by")
+  expiresAt DateTime? @map("expires_at") // null = permanent
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([appId, userId])
+  @@index([appId, deviceId])
+  @@index([expiresAt])
+  @@map("suppressions")
+}
+
+// ===========================================
+// Automation Workflows
+// ===========================================
+
+model AutomationTrigger {
+  id              String   @id @default(uuid())
+  appId           String   @map("app_id")
+  name            String
+  eventName       String   @map("event_name")
+  description     String?
+  conditionFields Json?    @map("condition_fields")
+  conditionSchema Json?    @map("condition_schema")
+  payloadExample  Json?    @map("payload_example")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, eventName])
+  @@index([appId, isActive])
+  @@map("automation_triggers")
+}
+
+model Automation {
+  id            String   @id @default(uuid())
+  appId         String   @map("app_id")
+  name          String
+  description   String?
+  isActive      Boolean  @default(false) @map("is_active")
+  draftVersion  Int      @default(1) @map("draft_version")
+  publishedVersion Int?  @map("published_version")
+  publishedTrigger String? @map("published_trigger")
+  publishedAt   DateTime? @map("published_at")
+  trigger       String // e.g. "On Registration"
+  triggerConfig Json?    @map("trigger_config")
+  steps         Json // Array of workflow steps
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  app        App                   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  executions AutomationExecution[]
+  versions   AutomationVersion[]
+
+  @@index([appId])
+  @@index([appId, trigger, isActive])
+  @@index([appId, publishedTrigger, isActive])
+  @@map("automations")
+}
+
+model AutomationVersion {
+  id            String   @id @default(uuid())
+  automationId  String   @map("automation_id")
+  version       Int
+  name          String
+  description   String?
+  trigger       String
+  triggerConfig Json?    @map("trigger_config")
+  steps         Json
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  publishedAt   DateTime @default(now()) @map("published_at")
+
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, version])
+  @@index([automationId, publishedAt])
+  @@map("automation_versions")
+}
+
+model AutomationExecution {
+  id            String    @id @default(uuid())
+  automationId  String    @map("automation_id")
+  userId        String?   @map("user_id")
+  deviceId      String?   @map("device_id")
+  status        String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+  currentStep   Int       @default(0) @map("current_step")
+  resumeAt      DateTime? @map("resume_at") // For delay steps
+  context       Json? // Any variables from the trigger or previous steps
+  errorCategory String?   @map("error_category")
+  errorMessage  String?   @map("error_message")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device     Device?    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@index([status, resumeAt]) // For polling active delayed executions
+  @@index([userId])
+  @@map("automation_executions")
 }

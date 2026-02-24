@@ -30,7 +30,23 @@ export const updateABTestSchema = z.object({
     targetingMode: z.enum(['ALL', 'USER_LIST', 'CSV']).optional().meta({ example: 'ALL' }),
     targetUserIds: z.array(z.string()).optional().meta({ example: ['user-1', 'user-2'] }),
     scheduledAt: z.iso.datetime().optional().meta({ example: '2024-01-01T12:00:00Z' }),
+    variants: z.array(z.object({
+        name: z.string().min(1).max(10),
+        weight: z.number().min(1).max(100),
+        title: z.string().min(1).max(200),
+        subtitle: z.string().optional(),
+        body: z.string().min(1).max(1000),
+        image: z.url().optional(),
+    })).min(2).max(5).optional(),
 }).register(registry, { id: 'UpdateABTestRequest' });
+
+export const abTestSendTestSchema = z.object({
+    userIds: z.array(z.string().min(1)).min(1).max(50000),
+}).register(registry, { id: 'ABTestSendTestRequest' });
+
+export const abTestScheduleLiveSchema = z.object({
+    sendAt: z.iso.datetime().optional(),
+}).register(registry, { id: 'ABTestScheduleLiveRequest' });
 
 // Model Schemas
 export const variantSchema = z.object({

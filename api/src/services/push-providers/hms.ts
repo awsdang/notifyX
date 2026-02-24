@@ -90,6 +90,33 @@ export class HMSProvider implements PushProvider {
         try {
             const accessToken = await this.getAccessToken();
             const url = `https://push-api.cloud.huawei.com/v1/${this.config.appId}/messages:send`;
+            const normalizedData: Record<string, string> = {};
+
+            for (const [key, value] of Object.entries(message.data || {})) {
+                if (value === undefined || value === null) continue;
+                normalizedData[key] = String(value);
+            }
+
+            if (message.actionUrl) {
+                normalizedData.actionUrl = message.actionUrl;
+            }
+
+            const safeActions = (message.actions || [])
+                .filter((action: any) => action?.action && action?.title && action?.url)
+                .slice(0, 2)
+                .map((action: any) => ({
+                    action: String(action.action),
+                    title: String(action.title),
+                    url: String(action.url),
+                }));
+
+            if (safeActions.length > 0) {
+                normalizedData.actions = JSON.stringify(safeActions);
+            }
+
+            for (const action of safeActions) {
+                normalizedData[`actionUrl_${action.action}`] = action.url;
+            }
 
             const hmsMessage = {
                 message: {
@@ -99,13 +126,17 @@ export class HMSProvider implements PushProvider {
                         body: message.body,
                         ...(message.image && { image: message.image }),
                     },
-                    data: message.data ? JSON.stringify(message.data) : undefined,
+                    data:
+                        Object.keys(normalizedData).length > 0
+                            ? JSON.stringify(normalizedData)
+                            : undefined,
                     android: {
                         notification: {
                             sound: message.sound || 'default',
                             default_sound: !message.sound,
                             importance: 'HIGH',
                             click_action: { type: 3 },
+                            ...(message.icon && { icon: message.icon }),
                         },
                     },
                 },

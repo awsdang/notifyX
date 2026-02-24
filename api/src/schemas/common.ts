@@ -1,34 +1,61 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-// Strict success response (no error field)
-export const successResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) => z.object({
-    success: z.literal(true).describe('Whether the request was successful').meta({ example: true }),
-    data: dataSchema.describe('The response data'),
-});
+// Standard success response envelope
+export const successResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    error: z
+      .literal(false)
+      .describe("False for successful responses")
+      .meta({ example: false }),
+    message: z
+      .string()
+      .describe("Human-readable response message")
+      .meta({ example: "Success" }),
+    data: dataSchema.describe("The response data"),
+    totalCount: z
+      .number()
+      .optional()
+      .describe("Optional total count for list responses")
+      .meta({ example: 100 }),
+  });
 
-// Strict error response (no data field, error is required)
+// Standard error response envelope
 export const errorResponseSchema = z.object({
-    success: z.literal(false).describe('Whether the request was successful').meta({ example: false }),
-    error: z.object({
-        code: z.string().optional(),
-        message: z.string(),
-        details: z.any().optional(),
-    }).describe('Error details').meta({ example: { code: 'ERROR_CODE', message: 'Error message' } }),
+  error: z
+    .literal(true)
+    .describe("True for failed responses")
+    .meta({ example: true }),
+  message: z
+    .string()
+    .describe("Error message")
+    .meta({ example: "Validation Error" }),
+  data: z
+    .any()
+    .nullable()
+    .optional()
+    .describe("Error details payload")
+    .meta({ example: null }),
 });
 
-// Union for runtime validation (backward compatibility if needed, but we prefer specific schemas for docs)
-export const responseSchema = <T extends z.ZodTypeAny>(dataSchema: T) => z.union([
-    successResponseSchema(dataSchema),
-    errorResponseSchema
-]);
+// Union envelope used for docs and shared endpoint responses
+export const responseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.union([successResponseSchema(dataSchema), errorResponseSchema]);
 
-export const paginatedResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) => z.object({
-    success: z.boolean().describe('Whether the request was successful').meta({ example: true }),
-    data: z.array(dataSchema).describe('The paginated data'),
-    meta: z.object({
-        page: z.number().describe('Current page number'),
-        limit: z.number().describe('Number of items per page'),
-        total: z.number().describe('Total number of items'),
-        totalPages: z.number().describe('Total number of pages'),
-    }).describe('Pagination metadata').meta({ example: { page: 1, limit: 10, total: 100, totalPages: 10 } }),
-});
+export const paginatedResponseSchema = <T extends z.ZodTypeAny>(
+  dataSchema: T,
+) =>
+  z.object({
+    error: z
+      .literal(false)
+      .describe("False for successful responses")
+      .meta({ example: false }),
+    message: z
+      .string()
+      .describe("Human-readable response message")
+      .meta({ example: "Success" }),
+    data: z.array(dataSchema).describe("The paginated data"),
+    totalCount: z
+      .number()
+      .describe("Total number of items")
+      .meta({ example: 100 }),
+  });

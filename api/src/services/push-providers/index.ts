@@ -49,11 +49,16 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour TTL fallback
 
 // Redis Pub/Sub channel for cache invalidation across processes
 const INVALIDATION_CHANNEL = 'cache:invalidate:credentials';
+const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true';
 
 /**
  * Initialize Cache Sync (Subscriber)
  */
 export function initCacheSync() {
+    if (REDIS_DISABLED) {
+        return;
+    }
+
     const subscriber = getSubscriberClient();
     subscriber.subscribe(INVALIDATION_CHANNEL, (err) => {
         if (err) console.error('[PushProvider] Failed to subscribe to invalidation channel:', err.message);
@@ -181,9 +186,17 @@ export function clearAppProviderCache(appId: string, provider?: ProviderType): v
         appProviderCache.delete(appId);
     }
 
+    if (REDIS_DISABLED) {
+        return;
+    }
+
     // Publish to cluster
     const redis = getRedisClient();
-    redis.publish(INVALIDATION_CHANNEL, JSON.stringify({ appId, provider }));
+    void redis
+        .publish(INVALIDATION_CHANNEL, JSON.stringify({ appId, provider }))
+        .catch((error) => {
+            console.warn('[PushProvider] Cache invalidation publish skipped:', (error as Error).message);
+        });
 }
 
 /**

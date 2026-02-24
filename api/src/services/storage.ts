@@ -50,7 +50,12 @@ export async function uploadFile(
         'Content-Type': mimetype,
     });
 
-    // Return public URL
+    // Return public URL (override host for real devices if provided)
+    const publicBase = process.env.ASSET_PUBLIC_BASE_URL?.replace(/\/$/, '');
+    if (publicBase) {
+        return `${publicBase}/${config.bucket}/${objectName}`;
+    }
+
     const protocol = config.useSSL ? 'https' : 'http';
     return `${protocol}://${config.endPoint}:${config.port}/${config.bucket}/${objectName}`;
 }

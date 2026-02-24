@@ -5,12 +5,14 @@ export interface PushMessage {
     body: string;
     data?: Record<string, string>;
     image?: string;
+    icon?: string;
     actionUrl?: string;
     imageUrl?: string;
     badge?: number;
     sound?: string;
     collapseKey?: string;
     ttl?: number;
+    actions?: any[];
 }
 
 export interface PushResult {
@@ -56,6 +58,11 @@ export interface ProviderConfig {
         privateKey: string;
         bundleId: string;
         production: boolean;
+    };
+    web?: {
+        vapidPublicKey: string;
+        vapidPrivateKey: string;
+        subject: string;
     };
 }
 
