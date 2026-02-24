@@ -96,7 +96,7 @@ NotifyX.registerDevice(
     return (
         <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 flex max-w-5xl mx-auto h-[600px]">
             {/* Sidebar */}
-            <div className="w-64 bg-gray-50/50 border-r border-gray-100 p-6 flex flex-col">
+            <div className="w-64 bg-gray-50/50 border-e border-gray-100 p-6 flex flex-col">
                 <div className="mb-8">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2">
                         <Box className="w-5 h-5 text-blue-600" />
@@ -177,7 +177,7 @@ NotifyX.registerDevice(
                 </footer>
 
                 {/* Decorative background light */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
             </div>
         </div>
     );

@@ -17,7 +17,7 @@ export function ProviderSelection({ availableProviders, onSelect }: ProviderSele
                     <button
                         key={provider}
                         onClick={() => onSelect(provider)}
-                        className="flex flex-col gap-4 p-6 rounded-3xl border border-gray-100 hover:border-blue-500 hover:bg-blue-50/30 transition-all text-left relative group overflow-hidden"
+                        className="flex flex-col gap-4 p-6 rounded-3xl border border-gray-100 hover:border-blue-500 hover:bg-blue-50/30 transition-all text-start relative group overflow-hidden"
                     >
                         <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", info.bgColor)}>
                             <Icon className={clsx("w-6 h-6", info.color)} />
@@ -26,7 +26,7 @@ export function ProviderSelection({ availableProviders, onSelect }: ProviderSele
                             <h4 className="font-bold text-gray-900">{info.name}</h4>
                             <p className="text-xs text-gray-500 mt-1 leading-relaxed">{info.description}</p>
                         </div>
-                        <Plus className="absolute top-6 right-6 w-5 h-5 text-gray-200 group-hover:text-blue-500 transition-colors" />
+                        <Plus className="absolute top-6 end-6 w-5 h-5 text-gray-200 group-hover:text-blue-500 transition-colors" />
                     </button>
                 );
             })}

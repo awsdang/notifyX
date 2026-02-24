@@ -86,11 +86,11 @@ export function AuditLogs() {
             <div className="bg-white p-6 rounded-t-[2.5rem] border border-b-0 flex flex-wrap items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-center gap-6 flex-1">
                     <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input
                             type="text"
                             placeholder="Search by action, actor, or details..."
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                            className="w-full ps-10 pe-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -114,7 +114,7 @@ export function AuditLogs() {
 
                 <div className="flex items-center gap-3">
                     <Button variant="outline" className="rounded-xl border-gray-100 text-gray-600">
-                        <Download size={16} className="mr-2" /> Export CSV
+                        <Download size={16} className="me-2" /> Export CSV
                     </Button>
                     <Button
                         variant="outline"
@@ -130,7 +130,7 @@ export function AuditLogs() {
             {/* Logs Table */}
             <div className="flex-1 bg-white border border-t-0 rounded-b-[2.5rem] overflow-hidden flex flex-col shadow-sm">
                 <div className="flex-1 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-start border-collapse">
                         <thead className="sticky top-0 bg-slate-50/80 backdrop-blur-md border-b text-[10px] font-bold text-gray-400 uppercase tracking-widest z-10">
                             <tr>
                                 <th className="px-8 py-4">Timestamp</th>

@@ -26,12 +26,46 @@ export function useAppManager() {
 
     const createApp = async (name: string) => {
         try {
-            await appService.createApp(name, token);
-            await loadApps();
+            const created = await appService.createApp(name, token) as Application;
+            setApps((prev) => [created, ...prev]);
         } catch (error) {
             console.error('Failed to create app:', error);
+            throw error;
         }
     };
 
-    return { apps, isLoading, refresh: loadApps, createApp };
+    const updateApp = async (id: string, data: { name?: string }) => {
+        try {
+            const updated = await appService.updateApp(id, data, token);
+            setApps((prev) => prev.map((app) => (app.id === id ? updated : app)));
+            return updated;
+        } catch (error) {
+            console.error('Failed to update app:', error);
+            throw error;
+        }
+    };
+
+    const killApp = async (id: string) => {
+        try {
+            const result = await appService.killApp(id, token);
+            setApps((prev) => prev.map((app) => (app.id === id ? result.app : app)));
+            return result.app;
+        } catch (error) {
+            console.error('Failed to kill app:', error);
+            throw error;
+        }
+    };
+
+    const reviveApp = async (id: string) => {
+        try {
+            const revived = await appService.reviveApp(id, token);
+            setApps((prev) => prev.map((app) => (app.id === id ? revived : app)));
+            return revived;
+        } catch (error) {
+            console.error('Failed to revive app:', error);
+            throw error;
+        }
+    };
+
+    return { apps, isLoading, refresh: loadApps, createApp, updateApp, killApp, reviveApp };
 }

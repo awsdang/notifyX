@@ -14,7 +14,7 @@ export function StatCard({ title, value, color }: StatCardProps) {
 
     return (
         <div className="bg-white p-6 rounded-xl border shadow-sm relative overflow-hidden">
-            <div className={`absolute top-0 right-0 w-20 h-20 bg-gradient-to-br ${colorMap[color]} opacity-10 rounded-bl-full`}></div>
+            <div className={`absolute top-0 end-0 w-20 h-20 bg-gradient-to-br ${colorMap[color]} opacity-10 rounded-bl-full`}></div>
             <p className="text-sm text-gray-500 font-medium">{title}</p>
             <p className="text-3xl font-bold mt-2">{value}</p>
         </div>
