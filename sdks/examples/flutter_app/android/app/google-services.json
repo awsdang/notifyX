@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "112159851300",
+    "project_id": "test-7cfaf",
+    "storage_bucket": "test-7cfaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:112159851300:android:5dd36fc03e669209d2a9b1",
+        "android_client_info": {
+          "package_name": "com.react_native_notification_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBc2OyxJK5dInfZ0V1kE0hnAhsuj5SpZC0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
