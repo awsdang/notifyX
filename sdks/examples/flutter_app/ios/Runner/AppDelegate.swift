@@ -53,11 +53,6 @@ import UserNotifications
   }
 
   private func getApnsToken(result: @escaping FlutterResult) {
-    if let token = cachedApnsToken {
-      result(token)
-      return
-    }
-
     if pendingApnsResult != nil {
       result(
         FlutterError(
@@ -71,6 +66,56 @@ import UserNotifications
 
     pendingApnsResult = result
 
+    UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+      guard let self else { return }
+
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral:
+        if settings.alertSetting == .disabled {
+          self.resolvePendingApns(
+            withError: FlutterError(
+              code: "apns_alerts_disabled",
+              message: "Notifications are authorized but alerts are disabled. Enable Banners/Alerts in iOS Settings.",
+              details: nil
+            )
+          )
+          return
+        }
+
+        if let token = self.cachedApnsToken {
+          self.resolvePendingApns(withToken: token)
+          return
+        }
+
+        DispatchQueue.main.async {
+          UIApplication.shared.registerForRemoteNotifications()
+        }
+
+      case .notDetermined:
+        self.requestAuthorizationAndRegisterForApns()
+
+      case .denied:
+        self.resolvePendingApns(
+          withError: FlutterError(
+            code: "apns_permission_denied",
+            message: "Notification permission denied on iOS. Enable notifications in Settings and retry.",
+            details: nil
+          )
+        )
+
+      @unknown default:
+        self.resolvePendingApns(
+          withError: FlutterError(
+            code: "apns_permission_unknown",
+            message: "Unable to determine iOS notification authorization status.",
+            details: nil
+          )
+        )
+      }
+    }
+  }
+
+  private func requestAuthorizationAndRegisterForApns() {
     UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
       [weak self] granted, error in
       guard let self else { return }
