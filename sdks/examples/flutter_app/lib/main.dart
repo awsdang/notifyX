@@ -4,26 +4,30 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notifyx/notifyx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _appId = '6feb573a-cff9-4759-84fb-3394ac538068';
 const String _apiKey = 'nk_live_XxMcjTOgU4viSIQ0-rlIczDG3ZhWC6Ca';
-const String _baseUrl = 'http://192.168.31.101:3000/';
+const String _baseUrl = 'https://iu8nuqgn5i0v.share.zrok.io';
 const String _manualPushToken = '';
 const String _manualProvider = 'fcm';
+const MethodChannel _apnsChannel = MethodChannel('notifyx/apns');
 bool _firebaseReady = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp();
-    _firebaseReady = true;
-  } catch (e) {
-    debugPrint(
-      'Firebase init failed (expected if google-services config is missing): $e',
-    );
+  if (Platform.isAndroid) {
+    try {
+      await Firebase.initializeApp();
+      _firebaseReady = true;
+    } catch (e) {
+      debugPrint(
+        'Firebase init failed on Android (check google-services.json): $e',
+      );
+    }
   }
 
   runApp(const NotifyXExampleApp());
@@ -96,14 +100,22 @@ class _DemoHomePageState extends State<DemoHomePage> {
 
   Future<void> _initializePage() async {
     await _loadState();
-    final firebaseInitialized = await _ensureFirebaseInitialized();
-    if (firebaseInitialized) {
+    if (Platform.isAndroid) {
+      final firebaseInitialized = await _ensureFirebaseInitialized();
+      if (!firebaseInitialized) {
+        return;
+      }
+
       await _setupNotificationOpenHandlers();
       _setupTokenRefreshHandler();
     }
   }
 
   Future<bool> _ensureFirebaseInitialized() async {
+    if (!Platform.isAndroid) {
+      return false;
+    }
+
     if (_firebaseReady || Firebase.apps.isNotEmpty) {
       _firebaseReady = true;
       return true;
@@ -196,7 +208,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
   }
 
   void _setupTokenRefreshHandler() {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    if (!Platform.isAndroid) {
       return;
     }
 
@@ -266,6 +278,16 @@ class _DemoHomePageState extends State<DemoHomePage> {
     throw Exception('FCM token was empty after retries.');
   }
 
+  Future<String> _fetchApnsToken() async {
+    final token = await _apnsChannel.invokeMethod<String>('getApnsToken');
+    final normalized = token?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      throw Exception('APNs token was empty.');
+    }
+
+    return normalized;
+  }
+
   Future<_PushTokenResult> _getPushTokenAndProvider() async {
     try {
       final manualToken = _manualPushToken.trim();
@@ -276,11 +298,17 @@ class _DemoHomePageState extends State<DemoHomePage> {
         );
       }
 
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        final token = await _fetchApnsToken();
+        debugPrint('APNS token fetched: $token');
+        return _PushTokenResult.success(token: token, provider: 'apns');
+      }
+
+      if (Platform.isAndroid) {
         final firebaseInitialized = await _ensureFirebaseInitialized();
         if (!firebaseInitialized) {
           return _PushTokenResult.error(
-            'Firebase is not initialized. Verify google-services.json (Android) or GoogleService-Info.plist (iOS), then rebuild the app.',
+            'FCM setup is not ready on Android. Verify google-services.json and Firebase Cloud Messaging configuration, then rebuild the app.',
           );
         }
 
@@ -317,6 +345,12 @@ class _DemoHomePageState extends State<DemoHomePage> {
       if (Platform.isAndroid) {
         return _PushTokenResult.error(
           'Android FCM setup error: $message. Verify google-services.json and Firebase Cloud Messaging setup.',
+        );
+      }
+
+      if (Platform.isIOS) {
+        return _PushTokenResult.error(
+          'iOS APNs setup error: $message. Verify Push Notifications capability, valid provisioning profile, and APNs key/certificate in Apple Developer account.',
         );
       }
 
@@ -476,7 +510,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Note: iOS and Android both use FCM in this demo. CTA metadata is included in payload data (actionUrl + actions) for your own native handling. This example opens actionUrl when the notification is tapped.',
+                'Note: Android uses FCM and iOS uses APNs in this demo. CTA metadata is included in payload data (actionUrl + actions) for your own native handling. This example opens actionUrl when the notification is tapped.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),

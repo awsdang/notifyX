@@ -5,6 +5,7 @@
  */
 
 import type { PushProvider, PushMessage, PushResult, PushErrorCode } from './types';
+import { connect, constants } from 'node:http2';
 
 interface APNSConfig {
     keyId: string;
@@ -105,7 +106,7 @@ export class APNSProvider implements PushProvider {
 
         try {
             const jwt = await this.getJWT();
-            const url = `${this.getBaseUrl()}/3/device/${message.token}`;
+            const path = `/3/device/${message.token}`;
             const normalizedData: Record<string, string> = {};
 
             for (const [key, value] of Object.entries(message.data || {})) {
@@ -148,31 +149,98 @@ export class APNSProvider implements PushProvider {
                 ...normalizedData,
                 ...(message.image && { image: message.image }),
             };
+            const baseUrl = this.getBaseUrl();
+            const payload = JSON.stringify(apnsPayload);
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${jwt}`,
-                    'apns-topic': this.config.bundleId,
+            return await new Promise<PushResult>((resolve) => {
+                const client = connect(baseUrl);
+                let resolved = false;
+
+                const done = (result: PushResult) => {
+                    if (resolved) return;
+                    resolved = true;
+                    try {
+                        client.close();
+                    } catch {
+                        // Ignore close errors
+                    }
+                    resolve(result);
+                };
+
+                client.on('error', (error) => {
+                    done({
+                        success: false,
+                        error: error instanceof Error ? error.message : 'APNS HTTP/2 connection error',
+                        errorCode: 'UNKNOWN',
+                        shouldRetry: true,
+                        invalidToken: false,
+                    });
+                });
+
+                const req = client.request({
+                    [constants.HTTP2_HEADER_METHOD]: 'POST',
+                    [constants.HTTP2_HEADER_PATH]: path,
+                    authorization: `bearer ${jwt}`,
+                    'apns-topic': this.config!.bundleId,
                     'apns-push-type': 'alert',
                     'apns-priority': '10',
                     'apns-expiration': '0',
-                },
-                body: JSON.stringify(apnsPayload),
+                    'content-type': 'application/json',
+                });
+
+                let status = 0;
+                let apnsId: string | undefined;
+                let rawBody = '';
+
+                req.setEncoding('utf8');
+
+                req.on('response', (headers) => {
+                    const statusHeader = headers[constants.HTTP2_HEADER_STATUS];
+                    status = typeof statusHeader === 'number' ? statusHeader : Number(statusHeader || 0);
+                    const idHeader = headers['apns-id'];
+                    apnsId = Array.isArray(idHeader) ? idHeader[0] : idHeader;
+                });
+
+                req.on('data', (chunk) => {
+                    rawBody += chunk;
+                });
+
+                req.on('end', () => {
+                    if (status >= 200 && status < 300) {
+                        done({
+                            success: true,
+                            messageId: apnsId,
+                            shouldRetry: false,
+                            invalidToken: false,
+                        });
+                        return;
+                    }
+
+                    let reason: string | undefined;
+                    if (rawBody) {
+                        try {
+                            const parsed = JSON.parse(rawBody) as { reason?: string };
+                            reason = parsed.reason;
+                        } catch {
+                            reason = rawBody;
+                        }
+                    }
+
+                    done(this.handleError(status || 502, reason));
+                });
+
+                req.on('error', (error) => {
+                    done({
+                        success: false,
+                        error: error instanceof Error ? error.message : 'APNS request error',
+                        errorCode: 'UNKNOWN',
+                        shouldRetry: true,
+                        invalidToken: false,
+                    });
+                });
+
+                req.end(payload);
             });
-
-            if (response.ok) {
-                const apnsId = response.headers.get('apns-id');
-                return {
-                    success: true,
-                    messageId: apnsId || undefined,
-                    shouldRetry: false,
-                    invalidToken: false,
-                };
-            }
-
-            const errorData = await response.json() as { reason?: string };
-            return this.handleError(response.status, errorData.reason);
 
         } catch (error) {
             return {
