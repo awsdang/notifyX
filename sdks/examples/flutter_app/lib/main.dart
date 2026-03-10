@@ -312,14 +312,30 @@ class _DemoHomePageState extends State<DemoHomePage> {
           );
         }
 
-        final settings = await FirebaseMessaging.instance.requestPermission();
-        final enabled =
-            settings.authorizationStatus == AuthorizationStatus.authorized ||
-            settings.authorizationStatus == AuthorizationStatus.provisional;
-        if (!enabled) {
-          return _PushTokenResult.error(
-            'Notification permission denied on ${Platform.isIOS ? 'iOS' : 'Android'}.',
-          );
+        final settings = await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+          provisional: false,
+        );
+
+        if (Platform.isIOS) {
+          final hasAlerts = settings.alert == AppleNotificationSetting.enabled;
+          if (settings.authorizationStatus != AuthorizationStatus.authorized ||
+              !hasAlerts) {
+            return _PushTokenResult.error(
+              'iOS notifications are not fully enabled for alerts. Open iOS Settings > Notifications > NotifyX Demo and enable Allow Notifications + Banners + Sounds, then retry.',
+            );
+          }
+        } else {
+          final enabled =
+              settings.authorizationStatus == AuthorizationStatus.authorized ||
+              settings.authorizationStatus == AuthorizationStatus.provisional;
+          if (!enabled) {
+            return const _PushTokenResult.error(
+              'Notification permission denied on Android.',
+            );
+          }
         }
 
         final token = await _fetchFcmToken();
