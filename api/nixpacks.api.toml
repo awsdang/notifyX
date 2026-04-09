@@ -12,5 +12,3 @@ cmds = ["bun run db:generate", "bun run build"]
 
 [start]
 cmd = "sleep infinity"
-
-s
