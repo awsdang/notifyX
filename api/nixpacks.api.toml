@@ -11,4 +11,4 @@ cmds = ["bun install --frozen-lockfile"]
 cmds = ["bun run db:generate", "bun run build"]
 
 [start]
-cmd = "sleep infinity"
+cmd = "sh -c 'bunx prisma migrate deploy && bun run start'"
