@@ -1,6 +1,9 @@
 [variables]
 NODE_ENV = "production"
 
+[phases.setup]
+nixPkgs = ["...", "bun"]
+
 [phases.install]
 cmds = ["bun install --frozen-lockfile"]
 

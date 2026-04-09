@@ -3,6 +3,9 @@ NODE_ENV = "production"
 NIXPACKS_SPA_CADDY = "true"
 NIXPACKS_SPA_OUT_DIR = "dist"
 
+[phases.setup]
+nixPkgs = ["...", "bun"]
+
 [phases.install]
 cmds = ["bun install --frozen-lockfile"]
 
