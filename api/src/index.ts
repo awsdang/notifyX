@@ -123,16 +123,19 @@ function metricsAuth(
 }
 
 // Liveness endpoint (fast, no dependency checks)
-app.get("/health", (req, res) => {
+const healthHandler: express.RequestHandler = (req, res) => {
   sendSuccess(res, {
     status: "ok",
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || "1.0.0",
   });
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 // Readiness endpoint (dependency checks)
-app.get("/ready", async (req, res) => {
+const readyHandler: express.RequestHandler = async (req, res) => {
   const dbHealth = await checkDatabaseHealth();
 
   const redisHealth = env.REDIS_DISABLED
@@ -177,7 +180,10 @@ app.get("/ready", async (req, res) => {
     isReady ? 200 : 503,
     isReady ? "Ready" : "Not Ready",
   );
-});
+};
+
+app.get("/ready", readyHandler);
+app.get("/api/ready", readyHandler);
 
 // Metrics endpoint (for dashboards) — token protected
 app.get("/metrics", metricsAuth, async (req, res) => {
@@ -228,9 +234,13 @@ import {
 } from "./routes";
 
 // Documentation (no auth required - handled in authenticate middleware)
-app.get("/openapi.json", (req, res) => {
+const openApiHandler: express.RequestHandler = (req, res) => {
   res.json(getOpenApiSpec());
-});
+};
+
+app.get("/openapi.json", openApiHandler);
+app.get("/api/openapi.json", openApiHandler);
+
 app.use(
   "/docs",
   apiReference({
@@ -244,6 +254,22 @@ app.use(
   apiReference({
     spec: {
       url: "/openapi.json",
+    },
+  } as any),
+);
+app.use(
+  "/api/docs",
+  apiReference({
+    spec: {
+      url: "/api/openapi.json",
+    },
+  } as any),
+);
+app.use(
+  "/api/reference",
+  apiReference({
+    spec: {
+      url: "/api/openapi.json",
     },
   } as any),
 );
