@@ -1,0 +1,10 @@
+[variables]
+NODE_ENV = "production"
+NIXPACKS_SPA_CADDY = "true"
+NIXPACKS_SPA_OUT_DIR = "dist"
+
+[phases.install]
+cmds = ["bun install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["bun run build"]
