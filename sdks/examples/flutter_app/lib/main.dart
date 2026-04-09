@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:notifyx/notifyx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,7 +12,6 @@ const String _apiKey = 'nk_live_XxMcjTOgU4viSIQ0-rlIczDG3ZhWC6Ca';
 const String _baseUrl = 'https://iu8nuqgn5i0v.share.zrok.io';
 const String _manualPushToken = '';
 const String _manualProvider = 'fcm';
-const MethodChannel _apnsChannel = MethodChannel('notifyx/apns');
 bool _firebaseReady = false;
 
 void main() async {
@@ -100,6 +98,11 @@ class _DemoHomePageState extends State<DemoHomePage> {
 
   Future<void> _initializePage() async {
     await _loadState();
+    if (Platform.isIOS) {
+      await _setupApnsNotificationOpenHandler();
+      return;
+    }
+
     if (Platform.isAndroid) {
       final firebaseInitialized = await _ensureFirebaseInitialized();
       if (!firebaseInitialized) {
@@ -153,29 +156,24 @@ class _DemoHomePageState extends State<DemoHomePage> {
     return Platform.operatingSystem;
   }
 
-  Future<void> _openFromRemoteMessage(
-    RemoteMessage remoteMessage,
+  Future<void> _openFromActionPayload(
+    NotificationActionPayload payload,
     String source,
   ) async {
-    final opened = await _notifyX.openNotificationAction(
-      NotificationActionPayload(
-        data: Map<String, dynamic>.from(remoteMessage.data),
-      ),
-      (url) async {
-        final uri = Uri.tryParse(url);
-        if (uri == null) {
-          throw Exception('Invalid URL: $url');
-        }
+    final opened = await _notifyX.openNotificationAction(payload, (url) async {
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        throw Exception('Invalid URL: $url');
+      }
 
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        if (!launched) {
-          throw Exception('Could not launch URL: $url');
-        }
-      },
-    );
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw Exception('Could not launch URL: $url');
+      }
+    });
 
     if (!opened) {
       _setStatus('Notification opened from $source, but no actionUrl found.');
@@ -185,8 +183,30 @@ class _DemoHomePageState extends State<DemoHomePage> {
     _setStatus('Notification opened link from $source.');
   }
 
+  Future<void> _openFromRemoteMessage(
+    RemoteMessage remoteMessage,
+    String source,
+  ) async {
+    await _openFromActionPayload(
+      NotificationActionPayload(
+        data: Map<String, dynamic>.from(remoteMessage.data),
+      ),
+      source,
+    );
+  }
+
+  Future<void> _setupApnsNotificationOpenHandler() async {
+    if (!Platform.isIOS) {
+      return;
+    }
+
+    await _notifyX.configureApnsNotificationOpenHandler((payload) async {
+      await _openFromActionPayload(payload, 'ios_apns');
+    });
+  }
+
   Future<void> _setupNotificationOpenHandlers() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    if (!Platform.isAndroid) {
       return;
     }
 
@@ -279,13 +299,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
   }
 
   Future<String> _fetchApnsToken() async {
-    final token = await _apnsChannel.invokeMethod<String>('getApnsToken');
-    final normalized = token?.trim();
-    if (normalized == null || normalized.isEmpty) {
-      throw Exception('APNs token was empty.');
-    }
-
-    return normalized;
+    return _notifyX.getApnsToken();
   }
 
   Future<_PushTokenResult> _getPushTokenAndProvider() async {
@@ -526,7 +540,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Note: Android uses FCM and iOS uses APNs in this demo. CTA metadata is included in payload data (actionUrl + actions) for your own native handling. This example opens actionUrl when the notification is tapped.',
+                'Note: Android uses FCM and iOS uses APNS in this demo. Notification taps resolve CTA/default URLs and open them externally.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),

@@ -39,6 +39,9 @@
     "react-test-renderer": "19.2.3",
     "typescript": "^5.8.3"
   },
+  "overrides": {
+    "@types/react": "$@types/react"
+  },
   "engines": {
     "node": ">= 22.11.0"
   }

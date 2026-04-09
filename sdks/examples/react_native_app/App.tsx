@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,7 +10,9 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
+  NativeModules,
 } from 'react-native';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { getApp } from '@react-native-firebase/app';
 import {
   getMessaging,
@@ -20,11 +21,9 @@ import {
   onNotificationOpenedApp,
   onTokenRefresh,
   setAutoInitEnabled,
-  requestPermission,
-  AuthorizationStatus,
   type FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
-import { NotifyX } from '@notifyx/react-native';
+import { NotifyX, type NotificationActionPayload } from '@notifyx/react-native';
 
 // const APP_ID = 'YOUR_APP_ID';
 // const API_KEY = 'YOUR_API_KEY';
@@ -32,44 +31,17 @@ import { NotifyX } from '@notifyx/react-native';
 
 const APP_ID = '6feb573a-cff9-4759-84fb-3394ac538068';
 const API_KEY = 'nk_live_XxMcjTOgU4viSIQ0-rlIczDG3ZhWC6Ca';
-const BASE_URL = 'http://172.18.7.133:3000/'; // Android uses adb reverse tcp:3000 tcp:3000
-const MANUAL_PUSH_TOKEN = ''; // Optional fallback for manual testing.
+const BASE_URL = 'https://iu8nuqgn5i0v.share.zrok.io';
+const MANUAL_PUSH_TOKEN = '';
 const MANUAL_PROVIDER: 'fcm' | 'apns' | 'hms' = 'fcm';
 
-const toOptionalTrimmedString = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const resolveActionUrlFromData = (
-  data: Record<string, unknown> | undefined,
-): string | undefined => {
-  if (!data) return undefined;
-
-  const actionUrl = toOptionalTrimmedString(data.actionUrl);
-  if (actionUrl) return actionUrl;
-
-  const fallbackPrimary = toOptionalTrimmedString(data.actionUrl_open_link_primary);
-  if (fallbackPrimary) return fallbackPrimary;
-
-  const rawActions = toOptionalTrimmedString(data.actions);
-  if (!rawActions) return undefined;
-
-  try {
-    const parsed = JSON.parse(rawActions);
-    if (!Array.isArray(parsed)) return undefined;
-    for (const item of parsed) {
-      if (!item || typeof item !== 'object') continue;
-      const url = toOptionalTrimmedString((item as { url?: unknown }).url);
-      if (url) return url;
+type PushTokenResult =
+  | {
+      token: string;
+      provider: 'fcm' | 'apns' | 'hms';
+      errorMessage?: undefined;
     }
-  } catch {
-    // Ignore malformed actions payload.
-  }
-
-  return undefined;
-};
+  | { token?: undefined; provider?: undefined; errorMessage: string };
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -77,13 +49,15 @@ function App(): React.JSX.Element {
   const [status, setStatus] = useState<string>('Not initialized');
   const [sdkState, setSdkState] = useState<Record<string, any> | null>(null);
 
-  // Initialize SDK instance
-  const notifyX = new NotifyX({
-    appId: APP_ID,
-    baseUrl: BASE_URL,
-    apiKey: API_KEY,
-    debug: true,
-  });
+  const notifyXRef = useRef(
+    new NotifyX({
+      appId: APP_ID,
+      baseUrl: BASE_URL,
+      apiKey: API_KEY,
+      debug: true,
+    }),
+  );
+  const notifyX = notifyXRef.current;
 
   const loadState = async () => {
     const state = await notifyX.getState();
@@ -95,42 +69,63 @@ function App(): React.JSX.Element {
     }
   };
 
-  useEffect(() => {
-    loadState();
-  }, []);
+  const platformValue = (): string => {
+    if (Platform.OS === 'ios') return 'ios';
+    if (Platform.OS === 'android') return 'android';
+    return Platform.OS;
+  };
 
-  useEffect(() => {
-    if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+  const openFromActionPayload = async (
+    payload: NotificationActionPayload,
+    source: string,
+  ) => {
+    const opened = await notifyX.openNotificationAction(
+      payload,
+      async (url: string) => {
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+          throw new Error(`Could not launch URL: ${url}`);
+        }
+        await Linking.openURL(url);
+      },
+    );
+
+    if (!opened) {
+      setStatus(`Notification opened from ${source}, but no actionUrl found.`);
       return;
     }
 
-    const app = getApp();
-    const messaging = getMessaging(app);
+    setStatus(`Notification opened link from ${source}.`);
+  };
 
-    const openFromRemoteMessage = async (
-      remoteMessage: FirebaseMessagingTypes.RemoteMessage,
-      source: 'background' | 'cold_start',
-    ) => {
-      const url = resolveActionUrlFromData(
-        remoteMessage?.data as Record<string, unknown> | undefined,
-      );
+  const openFromRemoteMessage = async (
+    remoteMessage: FirebaseMessagingTypes.RemoteMessage,
+    source: string,
+  ) => {
+    await openFromActionPayload(
+      { data: remoteMessage.data as Record<string, unknown> | undefined },
+      source,
+    );
+  };
 
-      if (!url) {
-        setStatus(`Notification opened from ${source}, but no actionUrl found.`);
-        return;
-      }
+  useEffect(() => {
+    void loadState();
+  }, []);
 
-      try {
-        await Linking.openURL(url);
-        setStatus(`Notification opened link from ${source}: ${url}`);
-      } catch (error: any) {
-        setStatus(
-          `Failed to open notification URL (${source}): ${
-            error?.message || 'Unknown error'
-          }`,
-        );
-      }
-    };
+  // Android-only: notification open handlers (cold start + background)
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    let app: ReturnType<typeof getApp>;
+    let messaging: ReturnType<typeof getMessaging>;
+    try {
+      app = getApp();
+      messaging = getMessaging(app);
+    } catch {
+      return;
+    }
 
     getInitialNotification(messaging)
       .then(initialMessage => {
@@ -149,13 +144,20 @@ function App(): React.JSX.Element {
     return unsubscribe;
   }, []);
 
+  // Android-only: token refresh handler
   useEffect(() => {
-    if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    if (Platform.OS !== 'android') {
       return;
     }
 
-    const app = getApp();
-    const messaging = getMessaging(app);
+    let app: ReturnType<typeof getApp>;
+    let messaging: ReturnType<typeof getMessaging>;
+    try {
+      app = getApp();
+      messaging = getMessaging(app);
+    } catch {
+      return;
+    }
 
     const unsubscribe = onTokenRefresh(messaging, async token => {
       try {
@@ -173,7 +175,7 @@ function App(): React.JSX.Element {
         await notifyX.registerDevice({
           userId: state.userId,
           pushToken: normalized,
-          platform: Platform.OS as 'ios' | 'android',
+          platform: platformValue() as 'ios' | 'android',
           provider: 'fcm',
         });
         await loadState();
@@ -221,28 +223,60 @@ function App(): React.JSX.Element {
     throw new Error('FCM token was empty after retries.');
   };
 
-  type PushTokenResult =
-    | {
-        token: string;
-        provider: 'fcm' | 'apns' | 'hms';
+  const fetchApnsToken = async (): Promise<string> => {
+    const { ApnsToken } = NativeModules;
+    if (!ApnsToken) {
+      throw new Error(
+        'ApnsToken native module not available. Ensure ApnsTokenModule.m is in the Xcode project.',
+      );
+    }
+
+    let lastError: unknown;
+    const retryDelaysMs = [0, 1500, 3000, 5000];
+
+    for (const delayMs of retryDelaysMs) {
+      if (delayMs > 0) {
+        await new Promise<void>(resolve => setTimeout(resolve, delayMs));
       }
-    | {
-        errorMessage: string;
-      };
+
+      try {
+        const token: string = await ApnsToken.getToken();
+        const normalized = token?.trim();
+        if (normalized) {
+          return normalized;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+
+    throw new Error('APNs token was empty after retries.');
+  };
 
   const getPushTokenAndProvider = async (): Promise<PushTokenResult> => {
     try {
-      if (MANUAL_PUSH_TOKEN.trim()) {
-        return { token: MANUAL_PUSH_TOKEN.trim(), provider: MANUAL_PROVIDER };
+      const manualToken = MANUAL_PUSH_TOKEN.trim();
+      if (manualToken) {
+        return { token: manualToken, provider: MANUAL_PROVIDER };
       }
 
-      if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      if (Platform.OS === 'ios') {
+        const token = await fetchApnsToken();
+        console.log('APNS token fetched:', token);
+        return { token, provider: 'apns' };
+      }
+
+      if (Platform.OS === 'android') {
         const version =
           typeof Platform.Version === 'number'
             ? Platform.Version
             : Number(Platform.Version);
 
-        if (Platform.OS === 'android' && version >= 33) {
+        if (version >= 33) {
           const permission = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
           );
@@ -253,48 +287,42 @@ function App(): React.JSX.Element {
           }
         }
 
-        if (Platform.OS === 'ios') {
-          const app = getApp();
-          const messaging = getMessaging(app);
-          const authStatus = await requestPermission(messaging);
-          const enabled =
-            authStatus === AuthorizationStatus.AUTHORIZED ||
-            authStatus === AuthorizationStatus.PROVISIONAL;
-          if (!enabled) {
-            return { errorMessage: 'Notification permission denied on iOS.' };
-          }
-        }
-
         const token = await fetchFcmToken();
         if (!token) {
           return { errorMessage: 'Failed to fetch FCM token.' };
         }
+
         console.log('FCM token fetched:', token);
         return { token, provider: 'fcm' };
       }
 
       return { errorMessage: `Unsupported platform: ${Platform.OS}` };
     } catch (error: any) {
-      if (Platform.OS === 'android') {
-        const message = String(error?.message || 'Unknown error');
-        if (message.includes('SERVICE_NOT_AVAILABLE')) {
-          console.warn('Failed to get token', error);
-          return {
-            errorMessage:
-              'FCM unavailable (SERVICE_NOT_AVAILABLE). Use a Play Store emulator or a real device with Google Play Services + internet, then retry.',
-          };
-        }
+      const message = String(error?.message || 'Unknown error');
 
+      if (
+        Platform.OS === 'android' &&
+        message.includes('SERVICE_NOT_AVAILABLE')
+      ) {
         return {
-          errorMessage: `Android FCM setup error: ${
-            error?.message || 'Unknown error'
-          }. Verify google-services.json and Firebase Cloud Messaging setup.`,
+          errorMessage:
+            'FCM unavailable (SERVICE_NOT_AVAILABLE). Use a Play Store emulator or a real device with Google Play Services + internet, then retry.',
         };
       }
 
-      return {
-        errorMessage: String(error?.message || 'Failed to get push token'),
-      };
+      if (Platform.OS === 'android') {
+        return {
+          errorMessage: `Android FCM setup error: ${message}. Verify google-services.json and Firebase Cloud Messaging setup.`,
+        };
+      }
+
+      if (Platform.OS === 'ios') {
+        return {
+          errorMessage: `iOS APNs setup error: ${message}. Verify Push Notifications capability, valid provisioning profile, and APNs key/certificate in Apple Developer account.`,
+        };
+      }
+
+      return { errorMessage: `Failed to get push token: ${message}` };
     }
   };
 
@@ -303,7 +331,8 @@ function App(): React.JSX.Element {
     try {
       const tokenResult = await getPushTokenAndProvider();
       const externalUserId = `demo-user-${Date.now()}`;
-      if (!('token' in tokenResult)) {
+
+      if (!tokenResult.token) {
         await notifyX.init({ externalUserId });
         await loadState();
         setStatus(`SDK initialized (user only). ${tokenResult.errorMessage}`);
@@ -313,7 +342,7 @@ function App(): React.JSX.Element {
       await notifyX.init({
         externalUserId,
         pushToken: tokenResult.token,
-        platform: Platform.OS as 'ios' | 'android' | 'huawei',
+        platform: platformValue() as 'ios' | 'android' | 'huawei',
         provider: tokenResult.provider,
       });
 
@@ -359,69 +388,70 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.background,
-        isDarkMode ? styles.darkBackground : styles.lightBackground,
-      ]}
-    >
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.scrollContent}
+    <SafeAreaProvider>
+      <SafeAreaView
+        style={[
+          styles.background,
+          isDarkMode ? styles.darkBackground : styles.lightBackground,
+        ]}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>NotifyX Demo</Text>
-        </View>
-
-        <View style={styles.container}>
-          <View style={styles.statusBox}>
-            <Text style={styles.statusLabel}>Status:</Text>
-            <Text style={styles.statusText}>{status}</Text>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>NotifyX Demo</Text>
           </View>
 
-          {sdkState && (
-            <View style={styles.stateBox}>
-              <Text style={styles.stateLabel}>Current SDK State:</Text>
-              <Text style={styles.stateContent}>
-                {JSON.stringify(sdkState, null, 2)}
-              </Text>
+          <View style={styles.container}>
+            <View style={styles.statusBox}>
+              <Text style={styles.statusLabel}>Status:</Text>
+              <Text style={styles.statusText}>{status}</Text>
             </View>
-          )}
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleInit}>
-            <Text style={styles.buttonText}>
-              Initialize SDK (Registers User & Device)
+            {sdkState && (
+              <View style={styles.stateBox}>
+                <Text style={styles.stateLabel}>Current SDK State:</Text>
+                <Text style={styles.stateContent}>
+                  {JSON.stringify(sdkState, null, 2)}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.primaryButton} onPress={handleInit}>
+              <Text style={styles.buttonText}>
+                Initialize SDK (Registers User & Device)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                (!sdkState || !sdkState.deviceId) && styles.disabledButton,
+              ]}
+              onPress={handleTestPush}
+              disabled={!sdkState || !sdkState.deviceId}
+            >
+              <Text style={styles.buttonText}>Send Test Notification</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleClearState}
+            >
+              <Text style={styles.secondaryButtonText}>Clear Local State</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.noteText}>
+              Note: Android uses FCM and iOS uses APNS in this demo.
+              Notification taps resolve CTA/default URLs and open them
+              externally.
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              (!sdkState || !sdkState.deviceId) && styles.disabledButton,
-            ]}
-            onPress={handleTestPush}
-            disabled={!sdkState || !sdkState.deviceId}
-          >
-            <Text style={styles.buttonText}>Send Test Notification</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleClearState}
-          >
-            <Text style={styles.secondaryButtonText}>Clear Local State</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.noteText}>
-            Note: iOS and Android both use FCM in this demo. CTA metadata is
-            included in payload data (actionUrl + actions) for your own native
-            handling. This example opens `actionUrl` when the notification is
-            tapped.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

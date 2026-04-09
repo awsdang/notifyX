@@ -2,6 +2,7 @@ library notifyx;
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'src/api_client.dart';
 import 'src/state_manager.dart';
 import 'src/models.dart';
@@ -9,6 +10,8 @@ import 'src/models.dart';
 export 'src/models.dart';
 
 class NotifyX {
+  static const MethodChannel _apnsChannel = MethodChannel('notifyx/apns');
+
   final String appId;
   final String baseUrl;
   final String apiKey;
@@ -57,48 +60,142 @@ class NotifyX {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  Map<String, dynamic> _toStringKeyedMap(Map<dynamic, dynamic> source) {
+    final result = <String, dynamic>{};
+    source.forEach((key, value) {
+      final normalizedKey = key.toString();
+      if (value is Map) {
+        result[normalizedKey] = _toStringKeyedMap(value);
+      } else if (value is List) {
+        result[normalizedKey] = value.map(_normalizeValue).toList();
+      } else {
+        result[normalizedKey] = value;
+      }
+    });
+    return result;
+  }
+
+  dynamic _normalizeValue(dynamic value) {
+    if (value is Map) return _toStringKeyedMap(value);
+    if (value is List) return value.map(_normalizeValue).toList();
+    return value;
+  }
+
+  List<Map<String, dynamic>> _candidateDataMaps(Map<String, dynamic> data) {
+    final maps = <Map<String, dynamic>>[data];
+    final nestedData = data['data'];
+    if (nestedData is Map) {
+      maps.add(_toStringKeyedMap(nestedData));
+    }
+    return maps;
+  }
+
+  NotificationActionPayload? _parseActionPayload(dynamic rawPayload) {
+    if (rawPayload is! Map) return null;
+    final payloadMap = _toStringKeyedMap(rawPayload);
+    final actionId = _toOptionalTrimmedString(payloadMap['actionId']);
+
+    final nestedData = payloadMap['data'];
+    if (nestedData is Map) {
+      return NotificationActionPayload(
+        data: _toStringKeyedMap(nestedData),
+        actionId: actionId,
+      );
+    }
+
+    return NotificationActionPayload(
+      data: payloadMap,
+      actionId: actionId,
+    );
+  }
+
+  /// Fetches APNs token from the iOS bridge (`notifyx/apns` channel).
+  Future<String> getApnsToken() async {
+    if (kIsWeb) {
+      throw UnsupportedError('APNs token is only available on iOS.');
+    }
+
+    final token = await _apnsChannel.invokeMethod<String>('getApnsToken');
+    final normalized = token?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      throw Exception('APNs token was empty.');
+    }
+    return normalized;
+  }
+
+  /// Registers a callback for APNs notification-open events on iOS.
+  ///
+  /// This listens for future events and also consumes a pending cold-start
+  /// open event (if the app was launched by tapping a notification).
+  Future<void> configureApnsNotificationOpenHandler(
+    Future<void> Function(NotificationActionPayload payload) onOpen,
+  ) async {
+    if (kIsWeb) return;
+
+    _apnsChannel.setMethodCallHandler((call) async {
+      if (call.method != 'notificationOpened') return;
+      final payload = _parseActionPayload(call.arguments);
+      if (payload == null) return;
+      await onOpen(payload);
+    });
+
+    final pending = await _apnsChannel.invokeMethod<dynamic>(
+      'consumeInitialNotificationOpen',
+    );
+    final payload = _parseActionPayload(pending);
+    if (payload != null) {
+      await onOpen(payload);
+    }
+  }
+
   String? resolveNotificationActionUrl(NotificationActionPayload? payload) {
     final data = payload?.data;
     if (data == null) return null;
 
     final actionId = _toOptionalTrimmedString(payload?.actionId);
-    if (actionId != null) {
-      final actionSpecificUrl =
-          _toOptionalTrimmedString(data['actionUrl_$actionId']);
-      if (actionSpecificUrl != null) return actionSpecificUrl;
-    }
-
-    final defaultActionUrl = _toOptionalTrimmedString(data['actionUrl']);
-    if (defaultActionUrl != null) return defaultActionUrl;
-
-    final fallbackPrimary =
-        _toOptionalTrimmedString(data['actionUrl_open_link_primary']);
-    if (fallbackPrimary != null) return fallbackPrimary;
-
-    final rawActions = _toOptionalTrimmedString(data['actions']);
-    if (rawActions == null) return null;
-
-    try {
-      final parsed = jsonDecode(rawActions);
-      if (parsed is! List) return null;
-
-      for (final item in parsed) {
-        if (item is! Map) continue;
-        final action = Map<String, dynamic>.from(item);
-
-        if (actionId != null) {
-          final parsedActionId = _toOptionalTrimmedString(action['action']);
-          final parsedActionUrl = _toOptionalTrimmedString(action['url']);
-          if (parsedActionId == actionId && parsedActionUrl != null) {
-            return parsedActionUrl;
-          }
-        }
-
-        final firstUrl = _toOptionalTrimmedString(action['url']);
-        if (firstUrl != null) return firstUrl;
+    for (final candidate in _candidateDataMaps(data)) {
+      if (actionId != null) {
+        final actionSpecificUrl =
+            _toOptionalTrimmedString(candidate['actionUrl_$actionId']) ??
+                _toOptionalTrimmedString(candidate['url_$actionId']);
+        if (actionSpecificUrl != null) return actionSpecificUrl;
       }
-    } catch (_) {
-      // Ignore malformed actions payload.
+
+      final defaultActionUrl =
+          _toOptionalTrimmedString(candidate['actionUrl']) ??
+              _toOptionalTrimmedString(candidate['url']);
+      if (defaultActionUrl != null) return defaultActionUrl;
+
+      final fallbackPrimary =
+          _toOptionalTrimmedString(candidate['actionUrl_open_link_primary']) ??
+              _toOptionalTrimmedString(candidate['url_open_link_primary']);
+      if (fallbackPrimary != null) return fallbackPrimary;
+
+      final rawActions = _toOptionalTrimmedString(candidate['actions']);
+      if (rawActions == null) continue;
+
+      try {
+        final parsed = jsonDecode(rawActions);
+        if (parsed is! List) continue;
+
+        for (final item in parsed) {
+          if (item is! Map) continue;
+          final action = Map<String, dynamic>.from(item);
+
+          if (actionId != null) {
+            final parsedActionId = _toOptionalTrimmedString(action['action']);
+            final parsedActionUrl = _toOptionalTrimmedString(action['url']);
+            if (parsedActionId == actionId && parsedActionUrl != null) {
+              return parsedActionUrl;
+            }
+          }
+
+          final firstUrl = _toOptionalTrimmedString(action['url']);
+          if (firstUrl != null) return firstUrl;
+        }
+      } catch (_) {
+        // Ignore malformed actions payload.
+      }
     }
 
     return null;

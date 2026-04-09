@@ -70,3 +70,21 @@ await notifyX.openNotificationAction(
   },
 );
 ```
+
+## iOS APNS Open Handling
+
+When using APNS directly on iOS, wire the SDK's APNS bridge:
+
+```dart
+await notifyX.configureApnsNotificationOpenHandler((payload) async {
+  await notifyX.openNotificationAction(payload, (url) async {
+    // Open URL in browser/app
+  });
+});
+```
+
+Fetch APNS token from the same bridge:
+
+```dart
+final apnsToken = await notifyX.getApnsToken();
+```

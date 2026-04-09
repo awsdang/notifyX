@@ -116,6 +116,13 @@ export class APNSProvider implements PushProvider {
 
             if (message.actionUrl) {
                 normalizedData.actionUrl = message.actionUrl;
+                if (!normalizedData.url) {
+                    normalizedData.url = message.actionUrl;
+                }
+            }
+
+            if (message.image) {
+                normalizedData.image = message.image;
             }
 
             const safeActions = (message.actions || [])
@@ -133,8 +140,10 @@ export class APNSProvider implements PushProvider {
 
             for (const action of safeActions) {
                 normalizedData[`actionUrl_${action.action}`] = action.url;
+                normalizedData[`url_${action.action}`] = action.url;
             }
 
+            const hasNormalizedData = Object.keys(normalizedData).length > 0;
             const apnsPayload = {
                 aps: {
                     alert: {
@@ -147,6 +156,7 @@ export class APNSProvider implements PushProvider {
                     ...(safeActions.length > 0 ? { category: 'notifyx-open-links' } : {}),
                 },
                 ...normalizedData,
+                ...(hasNormalizedData ? { data: normalizedData } : {}),
                 ...(message.image && { image: message.image }),
             };
             const baseUrl = this.getBaseUrl();

@@ -7,16 +7,38 @@ import UserNotifications
   private var pendingApnsResult: FlutterResult?
   private var cachedApnsToken: String?
   private var apnsChannel: FlutterMethodChannel?
+  private var pendingNotificationOpen: [String: Any]?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self
+    configureNotifyXCategories()
 
     GeneratedPluginRegistrant.register(with: self)
     setupApnsChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func configureNotifyXCategories() {
+    let primary = UNNotificationAction(
+      identifier: "open_link_primary",
+      title: "Open",
+      options: [.foreground]
+    )
+    let secondary = UNNotificationAction(
+      identifier: "open_link_secondary",
+      title: "More",
+      options: [.foreground]
+    )
+    let category = UNNotificationCategory(
+      identifier: "notifyx-open-links",
+      actions: [primary, secondary],
+      intentIdentifiers: [],
+      options: []
+    )
+    UNUserNotificationCenter.current().setNotificationCategories([category])
   }
 
   private func setupApnsChannel() {
@@ -44,6 +66,8 @@ import UserNotifications
       switch call.method {
       case "getApnsToken":
         self.getApnsToken(result: result)
+      case "consumeInitialNotificationOpen":
+        result(self.consumeInitialNotificationOpen())
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -184,11 +208,75 @@ import UserNotifications
     result(error)
   }
 
+  private func consumeInitialNotificationOpen() -> [String: Any]? {
+    let pending = pendingNotificationOpen
+    pendingNotificationOpen = nil
+    return pending
+  }
+
+  private func normalizeDictionary(_ dictionary: [AnyHashable: Any]) -> [String: Any] {
+    var normalized: [String: Any] = [:]
+    for (key, value) in dictionary {
+      normalized[String(describing: key)] = normalizeValue(value)
+    }
+    return normalized
+  }
+
+  private func normalizeValue(_ value: Any) -> Any {
+    if let dictionary = value as? [AnyHashable: Any] {
+      return normalizeDictionary(dictionary)
+    }
+
+    if let array = value as? [Any] {
+      return array.map { normalizeValue($0) }
+    }
+
+    if let url = value as? URL {
+      return url.absoluteString
+    }
+
+    if let data = value as? Data {
+      return data.base64EncodedString()
+    }
+
+    if value is String || value is NSNumber || value is NSNull {
+      return value
+    }
+
+    return String(describing: value)
+  }
+
+  private func publishNotificationOpen(
+    userInfo: [AnyHashable: Any],
+    actionId: String
+  ) {
+    let payload: [String: Any] = [
+      "actionId": actionId,
+      "data": normalizeDictionary(userInfo),
+    ]
+
+    pendingNotificationOpen = payload
+    apnsChannel?.invokeMethod("notificationOpened", arguments: payload)
+  }
+
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     completionHandler([.banner, .list, .sound, .badge])
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    publishNotificationOpen(
+      userInfo: response.notification.request.content.userInfo,
+      actionId: response.actionIdentifier
+    )
+
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
   }
 }
