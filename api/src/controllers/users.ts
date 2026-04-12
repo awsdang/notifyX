@@ -16,6 +16,12 @@ const normalizeNickname = (nickname?: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const isMissingUpsertConstraintError = (error: unknown): boolean => {
+  const err = error as { message?: string } | undefined;
+  const message = err?.message?.toLowerCase() || "";
+  return message.includes("no unique or exclusion constraint matching the on conflict specification");
+};
+
 // Get users with pagination and filtering
 export const getUsers = async (
   req: Request,
@@ -473,28 +479,69 @@ export const registerDevice = async (
       );
     }
 
-    const device = await prisma.device.upsert({
-      where: {
-        tokenHash_provider: {
+    let device;
+    try {
+      device = await prisma.device.upsert({
+        where: {
+          tokenHash_provider: {
+            tokenHash: tokenHashed,
+            provider: data.provider,
+          },
+        },
+        update: {
+          userId: data.userId, // Reassign
+          pushToken: encryptedPushToken,
+          isActive: true,
+          lastSeenAt: new Date(),
+        },
+        create: {
+          userId: data.userId,
+          platform: data.platform,
+          pushToken: encryptedPushToken,
+          tokenHash: tokenHashed,
+          provider: data.provider,
+          isActive: true,
+        },
+      });
+    } catch (error) {
+      if (!isMissingUpsertConstraintError(error)) {
+        throw error;
+      }
+
+      // Fallback for environments where the unique(token_hash, provider)
+      // constraint has not been applied yet.
+      const existing = await prisma.device.findFirst({
+        where: {
           tokenHash: tokenHashed,
           provider: data.provider,
         },
-      },
-      update: {
-        userId: data.userId, // Reassign
-        pushToken: encryptedPushToken,
-        isActive: true,
-        lastSeenAt: new Date(),
-      },
-      create: {
-        userId: data.userId,
-        platform: data.platform,
-        pushToken: encryptedPushToken,
-        tokenHash: tokenHashed,
-        provider: data.provider,
-        isActive: true,
-      },
-    });
+        select: { id: true },
+      });
+
+      if (existing) {
+        device = await prisma.device.update({
+          where: { id: existing.id },
+          data: {
+            userId: data.userId,
+            platform: data.platform,
+            pushToken: encryptedPushToken,
+            isActive: true,
+            lastSeenAt: new Date(),
+          },
+        });
+      } else {
+        device = await prisma.device.create({
+          data: {
+            userId: data.userId,
+            platform: data.platform,
+            pushToken: encryptedPushToken,
+            tokenHash: tokenHashed,
+            provider: data.provider,
+            isActive: true,
+          },
+        });
+      }
+    }
 
     // Return device without exposing encrypted token
     sendSuccess(res, {
