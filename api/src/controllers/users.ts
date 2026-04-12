@@ -5,7 +5,7 @@ import {
   registerDeviceSchema,
   updateUserNicknameSchema,
 } from "../schemas/users";
-import { sendSuccess } from "../utils/response";
+import { AppError, sendSuccess } from "../utils/response";
 import { hashToken, encryptToken } from "../utils/crypto";
 import { canAccessAppId } from "../middleware/tenantScope";
 import { invalidateCache } from "../middleware/cacheMiddleware";
@@ -425,9 +425,53 @@ export const registerDevice = async (
   try {
     const data = registerDeviceSchema.parse(req.body);
 
+    // Ensure target user exists and belongs to an accessible app.
+    const user = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: {
+        id: true,
+        appId: true,
+        deletedAt: true,
+        app: { select: { isKilled: true } },
+      },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new AppError(404, "User not found", "USER_NOT_FOUND");
+    }
+
+    if (!canAccessAppId(req, user.appId)) {
+      throw new AppError(404, "User not found", "USER_NOT_FOUND");
+    }
+
+    if (req.machineAuth && req.machineAuth.appId !== user.appId) {
+      throw new AppError(
+        403,
+        "API key is not scoped to this app",
+        "FORBIDDEN",
+      );
+    }
+
+    if (user.app?.isKilled) {
+      throw new AppError(
+        403,
+        "App is disabled. Cannot register devices.",
+        "APP_KILLED",
+      );
+    }
+
     // Hash token for lookups, encrypt for storage — never store raw
     const tokenHashed = hashToken(data.pushToken);
-    const encryptedPushToken = encryptToken(data.pushToken);
+    let encryptedPushToken: string;
+    try {
+      encryptedPushToken = encryptToken(data.pushToken);
+    } catch {
+      throw new AppError(
+        500,
+        "Server encryption configuration invalid",
+        "ENCRYPTION_CONFIG_INVALID",
+      );
+    }
 
     const device = await prisma.device.upsert({
       where: {
@@ -463,6 +507,19 @@ export const registerDevice = async (
       createdAt: device.createdAt,
     });
   } catch (error) {
+    const err = error as { code?: string } | undefined;
+    if (err?.code === "P2003") {
+      return next(new AppError(400, "Invalid userId", "INVALID_USER_ID"));
+    }
+    if (err?.code === "P2002") {
+      return next(
+        new AppError(
+          409,
+          "Device with this token/provider already exists",
+          "DEVICE_CONFLICT",
+        ),
+      );
+    }
     next(error);
   }
 };

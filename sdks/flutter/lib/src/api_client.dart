@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class NotifyXApiClient {
@@ -8,16 +9,24 @@ class NotifyXApiClient {
   NotifyXApiClient({required String baseUrl, required this.apiKey})
     : baseUrl = baseUrl.replaceAll(RegExp(r'/$'), '');
 
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[NotifyX API] $message');
+    }
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     required Map<String, dynamic> body,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
+    _log('POST $uri body=$body');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json', 'x-api-key': apiKey},
       body: jsonEncode(body),
     );
+    _log('RESPONSE status=${response.statusCode} uri=$uri body=${response.body}');
 
     Map<String, dynamic> jsonResponse;
     try {
