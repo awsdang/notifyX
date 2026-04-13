@@ -30,71 +30,26 @@ function parseEndpoint(rawEndpoint: string): {
     };
   }
 
-  // Allow values like "minio/" or "storage.example.com/path".
-  return { endPoint: trimmed.split("/")[0] || "localhost" };
-}
-
-function getHostnameFromUrl(urlValue?: string): string | undefined {
-  if (!urlValue?.trim()) {
-    return undefined;
-  }
-
-  try {
-    return new URL(urlValue.trim()).hostname;
-  } catch {
-    return undefined;
-  }
+  return { endPoint: trimmed };
 }
 
 function buildStorageConfig(): StorageConfig {
   const endpointInput = process.env.MINIO_ENDPOINT || "localhost";
   const parsedEndpoint = parseEndpoint(endpointInput);
-  const runningInContainer = isRunningInContainer();
 
   let endPoint = parsedEndpoint.endPoint || "localhost";
-  if (!runningInContainer && endPoint === "minio") {
+  if (!isRunningInContainer() && endPoint === "minio") {
     // `minio` is usually only resolvable inside a compose network.
     // Fall back to localhost for host-run API processes.
     endPoint = "localhost";
   }
 
-  const assetPublicHost = getHostnameFromUrl(process.env.ASSET_PUBLIC_BASE_URL);
-  const disableInternalFallback =
-    (process.env.MINIO_DISABLE_INTERNAL_FALLBACK || "false") === "true";
-  const shouldUseInternalApiFallback =
-    runningInContainer &&
-    !disableInternalFallback &&
-    !!assetPublicHost &&
-    endPoint === assetPublicHost;
-
-  if (shouldUseInternalApiFallback) {
-    // If MINIO_ENDPOINT points to the public asset host from inside a container,
-    // prefer internal API service networking to avoid console/proxy endpoint mixups.
-    endPoint = process.env.MINIO_INTERNAL_ENDPOINT || "minio";
-  }
-
-  const rawPort = process.env.MINIO_PORT?.trim();
-  const envPort = rawPort ? Number(rawPort) : undefined;
-  const internalPortRaw = process.env.MINIO_INTERNAL_PORT?.trim();
-  const internalPort = internalPortRaw ? Number(internalPortRaw) : 9000;
-  const internalUseSSL =
-    (process.env.MINIO_INTERNAL_USE_SSL || "false") === "true";
-  const fallbackPortByProtocol =
-    parsedEndpoint.useSSL === true
-      ? 443
-      : parsedEndpoint.useSSL === false
-        ? 80
-        : undefined;
-
   return {
     endPoint,
-    port: shouldUseInternalApiFallback
-      ? internalPort
-      : parsedEndpoint.port || envPort || fallbackPortByProtocol || 9000,
-    useSSL: shouldUseInternalApiFallback
-      ? internalUseSSL
-      : (parsedEndpoint.useSSL ??
-        (process.env.MINIO_USE_SSL || "false") === "true"),
+    port: parsedEndpoint.port || Number(process.env.MINIO_PORT || 9000),
+    useSSL:
+      parsedEndpoint.useSSL ??
+      (process.env.MINIO_USE_SSL || "false") === "true",
     accessKey: process.env.MINIO_ACCESS_KEY || "minioadmin",
     secretKey: process.env.MINIO_SECRET_KEY || "minioadmin",
     bucket: process.env.MINIO_BUCKET || "notifyx-assets",
@@ -152,13 +107,8 @@ export async function uploadFile(
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    const apiPortHint = reason.includes(
-      "S3 API Requests must be made to API port",
-    )
-      ? " It looks like this endpoint is pointing to MinIO Console (9001) instead of S3 API (9000)."
-      : "";
     throw new Error(
-      `Storage upload failed. Check MINIO endpoint (${config.endPoint}:${config.port}) and credentials.${apiPortHint} ${reason}`,
+      `Storage upload failed. Check MINIO endpoint (${config.endPoint}:${config.port}) and credentials. ${reason}`,
     );
   }
 
