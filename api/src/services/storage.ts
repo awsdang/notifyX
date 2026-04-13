@@ -117,8 +117,11 @@ export async function uploadFile(
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    const apiPortHint = reason.includes("S3 API Requests must be made to API port")
+      ? " It looks like this endpoint is pointing to MinIO Console (9001) instead of S3 API (9000)."
+      : "";
     throw new Error(
-      `Storage upload failed. Check MINIO endpoint (${config.endPoint}:${config.port}) and credentials. ${reason}`,
+      `Storage upload failed. Check MINIO endpoint (${config.endPoint}:${config.port}) and credentials.${apiPortHint} ${reason}`,
     );
   }
 
