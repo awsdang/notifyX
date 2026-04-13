@@ -125,6 +125,8 @@ export class FCMProvider implements PushProvider {
 
         if (message.image) {
             normalizedData.image = message.image;
+            normalizedData.imageUrl = message.image;
+            normalizedData['attachment-url'] = message.image;
         }
 
         if (message.icon) {
@@ -195,8 +197,14 @@ export class FCMProvider implements PushProvider {
                     apns: {
                         payload: {
                             aps: {
+                                alert: {
+                                    title: message.title,
+                                    body: message.body,
+                                    ...(message.subtitle ? { subtitle: message.subtitle } : {}),
+                                },
                                 sound: message.sound || 'default',
                                 badge: message.badge,
+                                ...(message.image ? { 'mutable-content': 1 } : {}),
                             },
                         },
                         ...(message.image ? { fcm_options: { image: message.image } } : {}),

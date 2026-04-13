@@ -123,6 +123,8 @@ export class APNSProvider implements PushProvider {
 
             if (message.image) {
                 normalizedData.image = message.image;
+                normalizedData.imageUrl = message.image;
+                normalizedData['attachment-url'] = message.image;
             }
 
             if (message.icon) {
@@ -153,6 +155,7 @@ export class APNSProvider implements PushProvider {
                 aps: {
                     alert: {
                         title: message.title,
+                        ...(message.subtitle ? { subtitle: message.subtitle } : {}),
                         body: message.body,
                     },
                     sound: message.sound || 'default',
