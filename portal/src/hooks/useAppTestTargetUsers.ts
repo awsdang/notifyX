@@ -109,8 +109,9 @@ export function useAppTestTargetUsers(appId: string, token: string | null) {
     (userIds: string[]) => {
       const allowedUserIds = new Set(allUsers.map((user) => user.externalUserId));
       const next = toUniqueUserIds(userIds).filter((id) => allowedUserIds.has(id));
-      setStoredTargetsForApp(appId, next, true);
-      setHasCustomTestTargetUsers(true);
+      const hasPreferredTargets = next.length > 0;
+      setStoredTargetsForApp(appId, next, hasPreferredTargets);
+      setHasCustomTestTargetUsers(hasPreferredTargets);
       setPreferredTestTargetIdsState(next);
     },
     [allUsers, appId],
@@ -172,12 +173,17 @@ export function useAppTestTargetUsers(appId: string, token: string | null) {
           allowedUserIds.has(id),
         );
 
-        if (!areArraysEqual(storedTargets.userIds, sanitizedTargets)) {
-          setStoredTargetsForApp(appId, sanitizedTargets, storedTargets.hasCustomEntry);
+        const hasPreferredTargets = sanitizedTargets.length > 0;
+
+        if (
+          !areArraysEqual(storedTargets.userIds, sanitizedTargets) ||
+          storedTargets.hasCustomEntry !== hasPreferredTargets
+        ) {
+          setStoredTargetsForApp(appId, sanitizedTargets, hasPreferredTargets);
         }
 
         setAllUsers(users);
-        setHasCustomTestTargetUsers(storedTargets.hasCustomEntry);
+        setHasCustomTestTargetUsers(hasPreferredTargets);
         setPreferredTestTargetIdsState(sanitizedTargets);
       } catch (loadError: any) {
         if (!mounted) return;
