@@ -35,6 +35,13 @@ flutter pub get
 - `_apiKey`
 - `_baseUrl`
 
+## Notification Icon Setup
+
+- Android small status-bar icons must be bundled inside the app as drawable resources.
+- This example now ships `@drawable/ic_stat_notifyx` and registers it as the Firebase default notification icon in [AndroidManifest.xml](./android/app/src/main/AndroidManifest.xml).
+- In the NotifyX portal, set the app's `Android Notification Icon Resource` to `ic_stat_notifyx` for this example app.
+- On iOS, APNS notifications use the app icon from the Xcode asset catalog. The backend can attach icon metadata, but it cannot replace the system notification icon.
+
 5. Run:
 
 ```sh

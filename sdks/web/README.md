@@ -32,3 +32,9 @@ Tiny browser SDK for web push registration + test send with NotifyX.
 ## Security note
 
 For production, avoid exposing machine API keys in frontend code. Use your backend to mint short-lived registration/send tokens.
+
+## Notification Icon Notes
+
+- Web push notifications use the app-level uploaded icon URL directly.
+- Android mobile apps need a bundled drawable resource name instead of a URL.
+- iOS system notifications keep using the app icon configured in Xcode.
