@@ -181,6 +181,9 @@ async function handleExplosion(job: Job<NotificationJobData>): Promise<void> {
       where: { id: notificationId },
       data: { status: "NO_DEVICES" },
     });
+    console.log(
+      `[Worker-Explosion] No eligible devices for ${notificationId}; marked as NO_DEVICES in ${Date.now() - startTime}ms`,
+    );
     return;
   }
 
