@@ -11,6 +11,50 @@ type StorageConfig = {
   bucket: string;
 };
 
+function isTrue(value: string | undefined, defaultValue = false): boolean {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  return value === "true" || value === "1";
+}
+
+function buildPublicReadPolicy(bucket: string): string {
+  return JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Action: ["s3:GetObject"],
+        Effect: "Allow",
+        Principal: { AWS: ["*"] },
+        Resource: [`arn:aws:s3:::${bucket}/*`],
+      },
+    ],
+  });
+}
+
+function encodeObjectPath(objectName: string): string {
+  return objectName
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+const DEFAULT_PRESIGNED_EXPIRY_SECONDS = 60 * 60;
+const MAX_PRESIGNED_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
+
+function getPresignedExpirySeconds(): number {
+  const raw = Number(
+    process.env.ASSET_PRESIGNED_EXPIRY_SECONDS ||
+      DEFAULT_PRESIGNED_EXPIRY_SECONDS,
+  );
+
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_PRESIGNED_EXPIRY_SECONDS;
+  }
+
+  return Math.min(Math.floor(raw), MAX_PRESIGNED_EXPIRY_SECONDS);
+}
+
 const CONNECTIVITY_ERROR_CODES = new Set([
   "ENOTFOUND",
   "EAI_AGAIN",
@@ -190,6 +234,61 @@ function orderedConfigs(): StorageConfig[] {
   ];
 }
 
+function buildPublicObjectUrl(
+  config: StorageConfig,
+  objectName: string,
+): string {
+  const publicBase = process.env.ASSET_PUBLIC_BASE_URL?.replace(/\/$/, "");
+  const objectPath = encodeObjectPath(objectName);
+  if (publicBase) {
+    return `${publicBase}/${config.bucket}/${objectPath}`;
+  }
+
+  const protocol = config.useSSL ? "https" : "http";
+  return `${protocol}://${config.endPoint}:${config.port}/${config.bucket}/${objectPath}`;
+}
+
+function resolvePresignConfig(baseConfig: StorageConfig): StorageConfig {
+  const presignEndpointInput =
+    process.env.MINIO_PRESIGN_ENDPOINT?.trim() ||
+    process.env.ASSET_PUBLIC_BASE_URL?.trim();
+
+  if (!presignEndpointInput) {
+    return baseConfig;
+  }
+
+  const parsed = parseEndpoint(presignEndpointInput);
+  if (!parsed.endPoint) {
+    return baseConfig;
+  }
+
+  const useSSL = parsed.useSSL ?? baseConfig.useSSL;
+  const port = parsed.port || (useSSL ? 443 : 80);
+
+  return {
+    ...baseConfig,
+    source: process.env.MINIO_PRESIGN_ENDPOINT
+      ? "MINIO_PRESIGN_ENDPOINT"
+      : "ASSET_PUBLIC_BASE_URL",
+    endPoint: parsed.endPoint,
+    port,
+    useSSL,
+  };
+}
+
+async function buildPresignedObjectUrl(
+  config: StorageConfig,
+  objectName: string,
+): Promise<string> {
+  const presignConfig = resolvePresignConfig(config);
+  const expiresSeconds = getPresignedExpirySeconds();
+  return await getClient(presignConfig).presignedGetObject(
+    presignConfig.bucket,
+    objectName,
+    expiresSeconds,
+  );
+}
+
 async function withStorageFallback<T>(
   operation: string,
   runner: (client: Client, config: StorageConfig) => Promise<T>,
@@ -234,25 +333,19 @@ export async function ensureBucket() {
   try {
     await withStorageFallback("bucket init", async (client, config) => {
       const exists = await client.bucketExists(config.bucket);
-      if (exists) {
-        return;
+      if (!exists) {
+        await client.makeBucket(config.bucket, "us-east-1"); // Region is required but often ignored for local
       }
 
-      await client.makeBucket(config.bucket, "us-east-1"); // Region is required but often ignored for local
-
-      // make public read (optional, depends on requirement, usually assets are public)
-      const policy = {
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Action: ["s3:GetObject"],
-            Effect: "Allow",
-            Principal: { AWS: ["*"] },
-            Resource: [`arn:aws:s3:::${config.bucket}/*`],
-          },
-        ],
-      };
-      await client.setBucketPolicy(config.bucket, JSON.stringify(policy));
+      // Keep this enabled by default so direct asset URLs work in browser/portal.
+      // Set MINIO_PUBLIC_READ=false to keep objects private.
+      const allowPublicRead = isTrue(process.env.MINIO_PUBLIC_READ, true);
+      if (allowPublicRead) {
+        await client.setBucketPolicy(
+          config.bucket,
+          buildPublicReadPolicy(config.bucket),
+        );
+      }
     });
   } catch (error) {
     console.error("Failed to ensure MinIO bucket:", error);
@@ -262,11 +355,17 @@ export async function ensureBucket() {
 // Initialize bucket on startup
 ensureBucket();
 
-export async function uploadFile(
+export type UploadedFileUrls = {
+  objectName: string;
+  url: string;
+  presignedUrl: string | null;
+};
+
+export async function uploadFileWithUrls(
   fileBuffer: Buffer,
   fileName: string,
   mimetype: string,
-): Promise<string> {
+): Promise<UploadedFileUrls> {
   const objectName = `${Date.now()}-${fileName}`;
   let resolvedConfig = activeStorageConfig;
 
@@ -291,14 +390,38 @@ export async function uploadFile(
     throw new Error(`Storage upload failed. ${reason}`);
   }
 
-  // Return public URL (override host for real devices if provided)
-  const publicBase = process.env.ASSET_PUBLIC_BASE_URL?.replace(/\/$/, "");
-  if (publicBase) {
-    return `${publicBase}/${resolvedConfig.bucket}/${objectName}`;
+  const url = buildPublicObjectUrl(resolvedConfig, objectName);
+  const includePresignedUrl = isTrue(
+    process.env.ASSET_INCLUDE_PRESIGNED_URL,
+    true,
+  );
+
+  let presignedUrl: string | null = null;
+  if (includePresignedUrl) {
+    try {
+      presignedUrl = await buildPresignedObjectUrl(resolvedConfig, objectName);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[storage] Could not generate presigned URL for ${objectName}. ${reason}`,
+      );
+    }
   }
 
-  const protocol = resolvedConfig.useSSL ? "https" : "http";
-  return `${protocol}://${resolvedConfig.endPoint}:${resolvedConfig.port}/${resolvedConfig.bucket}/${objectName}`;
+  return {
+    objectName,
+    url,
+    presignedUrl,
+  };
+}
+
+export async function uploadFile(
+  fileBuffer: Buffer,
+  fileName: string,
+  mimetype: string,
+): Promise<string> {
+  const uploaded = await uploadFileWithUrls(fileBuffer, fileName, mimetype);
+  return uploaded.url;
 }
 
 export async function getFileStream(

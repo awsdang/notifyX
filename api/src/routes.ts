@@ -209,7 +209,7 @@ import {
   updateMemberSchema,
 } from "./schemas/orgs";
 import multer from "multer";
-import { uploadFile } from "./services/storage";
+import { uploadFileWithUrls } from "./services/storage";
 import { AppError } from "./utils/response";
 import { logAudit } from "./services/audit";
 import { PERMISSIONS } from "./services/authz";
@@ -232,11 +232,23 @@ uploadRouter.post(
         throw new AppError(400, "No file uploaded");
       }
 
-      const url = await uploadFile(
+      const uploaded = await uploadFileWithUrls(
         req.file.buffer,
         req.file.originalname,
         req.file.mimetype,
       );
+
+      const requestedUrlMode = String(req.query.urlMode || "").toLowerCase();
+      const defaultUrlMode = String(
+        process.env.UPLOADS_URL_MODE || "public",
+      ).toLowerCase();
+      const usePresignedUrl = requestedUrlMode
+        ? requestedUrlMode === "signed" || requestedUrlMode === "presigned"
+        : defaultUrlMode === "signed" || defaultUrlMode === "presigned";
+      const responseUrl =
+        usePresignedUrl && uploaded.presignedUrl
+          ? uploaded.presignedUrl
+          : uploaded.url;
 
       const adminUser = req.adminUser;
       await logAudit({
@@ -247,11 +259,20 @@ uploadRouter.post(
           fileName: req.file.originalname,
           mimeType: req.file.mimetype,
           size: req.file.size,
-          url,
+          url: uploaded.url,
         },
       });
 
-      res.json({ error: false, message: "File uploaded", data: { url } });
+      res.json({
+        error: false,
+        message: "File uploaded",
+        data: {
+          url: responseUrl,
+          publicUrl: uploaded.url,
+          presignedUrl: uploaded.presignedUrl,
+          objectKey: uploaded.objectName,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -265,7 +286,12 @@ export const adminRouter = Router();
 
 // Public routes (no auth required)
 adminRouter.post("/login", authRateLimit, validateRequest(loginSchema), login);
-adminRouter.post("/signup", authRateLimit, validateRequest(signupSchema), signup);
+adminRouter.post(
+  "/signup",
+  authRateLimit,
+  validateRequest(signupSchema),
+  signup,
+);
 adminRouter.get("/setup-status", authRateLimit, getSetupStatus);
 adminRouter.post(
   "/setup",
@@ -607,8 +633,20 @@ automationRouter.post(
   requireMarketing,
   createAutomation,
 );
-automationRouter.get("/", authenticateAdmin, requireMarketing, cache(), getAutomations);
-automationRouter.get("/:id", authenticateAdmin, requireMarketing, cache(), getAutomation);
+automationRouter.get(
+  "/",
+  authenticateAdmin,
+  requireMarketing,
+  cache(),
+  getAutomations,
+);
+automationRouter.get(
+  "/:id",
+  authenticateAdmin,
+  requireMarketing,
+  cache(),
+  getAutomation,
+);
 automationRouter.put(
   "/:id",
   authenticateAdmin,
@@ -885,11 +923,7 @@ campaignRouter.post(
 // Asset Routes
 // ===========================================
 export const assetRouter = Router();
-assetRouter.post(
-  "/upload",
-  upload.single("file"),
-  uploadAsset,
-);
+assetRouter.post("/upload", upload.single("file"), uploadAsset);
 assetRouter.get("/:id", authenticateAdmin, cache(), getAsset);
 
 // ===========================================
