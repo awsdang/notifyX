@@ -462,9 +462,19 @@ function AppContent() {
                               }`}
                           />
                         </div>
-                        <h4 className="text-lg font-semibold transition-colors group-hover:text-blue-600">
-                          {app.name}
-                        </h4>
+                        <div className="flex items-center gap-3">
+                          <AppAvatar app={app} className="h-12 w-12 rounded-2xl" />
+                          <div className="min-w-0">
+                            <h4 className="truncate text-lg font-semibold transition-colors group-hover:text-blue-600">
+                              {app.name}
+                            </h4>
+                            {app.notificationIconUrl ? (
+                              <p className="text-xs text-slate-500">
+                                {ta("notificationIconConfigured", "Notification icon configured")}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
                         <p className="mb-4 mt-1 truncate font-mono text-xs text-slate-400">
                           {app.id}
                         </p>
@@ -544,7 +554,10 @@ function AppContent() {
                         onClick={() => setSelectedAppForCredentials(app)}
                         className="rounded-xl border bg-white p-6 text-start transition-all hover:border-blue-500 hover:shadow-md"
                       >
-                        <h4 className="text-lg font-semibold">{app.name}</h4>
+                        <div className="flex items-center gap-3">
+                          <AppAvatar app={app} className="h-10 w-10 rounded-2xl" />
+                          <h4 className="text-lg font-semibold">{app.name}</h4>
+                        </div>
                         <p className="mt-1 font-mono text-xs text-gray-400">{app.id}</p>
                         <p className="mt-3 flex items-center gap-1 text-sm text-blue-600">
                           {ta("manageCredentials", "Manage Credentials")} {forwardArrow}
@@ -714,6 +727,32 @@ function AuthenticatedApp() {
 
   if (!isAuthenticated) return <LoginPage />;
   return <AppContent />;
+}
+
+function AppAvatar({
+  app,
+  className,
+}: {
+  app: Application;
+  className?: string;
+}) {
+  if (app.notificationIconUrl) {
+    return (
+      <img
+        src={app.notificationIconUrl}
+        alt={app.name}
+        className={`${className || ""} object-cover shadow-sm`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className || ""} flex items-center justify-center bg-linear-to-br from-slate-900 via-slate-700 to-slate-500 text-sm font-black uppercase text-white shadow-sm`}
+    >
+      {app.name.slice(0, 1)}
+    </div>
+  );
 }
 
 export default App;

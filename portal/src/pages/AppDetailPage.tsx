@@ -13,6 +13,11 @@ import {
     Play,
     UserPlus,
     Mail,
+    Upload,
+    BellRing,
+    Smartphone,
+    Globe,
+    Apple,
 } from "lucide-react";
 import { appService, type AppStats, type AppAccessResponse } from "../services/appService";
 import type { Application, NotificationHistoryItem } from "../types";
@@ -21,6 +26,7 @@ import { clsx } from "clsx";
 import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useI18n, useScopedTranslation } from "../context/I18nContext";
 import { apiFetch } from "../lib/api";
+import { uploadAppImageAsset } from "../services/assetService";
 
 interface AppDetailPageProps {
     app: Application;
@@ -52,6 +58,15 @@ export function AppDetailPage({
     const [inviteRole, setInviteRole] = useState<"APP_MANAGER" | "MARKETING_MANAGER">("MARKETING_MANAGER");
     const [isInviting, setIsInviting] = useState(false);
     const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+    const [androidNotificationIcon, setAndroidNotificationIcon] = useState(
+        initialApp.androidNotificationIcon || "",
+    );
+    const [isUploadingIcon, setIsUploadingIcon] = useState(false);
+    const [isSavingIconSettings, setIsSavingIconSettings] = useState(false);
+    const [iconStatus, setIconStatus] = useState<{
+        type: "success" | "error";
+        message: string;
+    } | null>(null);
 
     useEffect(() => {
         loadData();
@@ -66,6 +81,7 @@ export function AppDetailPage({
             const appData = await appService.getApp(initialApp.id, token);
             setApp(appData);
             setNewName(appData.name);
+            setAndroidNotificationIcon(appData.androidNotificationIcon || "");
 
             const [statsResult, campaignsResult, accessResult] = await Promise.allSettled([
                 appService.getAppStats(appData.id, appData.name, token),
@@ -87,6 +103,96 @@ export function AppDetailPage({
             console.error("Failed to load app details", error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleIconUpload = async (file: File) => {
+        if (!token) return;
+
+        setIsUploadingIcon(true);
+        setIconStatus(null);
+
+        try {
+            const asset = await uploadAppImageAsset(app.id, file, token);
+            const updated = await appService.updateApp(
+                app.id,
+                { notificationIconAssetId: asset.id },
+                token,
+            );
+            setApp(updated);
+            await onUpdate(updated);
+            setIconStatus({
+                type: "success",
+                message: tp("notificationIconUploaded", "Notification icon uploaded."),
+            });
+        } catch (error: any) {
+            setIconStatus({
+                type: "error",
+                message:
+                    error?.message ||
+                    tp("notificationIconUploadFailed", "Failed to upload notification icon."),
+            });
+        } finally {
+            setIsUploadingIcon(false);
+        }
+    };
+
+    const handleSaveIconSettings = async () => {
+        setIsSavingIconSettings(true);
+        setIconStatus(null);
+
+        try {
+            const updated = await appService.updateApp(
+                app.id,
+                {
+                    androidNotificationIcon: androidNotificationIcon.trim() || null,
+                },
+                token,
+            );
+            setApp(updated);
+            setAndroidNotificationIcon(updated.androidNotificationIcon || "");
+            await onUpdate(updated);
+            setIconStatus({
+                type: "success",
+                message: tp("notificationIconSettingsSaved", "Icon settings saved."),
+            });
+        } catch (error: any) {
+            setIconStatus({
+                type: "error",
+                message:
+                    error?.message ||
+                    tp("notificationIconSettingsFailed", "Failed to save icon settings."),
+            });
+        } finally {
+            setIsSavingIconSettings(false);
+        }
+    };
+
+    const handleClearUploadedIcon = async () => {
+        setIsSavingIconSettings(true);
+        setIconStatus(null);
+
+        try {
+            const updated = await appService.updateApp(
+                app.id,
+                { notificationIconAssetId: null },
+                token,
+            );
+            setApp(updated);
+            await onUpdate(updated);
+            setIconStatus({
+                type: "success",
+                message: tp("notificationIconRemoved", "Uploaded notification icon removed."),
+            });
+        } catch (error: any) {
+            setIconStatus({
+                type: "error",
+                message:
+                    error?.message ||
+                    tp("notificationIconRemoveFailed", "Failed to remove uploaded notification icon."),
+            });
+        } finally {
+            setIsSavingIconSettings(false);
         }
     };
 
@@ -259,6 +365,7 @@ export function AppDetailPage({
 
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
+                            <AppIconPreview app={app} className="h-14 w-14 rounded-2xl" />
                             {isEditingName ? (
                                 <div className="flex items-center gap-2">
                                     <input
@@ -355,6 +462,173 @@ export function AppDetailPage({
                     icon={<Layout className="w-5 h-5 text-indigo-500" />}
                     loading={isLoading}
                 />
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-slate-900">
+                        {tp("notificationIcon", "Notification Icon")}
+                    </h3>
+                </div>
+
+                <div className="rounded-xl border bg-white p-5 shadow-sm">
+                    <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+                        <div className="rounded-2xl border border-dashed bg-slate-50 p-5">
+                            <div className="flex flex-col items-center text-center">
+                                <AppIconPreview app={app} className="h-24 w-24 rounded-3xl" />
+                                <p className="mt-3 text-sm font-semibold text-slate-900">
+                                    {tp("appIconPreview", "App Icon Preview")}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    {app.notificationIconUrl
+                                        ? tp("webUsesUploadedIcon", "Web notifications use the uploaded icon URL.")
+                                        : tp("noUploadedIconYet", "No uploaded notification icon yet.")}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-xl border p-4">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                        <Globe className="h-4 w-4 text-blue-600" />
+                                        {tp("web", "Web")}
+                                    </div>
+                                    <p className="mt-2 text-sm text-slate-500">
+                                        {tp(
+                                            "webIconBehavior",
+                                            "The uploaded icon URL is sent as the browser notification icon.",
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border p-4">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                        <Apple className="h-4 w-4 text-slate-700" />
+                                        {tp("iphone", "iPhone")}
+                                    </div>
+                                    <p className="mt-2 text-sm text-slate-500">
+                                        {tp(
+                                            "iosIconBehavior",
+                                            "iOS uses the app icon in the system UI. The uploaded icon is still included in payload data for app-side use.",
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border p-4">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                    <Smartphone className="h-4 w-4 text-emerald-600" />
+                                    {tp("androidTopBar", "Android Top Bar")}
+                                </div>
+                                <p className="mt-2 text-sm text-slate-500">
+                                    {tp(
+                                        "androidIconBehavior",
+                                        "Android status-bar notifications require a bundled drawable resource name. Set that resource below to replace the default icon.",
+                                    )}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                                        {tp("uploadedNotificationIcon", "Uploaded Notification Icon")}
+                                    </label>
+                                    <div className="rounded-xl border border-dashed p-4">
+                                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-slate-900">
+                                                    {app.notificationIconUrl
+                                                        ? tp("iconReady", "Icon uploaded")
+                                                        : tp("iconMissing", "No icon uploaded")}
+                                                </p>
+                                                <p className="truncate text-xs text-slate-500">
+                                                    {app.notificationIconUrl || tp("uploadPngJpgWebp", "Upload a PNG, JPG, or WebP image.")}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                                    <Upload className="h-4 w-4" />
+                                                    {isUploadingIcon
+                                                        ? tp("uploading", "Uploading...")
+                                                        : tp("uploadIcon", "Upload Icon")}
+                                                    <input
+                                                        type="file"
+                                                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                                        className="hidden"
+                                                        disabled={isUploadingIcon}
+                                                        onChange={(event) => {
+                                                            const file = event.target.files?.[0];
+                                                            if (file) {
+                                                                void handleIconUpload(file);
+                                                            }
+                                                            event.currentTarget.value = "";
+                                                        }}
+                                                    />
+                                                </label>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    disabled={
+                                                        isSavingIconSettings ||
+                                                        isUploadingIcon ||
+                                                        !app.notificationIconUrl
+                                                    }
+                                                    onClick={() => void handleClearUploadedIcon()}
+                                                >
+                                                    {tp("remove", "Remove")}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                                        {tp("androidNotificationIconResource", "Android Notification Icon Resource")}
+                                    </label>
+                                    <input
+                                        className="w-full rounded-lg border p-2.5 text-sm"
+                                        value={androidNotificationIcon}
+                                        onChange={(event) => setAndroidNotificationIcon(event.target.value)}
+                                        placeholder={tp("androidNotificationIconExample", "e.g. ic_stat_notifyx")}
+                                    />
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        {tp(
+                                            "androidNotificationIconHint",
+                                            "This must match a drawable resource bundled inside the Android app package.",
+                                        )}
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    className="gap-2"
+                                    disabled={isSavingIconSettings}
+                                    onClick={() => void handleSaveIconSettings()}
+                                >
+                                    <BellRing className="h-4 w-4" />
+                                    {isSavingIconSettings
+                                        ? tp("saving", "Saving...")
+                                        : tp("saveIconSettings", "Save Icon Settings")}
+                                </Button>
+                            </div>
+
+                            {iconStatus ? (
+                                <div
+                                    className={clsx(
+                                        "rounded-lg px-3 py-2 text-sm",
+                                        iconStatus.type === "success"
+                                            ? "bg-emerald-50 text-emerald-700"
+                                            : "bg-red-50 text-red-700",
+                                    )}
+                                >
+                                    {iconStatus.message}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="space-y-4">
@@ -566,6 +840,35 @@ export function AppDetailPage({
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function AppIconPreview({
+    app,
+    className,
+}: {
+    app: Application;
+    className?: string;
+}) {
+    if (app.notificationIconUrl) {
+        return (
+            <img
+                src={app.notificationIconUrl}
+                alt={app.name}
+                className={clsx("object-cover shadow-sm", className)}
+            />
+        );
+    }
+
+    return (
+        <div
+            className={clsx(
+                "flex items-center justify-center bg-linear-to-br from-slate-900 via-slate-700 to-slate-500 text-xl font-black uppercase text-white shadow-sm",
+                className,
+            )}
+        >
+            {app.name.slice(0, 1)}
         </div>
     );
 }

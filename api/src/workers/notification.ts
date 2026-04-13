@@ -27,6 +27,7 @@ import { addToDeadLetterQueue } from "../services/deadLetterQueue";
 import { processCampaignExplosion } from "./campaignExplosion";
 import type { NotificationPayload } from "../interfaces/workers/notification";
 import { decryptTokenIfNeeded } from "../utils/crypto";
+import { resolvePushMessageIcons, withAppIconData } from "../utils/appIcons";
 
 // BullMQ requires maxRetriesPerRequest=null — use dedicated connection
 const redisConnection = getBullMQConnection();
@@ -213,7 +214,15 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
   const [notification, device] = await Promise.all([
     prisma.notification.findUnique({
       where: { id: notificationId },
-      include: { template: true },
+      include: {
+        template: true,
+        app: {
+          select: {
+            notificationIconUrl: true,
+            androidNotificationIcon: true,
+          },
+        },
+      },
     }),
     prisma.device.findUnique({
       where: { id: deviceId },
@@ -233,7 +242,6 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
     payload.adhocContent?.subtitle || notification.template?.subtitle;
   let body = payload.adhocContent?.body || notification.template?.body || "";
   let image = payload.adhocContent?.image || notification.template?.image;
-  let icon = payload.adhocContent?.icon;
   const actions = (payload.adhocContent?.actions || [])
     .filter((action) => action?.title && action?.url)
     .slice(0, 2)
@@ -262,6 +270,10 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
   }
 
   const resolvedToken = decryptTokenIfNeeded(device.pushToken);
+  const messageIcons = resolvePushMessageIcons(
+    notification.app,
+    payload.adhocContent?.icon,
+  );
 
   const message: PushMessage = {
     token: resolvedToken,
@@ -269,15 +281,19 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
     subtitle: subtitle || undefined,
     body,
     image: image || undefined,
-    icon: icon || undefined,
+    icon: messageIcons.icon,
+    androidIcon: messageIcons.androidIcon,
     actionUrl: actionUrl || undefined,
     actions: actions.length > 0 ? actions : undefined,
-    data: {
-      ...(payload.adhocContent?.data || payload.variables || {}),
-      ...(actionUrl ? { actionUrl } : {}),
-      ...(actions.length > 0 ? { actions: JSON.stringify(actions) } : {}),
-      ...actionUrlMap,
-    },
+    data: withAppIconData(
+      {
+        ...(payload.adhocContent?.data || payload.variables || {}),
+        ...(actionUrl ? { actionUrl } : {}),
+        ...(actions.length > 0 ? { actions: JSON.stringify(actions) } : {}),
+        ...actionUrlMap,
+      },
+      messageIcons.icon,
+    ),
   };
 
   // 2. Create delivery record (PENDING)

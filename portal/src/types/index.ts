@@ -1,6 +1,9 @@
 export interface Application {
   id: string;
   name: string;
+  notificationIconAssetId?: string | null;
+  notificationIconUrl?: string | null;
+  androidNotificationIcon?: string | null;
   isKilled: boolean;
   createdAt: string;
   updatedAt: string;

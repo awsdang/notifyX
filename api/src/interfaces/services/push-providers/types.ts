@@ -6,6 +6,7 @@ export interface PushMessage {
     data?: Record<string, string>;
     image?: string;
     icon?: string;
+    androidIcon?: string;
     actionUrl?: string;
     imageUrl?: string;
     badge?: number;

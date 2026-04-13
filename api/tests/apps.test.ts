@@ -11,12 +11,17 @@ import {
   cleanup,
   login,
   testAdmins,
+  TEST_API_KEY,
   expectSuccess,
   expectError,
   batchedRequests,
 } from "./setup";
 
 let adminToken: string;
+const rawApiUrl = process.env.TEST_API_URL || "http://localhost:3000";
+const API_URL = rawApiUrl.endsWith("/api/v1")
+  ? rawApiUrl
+  : `${rawApiUrl.replace(/\/$/, "")}/api/v1`;
 
 beforeAll(async () => {
   const auth = await login(testAdmins.superAdmin);
@@ -91,6 +96,59 @@ describe("Apps API - Single Requests", () => {
 
     expectSuccess(res);
     expect(res.data.data.name).toBe(newName);
+  });
+
+  test("should upload and assign a notification icon to an app", async () => {
+    const createRes = await http.post<{
+      error: boolean;
+      data: { id: string };
+    }>("/apps", { body: factory.app(), token: adminToken });
+    expectSuccess(createRes);
+    const appId = createRes.data.data.id;
+    cleanup.trackApp(appId);
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([Buffer.from("fake-icon")], "icon.png", { type: "image/png" }),
+    );
+    formData.append("appId", appId);
+
+    const uploadResponse = await fetch(`${API_URL}/assets/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "X-API-Key": TEST_API_KEY,
+      },
+      body: formData,
+    });
+    const uploadJson = (await uploadResponse.json()) as {
+      data: { id: string; url: string };
+    };
+
+    expect(uploadResponse.ok).toBe(true);
+    expect(uploadJson.data.id).toBeDefined();
+    expect(uploadJson.data.url).toBeDefined();
+
+    const updateRes = await http.put<{
+      error: boolean;
+      data: {
+        notificationIconAssetId: string | null;
+        notificationIconUrl: string | null;
+        androidNotificationIcon: string | null;
+      };
+    }>(`/apps/${appId}`, {
+      body: {
+        notificationIconAssetId: uploadJson.data.id,
+        androidNotificationIcon: "ic_stat_notifyx",
+      },
+      token: adminToken,
+    });
+
+    expectSuccess(updateRes);
+    expect(updateRes.data.data.notificationIconAssetId).toBe(uploadJson.data.id);
+    expect(updateRes.data.data.notificationIconUrl).toBe(uploadJson.data.url);
+    expect(updateRes.data.data.androidNotificationIcon).toBe("ic_stat_notifyx");
   });
 
   test("should kill an app (Super Admin only)", async () => {

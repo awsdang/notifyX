@@ -101,6 +101,11 @@ export class HMSProvider implements PushProvider {
                 normalizedData.actionUrl = message.actionUrl;
             }
 
+            if (message.icon) {
+                normalizedData.icon = message.icon;
+                normalizedData.appIconUrl = message.icon;
+            }
+
             const safeActions = (message.actions || [])
                 .filter((action: any) => action?.action && action?.title && action?.url)
                 .slice(0, 2)
@@ -136,7 +141,7 @@ export class HMSProvider implements PushProvider {
                             default_sound: !message.sound,
                             importance: 'HIGH',
                             click_action: { type: 3 },
-                            ...(message.icon && { icon: message.icon }),
+                            ...(message.androidIcon && { icon: message.androidIcon }),
                         },
                     },
                 },

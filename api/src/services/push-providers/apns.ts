@@ -125,6 +125,11 @@ export class APNSProvider implements PushProvider {
                 normalizedData.image = message.image;
             }
 
+            if (message.icon) {
+                normalizedData.icon = message.icon;
+                normalizedData.appIconUrl = message.icon;
+            }
+
             const safeActions = (message.actions || [])
                 .filter((action: any) => action?.action && action?.title && action?.url)
                 .slice(0, 2)

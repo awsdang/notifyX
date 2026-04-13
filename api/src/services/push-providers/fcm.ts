@@ -127,6 +127,11 @@ export class FCMProvider implements PushProvider {
             normalizedData.image = message.image;
         }
 
+        if (message.icon) {
+            normalizedData.icon = message.icon;
+            normalizedData.appIconUrl = message.icon;
+        }
+
         if (message.actionUrl) {
             normalizedData.actionUrl = message.actionUrl;
         }
@@ -183,7 +188,7 @@ export class FCMProvider implements PushProvider {
                         ...(message.collapseKey ? { collapse_key: message.collapseKey } : {}),
                         notification: {
                             sound: message.sound || 'default',
-                            ...(message.icon && { icon: message.icon }),
+                            ...(message.androidIcon && { icon: message.androidIcon }),
                             ...(message.image && { image: message.image }),
                         },
                     },

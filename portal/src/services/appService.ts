@@ -62,7 +62,11 @@ export const appService = {
 
   updateApp: (
     id: string,
-    data: { name?: string },
+    data: {
+      name?: string;
+      notificationIconAssetId?: string | null;
+      androidNotificationIcon?: string | null;
+    },
     token: string | null,
   ): Promise<Application> =>
     apiRequest(`/apps/${id}`, token, {
