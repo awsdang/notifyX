@@ -16,6 +16,7 @@ import {
   validateContentType,
   securityHeaders,
 } from "./middleware/security";
+import { presignStorageUrls } from "./middleware/presignStorageUrls";
 import {
   prisma,
   checkDatabaseHealth,
@@ -61,8 +62,8 @@ if (
 ) {
   console.warn(
     '[Security] CORS_ORIGIN is not set or is "*" in production. ' +
-    "Requests with credentials will be rejected by browsers. " +
-    "Set CORS_ORIGIN to your portal domain (e.g. https://portal.example.com).",
+      "Requests with credentials will be rejected by browsers. " +
+      "Set CORS_ORIGIN to your portal domain (e.g. https://portal.example.com).",
   );
 }
 app.use(
@@ -83,6 +84,9 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(validateContentType);
 app.use(sanitize);
+
+// Ensure MinIO/S3 object URLs in JSON responses are always returned as presigned URLs.
+app.use(presignStorageUrls);
 
 // Rate limiting
 app.use(rateLimit());

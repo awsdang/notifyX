@@ -289,6 +289,152 @@ async function buildPresignedObjectUrl(
   );
 }
 
+function parseStorageUrl(rawUrl: string): URL | null {
+  try {
+    return new URL(rawUrl);
+  } catch {
+    return null;
+  }
+}
+
+function collectKnownStorageHosts(): Set<string> {
+  const hosts = new Set<string>();
+
+  const addHost = (host: string) => {
+    const normalized = host.trim().toLowerCase();
+    if (normalized) {
+      hosts.add(normalized);
+    }
+  };
+
+  for (const config of [activeStorageConfig, ...storageConfigs]) {
+    addHost(config.endPoint);
+    addHost(`${config.endPoint}:${config.port}`);
+  }
+
+  const optionalEndpoints = [
+    process.env.ASSET_PUBLIC_BASE_URL,
+    process.env.MINIO_PRESIGN_ENDPOINT,
+    process.env.MINIO_ENDPOINT,
+    process.env.MINIO_INTERNAL_ENDPOINT,
+  ];
+
+  for (const endpoint of optionalEndpoints) {
+    if (!endpoint) continue;
+    const parsed = parseEndpoint(endpoint);
+    if (!parsed.endPoint) continue;
+    addHost(parsed.endPoint);
+    if (parsed.port) {
+      addHost(`${parsed.endPoint}:${parsed.port}`);
+    }
+  }
+
+  return hosts;
+}
+
+function tryDecodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function extractObjectNameFromStorageUrl(url: string): string | null {
+  const parsed = parseStorageUrl(url);
+  if (!parsed) {
+    return null;
+  }
+
+  const knownHosts = collectKnownStorageHosts();
+  const host = parsed.host.toLowerCase();
+  const hostname = parsed.hostname.toLowerCase();
+
+  if (!knownHosts.has(host) && !knownHosts.has(hostname)) {
+    return null;
+  }
+
+  const pathSegments = parsed.pathname.split("/").filter(Boolean);
+  const bucket = activeStorageConfig.bucket;
+  if (pathSegments.length < 2 || pathSegments[0] !== bucket) {
+    return null;
+  }
+
+  return pathSegments.slice(1).map(tryDecodePathSegment).join("/");
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === "[object Object]";
+}
+
+export async function presignObjectName(objectName: string): Promise<string> {
+  const presignResult = await withStorageFallback(
+    "presign",
+    async (_client, config) => {
+      return await buildPresignedObjectUrl(config, objectName);
+    },
+  );
+  return presignResult.result;
+}
+
+export async function presignStorageUrl(url: string): Promise<string> {
+  const objectName = extractObjectNameFromStorageUrl(url);
+  if (!objectName) {
+    return url;
+  }
+
+  try {
+    return await presignObjectName(objectName);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`[storage] Could not presign URL ${url}. ${reason}`);
+    return url;
+  }
+}
+
+async function presignUrlsInValue(
+  value: unknown,
+  seen: WeakSet<object>,
+): Promise<unknown> {
+  if (typeof value === "string") {
+    return await presignStorageUrl(value);
+  }
+
+  if (Array.isArray(value)) {
+    const transformed = await Promise.all(
+      value.map((item) => presignUrlsInValue(item, seen)),
+    );
+    return transformed;
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+
+  if (!isPlainObject(value)) {
+    return value;
+  }
+
+  const entries = Object.entries(value);
+  const transformedEntries = await Promise.all(
+    entries.map(async ([key, item]) => {
+      const transformed = await presignUrlsInValue(item, seen);
+      return [key, transformed] as const;
+    }),
+  );
+
+  return Object.fromEntries(transformedEntries);
+}
+
+export async function presignStorageUrlsInPayload<T>(payload: T): Promise<T> {
+  return (await presignUrlsInValue(payload, new WeakSet<object>())) as T;
+}
+
 async function withStorageFallback<T>(
   operation: string,
   runner: (client: Client, config: StorageConfig) => Promise<T>,
