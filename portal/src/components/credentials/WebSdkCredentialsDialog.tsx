@@ -151,6 +151,19 @@ export function WebSdkCredentialsDialog({
                 long-lived key (no expiry) and store it in a secrets manager.
               </p>
             </div>
+
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 md:col-span-3">
+              <p className="text-[10px] uppercase tracking-widest text-blue-700 font-semibold">
+                Web Push Requirement
+              </p>
+              <p className="text-[11px] text-blue-900/80 mt-2 leading-relaxed">
+                Your website must serve a service worker file from the same
+                browser origin used for subscription. The default SDK path is
+                <span className="font-mono"> /notifyx-sw.js</span>. If the
+                page runs on another domain such as dashboard.cardyiq.com, that
+                domain must also host the service worker file.
+              </p>
+            </div>
           </div>
         </div>
       </div>
