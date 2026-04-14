@@ -45,32 +45,26 @@ export function AppLayout() {
     >
       <Sidebar />
 
-      <main className="relative flex-1 overflow-y-auto scroll-smooth bg-slate-50/50 p-8 lg:p-12">
-        <header className="mb-12 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-3xl font-black capitalize tracking-tight text-slate-900">
-              {title}
-            </h2>
-            <p className="mt-1 font-medium text-slate-500">
-              {ta(
-                "headerSubtitleDefault",
-                "Manage your notification infrastructure with intelligence.",
-              )}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+      <main className="relative flex-1 overflow-y-auto scroll-smooth">
+        {/* Top bar */}
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/80 px-8 py-3 backdrop-blur-md lg:px-10">
+          <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+          <div className="flex items-center gap-2.5">
             <AppSelector />
             <LanguageSelector />
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-sm">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
-                {ta("systemOnline", "System Online")}
+            <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[11px] font-semibold text-emerald-700">
+                {ta("systemOnline", "Online")}
               </span>
             </div>
           </div>
-        </header>
+        </div>
 
-        <Outlet />
+        {/* Page content */}
+        <div className="px-8 py-6 lg:px-10">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

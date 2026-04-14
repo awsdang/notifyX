@@ -23,6 +23,14 @@ import { useScopedTranslation } from "../context/I18nContext";
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
 
+function SidebarSection({ label }: { label: string }) {
+  return (
+    <p className="mb-1 mt-5 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      {label}
+    </p>
+  );
+}
+
 function SidebarNavItem({
   to,
   icon,
@@ -40,7 +48,7 @@ function SidebarNavItem({
 
   if (disabled) {
     return (
-      <span className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 opacity-40">
+      <span className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-400">
         {icon}
         {children}
       </span>
@@ -51,10 +59,10 @@ function SidebarNavItem({
     <NavLink
       to={to}
       className={clsx(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+        "flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all",
         isActive
-          ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 shadow-sm"
-          : "text-gray-600 hover:bg-gray-50",
+          ? "bg-blue-50 text-blue-700"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
       )}
     >
       {icon}
@@ -76,14 +84,12 @@ export function Sidebar() {
   const locked = !onboarding.isOnboarded && !isMarketingManager;
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col items-stretch gap-2 overflow-y-auto border-e border-slate-200 bg-white p-4">
-      <div className="mb-4 flex items-center gap-3 px-3 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg shadow-blue-200">
-          <Bell className="h-6 w-6 text-white" />
+    <aside className="flex w-60 shrink-0 flex-col overflow-y-auto border-e border-slate-100 bg-white px-3 py-4">
+      <div className="mb-6 flex items-center gap-2.5 px-3 pt-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700">
+          <Bell className="h-4 w-4 text-white" />
         </div>
-        <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-xl font-black tracking-tight text-transparent">
-          NotifyX
-        </h1>
+        <span className="text-lg font-bold text-slate-900">NotifyX</span>
       </div>
 
       {locked && (
@@ -103,10 +109,10 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-0.5">
         <SidebarNavItem
           to={locked ? "/onboarding" : "/dashboard"}
-          icon={<LayoutDashboard size={20} />}
+          icon={<LayoutDashboard size={16} />}
         >
           {locked
             ? ts("tabGettingStarted", "Getting Started")
@@ -114,126 +120,121 @@ export function Sidebar() {
         </SidebarNavItem>
 
         {!isMarketingManager && (
-          <SidebarNavItem to="/apps" icon={<Settings size={20} />}>
-            {ts("tabManageApps", "Manage Apps")}
-          </SidebarNavItem>
+          <>
+            <SidebarSection label="Workspace" />
+            <SidebarNavItem to="/apps" icon={<Settings size={16} />}>
+              {ts("tabManageApps", "Apps")}
+            </SidebarNavItem>
+            {canManageCredentials && (
+              <SidebarNavItem to="/credentials" icon={<Key size={16} />}>
+                {ts("tabCredentials", "Credentials")}
+              </SidebarNavItem>
+            )}
+            {canManageAdminUsers && (
+              <SidebarNavItem to="/admin-access" icon={<Shield size={16} />}>
+                {ts("tabAdminAccess", "Team")}
+              </SidebarNavItem>
+            )}
+          </>
         )}
 
-        {canManageCredentials && !isMarketingManager && (
-          <SidebarNavItem to="/credentials" icon={<Key size={20} />}>
-            {ts("tabCredentials", "Credentials")}
-          </SidebarNavItem>
-        )}
-
-        {canManageAdminUsers && (
-          <SidebarNavItem to="/admin-access" icon={<Shield size={20} />}>
-            {ts("tabAdminAccess", "Admin Access")}
-          </SidebarNavItem>
-        )}
-
+        <SidebarSection label="Messaging" />
         {!isMarketingManager && (
           <SidebarNavItem
             to="/send"
-            icon={<Send size={20} />}
+            icon={<Send size={16} />}
             disabled={locked || !hasApps}
           >
-            {ts("tabSendNotification", "Send Notification")}
+            {ts("tabSendNotification", "Send")}
           </SidebarNavItem>
         )}
-
-        {!isMarketingManager && (
-          <SidebarNavItem
-            to="/history"
-            icon={<History size={20} />}
-            disabled={locked || !hasApps}
-          >
-            {ts("tabHistory", "Notification History")}
-          </SidebarNavItem>
-        )}
-
         <SidebarNavItem
           to="/campaigns"
-          icon={<Megaphone size={20} />}
+          icon={<Megaphone size={16} />}
           disabled={locked}
         >
           {ts("tabCampaigns", "Campaigns")}
         </SidebarNavItem>
-
-        <SidebarNavItem
-          to="/ab-tests"
-          icon={<FlaskConical size={20} />}
-          disabled={locked}
-        >
-          {ts("tabAbTesting", "A/B Testing")}
-        </SidebarNavItem>
-
         <SidebarNavItem
           to="/templates"
-          icon={<FileText size={20} />}
+          icon={<FileText size={16} />}
           disabled={locked}
         >
           {ts("tabTemplates", "Templates")}
         </SidebarNavItem>
+        <SidebarNavItem
+          to="/ab-tests"
+          icon={<FlaskConical size={16} />}
+          disabled={locked}
+        >
+          {ts("tabAbTesting", "A/B Tests")}
+        </SidebarNavItem>
 
+        <SidebarSection label="Audience" />
         <SidebarNavItem
           to="/users"
-          icon={<Users size={20} />}
+          icon={<Users size={16} />}
           disabled={locked}
         >
           {ts("tabUsersDevices", "Users & Devices")}
         </SidebarNavItem>
-
         {!isMarketingManager && (
           <SidebarNavItem
-            to="/automation"
-            icon={<Zap size={20} />}
-            disabled={locked}
+            to="/history"
+            icon={<History size={16} />}
+            disabled={locked || !hasApps}
           >
-            {ts("tabAutomation", "Automation")}
+            {ts("tabHistory", "History")}
           </SidebarNavItem>
         )}
 
         {!isMarketingManager && (
-          <SidebarNavItem
-            to="/devx"
-            icon={<Terminal size={20} />}
-            disabled={locked}
-          >
-            {ts("tabDevx", "DevX & SDKs")}
-          </SidebarNavItem>
-        )}
-
-        {!isMarketingManager && (
-          <SidebarNavItem
-            to="/simulator"
-            icon={<FlaskConical size={20} />}
-            disabled={locked}
-          >
-            {ts("tabSimulator", "Simulator")}
-          </SidebarNavItem>
+          <>
+            <SidebarSection label="Developer" />
+            <SidebarNavItem
+              to="/automation"
+              icon={<Zap size={16} />}
+              disabled={locked}
+            >
+              {ts("tabAutomation", "Automation")}
+            </SidebarNavItem>
+            <SidebarNavItem
+              to="/devx"
+              icon={<Terminal size={16} />}
+              disabled={locked}
+            >
+              {ts("tabDevx", "SDKs")}
+            </SidebarNavItem>
+            <SidebarNavItem
+              to="/simulator"
+              icon={<FlaskConical size={16} />}
+              disabled={locked}
+            >
+              {ts("tabSimulator", "Simulator")}
+            </SidebarNavItem>
+          </>
         )}
       </nav>
 
-      <div className="mt-auto space-y-3 border-t border-slate-100 pt-4">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            {ts("signedIn", "Signed in")}
-          </p>
-          <p className="truncate text-sm font-semibold text-slate-800">
-            {user?.name || user?.email || tc("unknownUser", "Unknown User")}
-          </p>
-          <p className="mt-0.5 text-[11px] font-medium text-indigo-600">
-            {(user?.role || tc("unknownRole", "unknown")).replace(/_/g, " ")}
-          </p>
-        </div>
-
-        <div>
+      <div className="mt-auto border-t border-slate-100 pt-3">
+        <div className="flex items-center gap-2.5 rounded-xl px-3 py-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
+            {(user?.name || user?.email || "?").charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-slate-800">
+              {user?.name || user?.email || tc("unknownUser", "Unknown")}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {(user?.role || "").replace(/_/g, " ")}
+            </p>
+          </div>
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-50"
+            title={ts("signOut", "Sign Out")}
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
           >
-            <LogOut size={20} />
-            {ts("signOut", "Sign Out")}
+            <LogOut size={14} />
           </button>
         </div>
       </div>

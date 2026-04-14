@@ -1,22 +1,70 @@
+import type { ReactNode } from "react";
+import { clsx } from "clsx";
+
 interface StatCardProps {
-    title: string;
-    value: string;
-    color: 'blue' | 'green' | 'red' | 'purple';
+  title: string;
+  value: string;
+  color: "blue" | "green" | "red" | "purple";
+  icon?: ReactNode;
+  subtitle?: string;
 }
 
-export function StatCard({ title, value, color }: StatCardProps) {
-    const colorMap = {
-        blue: 'from-blue-500 to-blue-600',
-        green: 'from-green-500 to-green-600',
-        red: 'from-red-500 to-red-600',
-        purple: 'from-purple-500 to-purple-600',
-    };
+export function StatCard({ title, value, color, icon, subtitle }: StatCardProps) {
+  const colorMap = {
+    blue: {
+      bg: "bg-blue-50",
+      text: "text-blue-600",
+      accent: "from-blue-500 to-blue-600",
+    },
+    green: {
+      bg: "bg-emerald-50",
+      text: "text-emerald-600",
+      accent: "from-emerald-500 to-emerald-600",
+    },
+    red: {
+      bg: "bg-rose-50",
+      text: "text-rose-600",
+      accent: "from-rose-500 to-rose-600",
+    },
+    purple: {
+      bg: "bg-violet-50",
+      text: "text-violet-600",
+      accent: "from-violet-500 to-violet-600",
+    },
+  };
 
-    return (
-        <div className="bg-white p-6 rounded-xl border shadow-sm relative overflow-hidden">
-            <div className={`absolute top-0 end-0 w-20 h-20 bg-gradient-to-br ${colorMap[color]} opacity-10 rounded-bl-full`}></div>
-            <p className="text-sm text-gray-500 font-medium">{title}</p>
-            <p className="text-3xl font-bold mt-2">{value}</p>
+  const c = colorMap[color];
+
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+      <div
+        className={clsx(
+          "absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br opacity-[0.07] transition-transform group-hover:scale-110",
+          c.accent,
+        )}
+      />
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+            {value}
+          </p>
+          {subtitle && (
+            <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+          )}
         </div>
-    );
+        {icon && (
+          <div
+            className={clsx(
+              "flex h-10 w-10 items-center justify-center rounded-xl",
+              c.bg,
+              c.text,
+            )}
+          >
+            {icon}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

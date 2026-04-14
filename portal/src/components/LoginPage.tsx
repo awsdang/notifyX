@@ -51,157 +51,192 @@ export function LoginPage({ onSetupNeeded }: LoginPageProps) {
     }
   };
 
+  const inputClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-4">
-      <div className="mx-auto flex w-full max-w-md justify-end py-4">
-        <LanguageSelector />
+    <div className="flex min-h-screen">
+      {/* Left panel - branding */}
+      <div className="hidden w-[45%] bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-12 lg:flex lg:flex-col lg:justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <Bell className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-white">NotifyX</span>
+          </div>
+        </div>
+        <div>
+          <h2 className="mb-4 text-4xl font-extrabold leading-tight text-white">
+            Notification infrastructure,
+            <br />
+            <span className="text-blue-200">built for scale.</span>
+          </h2>
+          <p className="max-w-md text-base text-blue-200/80">
+            Push notifications across iOS, Android, Huawei, and Web from a
+            single unified platform.
+          </p>
+        </div>
+        <p className="text-xs text-blue-300/60">NotifyX Admin Portal</p>
       </div>
 
-      <div className="mx-auto flex w-full max-w-md items-center justify-center">
-        <div className="w-full">
-          {/* Logo */}
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600 to-purple-600">
-              <Bell className="h-8 w-8 text-white" />
+      {/* Right panel - form */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="mb-8 text-center lg:hidden">
+            <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700">
+              <Bell className="h-6 w-6 text-white" />
             </div>
-            <h1 className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-3xl font-bold text-transparent">
-              NotifyX
-            </h1>
-            <p className="mt-2 text-gray-500">{tl("adminPortal", "Admin Portal")}</p>
+            <h1 className="text-2xl font-bold text-slate-900">NotifyX</h1>
           </div>
 
-          {/* Login Form */}
-          <div className="rounded-2xl border bg-white p-8 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
                 {mode === "signup"
                   ? tl("createAccount", "Create Account")
-                  : tl("signIn", "Sign In")}
+                  : tl("signIn", "Welcome back")}
               </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setError("");
-                  setMode(mode === "signup" ? "login" : "signup");
-                }}
-                className="text-sm text-blue-600 hover:underline"
-              >
+              <p className="mt-1 text-sm text-slate-500">
                 {mode === "signup"
-                  ? tl("alreadyHaveAccount", "Already have an account?")
-                  : tl("needInvite", "Have an invite? Sign up")}
-              </button>
+                  ? tl("signupSubtitle", "Set up your admin account")
+                  : tl("signinSubtitle", "Sign in to your admin portal")}
+              </p>
             </div>
+            <LanguageSelector className="scale-90" />
+          </div>
 
-            {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-sm">{error}</span>
+          {error && (
+            <div className="my-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+              <span className="text-sm text-rose-700">{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {mode === "signup" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  {tl("name", "Full Name")}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClass}
+                  placeholder={tl("namePlaceholder", "Your name")}
+                  required
+                />
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === "signup" && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {tl("name", "Name")}
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    placeholder={tl("namePlaceholder", "Your name")}
-                    required
-                  />
-                </div>
-              )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                {tl("email", "Email")}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+                placeholder={tl("emailPlaceholder", "admin@example.com")}
+                required
+                autoComplete="email"
+              />
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {tl("email", "Email")}
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  placeholder={tl("emailPlaceholder", "admin@example.com")}
-                  required
-                />
-              </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                {tl("password", "Password")}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+                placeholder="Enter your password"
+                required
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+            </div>
 
+            {mode === "signup" && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {tl("password", "Password")}
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  {tl("confirmPassword", "Confirm Password")}
                 </label>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  placeholder={tl("passwordPlaceholder", "••••••••")}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={inputClass}
+                  placeholder="Confirm your password"
                   required
+                  autoComplete="new-password"
                 />
               </div>
+            )}
 
-              {mode === "signup" && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {tl("confirmPassword", "Confirm Password")}
-                  </label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    placeholder={tl("passwordPlaceholder", "••••••••")}
-                    required
-                  />
-                </div>
+            <Button
+              type="submit"
+              className="!mt-6 h-11 w-full rounded-xl text-sm font-semibold"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  {mode === "signup"
+                    ? tl("creatingAccountLoading", "Creating account...")
+                    : tl("signingIn", "Signing in...")}
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <LogIn className="h-4 w-4" />
+                  {mode === "signup"
+                    ? tl("createAccount", "Create Account")
+                    : tl("signIn", "Sign In")}
+                </span>
               )}
+            </Button>
+          </form>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    {mode === "signup"
-                      ? tl("creatingAccountLoading", "Creating account...")
-                      : tl("signingIn", "Signing in...")}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <LogIn className="h-4 w-4" />
-                    {mode === "signup"
-                      ? tl("createAccount", "Create Account")
-                      : tl("signIn", "Sign In")}
-                  </span>
-                )}
-              </Button>
-            </form>
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setMode(mode === "signup" ? "login" : "signup");
+              }}
+              className="text-sm text-slate-500 transition-colors hover:text-blue-600"
+            >
+              {mode === "signup"
+                ? tl("alreadyHaveAccount", "Already have an account? Sign in")
+                : tl("needInvite", "Have an invite? Create account")}
+            </button>
+          </div>
 
-            {mode === "signup" && (
-              <p className="mt-4 text-xs text-slate-500">
+          {mode === "signup" && (
+            <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-center">
+              <p className="text-xs text-blue-600">
                 {tl(
                   "signupInviteHint",
                   "Sign-up requires an active app invitation sent to this email.",
                 )}
               </p>
-            )}
+            </div>
+          )}
 
-            {onSetupNeeded && (
-              <div className="mt-6 border-t pt-6 text-center">
-                <p className="mb-2 text-sm text-gray-500">
-                  {tl("firstTimeSetup", "First time setup?")}
-                </p>
-                <button
-                  onClick={onSetupNeeded}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  {tl("createInitialAdmin", "Create initial admin account")}
-                </button>
-              </div>
-            )}
-          </div>
+          {onSetupNeeded && (
+            <div className="mt-6 border-t border-slate-100 pt-6 text-center">
+              <button
+                onClick={onSetupNeeded}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                {tl("createInitialAdmin", "First time? Create initial admin")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

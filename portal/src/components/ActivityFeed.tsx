@@ -1,4 +1,4 @@
-import { Bell, Zap, UserPlus, Clock, AlertCircle } from "lucide-react";
+import { Bell, Zap, UserPlus, AlertCircle } from "lucide-react";
 import { clsx } from "clsx";
 import { useMemo } from "react";
 import { useScopedTranslation } from "../context/I18nContext";
@@ -65,58 +65,64 @@ export function ActivityFeed({ recentActivity }: ActivityFeedProps) {
   }, [recentActivity, ta]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-sm animate-in fade-in duration-700">
-      <div className="z-10 flex items-center justify-between border-b border-gray-50 bg-white/50 p-8 backdrop-blur-sm">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900">
-            {ta("notificationHistory", "Notification History")}
-          </h3>
-          <p className="mt-1 text-sm text-gray-400">
-            {ta(
-              "notificationHistoryDescription",
-              "Live stream of notification delivery and platform events",
-            )}
-          </p>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-5 py-4">
+        <h3 className="text-base font-bold text-slate-900">
+          {ta("notificationHistory", "Recent Activity")}
+        </h3>
+        <p className="mt-0.5 text-xs text-slate-400">
+          {ta(
+            "notificationHistoryDescription",
+            "Latest notification events",
+          )}
+        </p>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+      <div className="flex-1 divide-y divide-slate-50 overflow-y-auto">
         {activities.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-gray-400">
-            {ta("noNotifications", "No recent notifications.")}
+          <div className="flex h-full flex-col items-center justify-center px-4 py-12 text-center">
+            <Bell className="mb-3 h-8 w-8 text-slate-200" />
+            <p className="text-sm font-medium text-slate-400">
+              {ta("noNotifications", "No recent activity")}
+            </p>
+            <p className="mt-1 text-xs text-slate-300">
+              Send a notification to see it here
+            </p>
           </div>
         ) : (
           activities.map((activity) => (
             <div
               key={activity.id}
-              className="group flex items-start gap-4 rounded-3xl border border-transparent p-4 transition-all duration-300 hover:border-gray-100 hover:bg-gray-50"
+              className="flex items-start gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50/50"
             >
               <div
                 className={clsx(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110",
+                  "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                   activity.status === "success"
-                    ? "bg-green-50 text-green-600"
+                    ? "bg-emerald-50 text-emerald-600"
                     : activity.status === "warning"
                       ? "bg-amber-50 text-amber-600"
                       : activity.status === "error"
-                        ? "bg-red-50 text-red-600"
+                        ? "bg-rose-50 text-rose-600"
                         : "bg-blue-50 text-blue-600",
                 )}
               >
-                {activity.type === "notification" && <Bell size={18} />}
-                {activity.type === "user" && <UserPlus size={18} />}
-                {activity.type === "automation" && <Zap size={18} />}
-                {activity.type === "alert" && <AlertCircle size={18} />}
+                {activity.type === "notification" && <Bell size={14} />}
+                {activity.type === "user" && <UserPlus size={14} />}
+                {activity.type === "automation" && <Zap size={14} />}
+                {activity.type === "alert" && <AlertCircle size={14} />}
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <h4 className="truncate text-sm font-bold text-gray-900">{activity.title}</h4>
-                  <span className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-gray-400">
-                    <Clock size={10} /> {activity.timestamp}
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="truncate text-sm font-medium text-slate-900">
+                    {activity.title}
+                  </h4>
+                  <span className="shrink-0 text-[10px] text-slate-400">
+                    {activity.timestamp}
                   </span>
                 </div>
-                <p className="line-clamp-2 text-xs leading-relaxed text-gray-500">
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
                   {activity.description}
                 </p>
               </div>
@@ -124,7 +130,6 @@ export function ActivityFeed({ recentActivity }: ActivityFeedProps) {
           ))
         )}
       </div>
-
     </div>
   );
 }
