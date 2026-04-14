@@ -232,11 +232,13 @@ class NotifyX {
 
     NotifyXDevice? device;
     if (pushToken != null && platform != null && provider != null) {
+      final existingState = await _stateManager.getState();
       device = await registerDevice(
         userId: user.id,
         pushToken: pushToken,
         platform: platform,
         provider: provider,
+        deviceId: existingState?['deviceId']?.toString(),
       );
     }
 
@@ -280,6 +282,7 @@ class NotifyX {
     required String pushToken,
     required String platform,
     required String provider,
+    String? deviceId,
   }) async {
     _log('Registering device ($provider) for user $userId');
     final response = await _apiClient.post(
@@ -289,6 +292,7 @@ class NotifyX {
         'pushToken': pushToken,
         'platform': platform,
         'provider': provider,
+        if (deviceId != null) 'deviceId': deviceId,
       },
     );
 

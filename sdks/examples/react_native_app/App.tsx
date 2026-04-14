@@ -177,6 +177,7 @@ function App(): React.JSX.Element {
           pushToken: normalized,
           platform: platformValue() as 'ios' | 'android',
           provider: 'fcm',
+          deviceId: state.deviceId,
         });
         await loadState();
         setStatus('FCM token refreshed and device registered.');

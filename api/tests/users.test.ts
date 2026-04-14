@@ -415,3 +415,112 @@ describe("Device Cleanup - Safety Action Scenario", () => {
     expectError(getUserRes, 404);
   });
 });
+
+// ============================================================
+// Device Deduplication - Token Refresh with deviceId
+// ============================================================
+
+describe("Device Deduplication - Token Refresh", () => {
+  let testUserId: string;
+
+  beforeAll(async () => {
+    const userRes = await http.post<{ success: boolean; data: { id: string } }>(
+      "/users",
+      { body: { ...factory.user(), appId: testAppId } },
+    );
+    if (userRes.ok) {
+      testUserId = userRes.data.data.id;
+      cleanup.trackUser(testUserId);
+    }
+  });
+
+  test("should update existing device when deviceId is provided (token refresh)", async () => {
+    const originalToken = `original_${Date.now()}`;
+
+    // Register initial device
+    const createRes = await http.post<{
+      success: boolean;
+      data: { id: string; platform: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, { pushToken: originalToken }),
+    });
+    expectSuccess(createRes);
+    const deviceId = createRes.data.data.id;
+
+    // Simulate token refresh: new token, same deviceId
+    const refreshedToken = `refreshed_${Date.now()}`;
+    const refreshRes = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: refreshedToken,
+        deviceId,
+      }),
+    });
+
+    expectSuccess(refreshRes);
+    // Same device record should be returned (updated in-place)
+    expect(refreshRes.data.data.id).toBe(deviceId);
+  });
+
+  test("should fall through to upsert when deviceId is invalid", async () => {
+    const token = `fallthrough_${Date.now()}`;
+
+    const res = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: token,
+        deviceId: "00000000-0000-0000-0000-000000000000",
+      }),
+    });
+
+    expectSuccess(res);
+    // Should still succeed via the upsert fallback
+    expect(res.data.data.id).toBeDefined();
+  });
+
+  test("should not create duplicate on repeated init with same deviceId", async () => {
+    const token1 = `init1_${Date.now()}`;
+
+    // First init
+    const res1 = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, { pushToken: token1 }),
+    });
+    expectSuccess(res1);
+    const deviceId = res1.data.data.id;
+
+    // Second init with new token but passing deviceId
+    const token2 = `init2_${Date.now()}`;
+    const res2 = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: token2,
+        deviceId,
+      }),
+    });
+    expectSuccess(res2);
+    expect(res2.data.data.id).toBe(deviceId);
+
+    // Third init with yet another token, same deviceId
+    const token3 = `init3_${Date.now()}`;
+    const res3 = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: token3,
+        deviceId,
+      }),
+    });
+    expectSuccess(res3);
+    expect(res3.data.data.id).toBe(deviceId);
+  });
+});
