@@ -1134,12 +1134,23 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   <select
                     className={inputClass}
                     value={formData.ctaType}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newType = e.target.value as CtaType;
+                      const noUrl = newType === "open_app" || newType === "dismiss" || newType === "none";
                       setFormData((prev) => ({
                         ...prev,
-                        ctaType: e.target.value as CtaType,
-                      }))
-                    }
+                        ctaType: newType,
+                        ...(noUrl && {
+                          actionUrl: "",
+                          ctaValue: "",
+                          ctaLabel: "",
+                          ctaLabelSecondary: "",
+                          ctaValueSecondary: "",
+                          ctaTypeSecondary: "none" as CtaType,
+                        }),
+                      }));
+                      if (noUrl) setShowSecondaryCta(false);
+                    }}
                   >
                     {CTA_TYPE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1181,149 +1192,153 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
               )}
             </div>
 
-            {/* Optional CTA Buttons */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <p className="mb-1 text-sm font-semibold text-slate-700">
-                {tt("Action Buttons")}
-                <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
-              </p>
-              <p className="mb-3 text-xs text-slate-500">
-                {tt("Extra buttons shown on the expanded notification (up to 2).")}
-              </p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                    {tt("Button Label")}
-                  </label>
-                  <input
-                    type="text"
-                    className={inputClass}
-                    value={formData.ctaLabel}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        ctaLabel: e.target.value,
-                      }))
-                    }
-                    placeholder={tt("e.g. View Details")}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                    {tt("Button URL")}
-                  </label>
-                  <input
-                    type="url"
-                    className={inputClass}
-                    value={formData.ctaValue}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        ctaValue: e.target.value,
-                      }))
-                    }
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {showSecondaryCta ? (
-              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-slate-700">
-                    {tt("CTA Button 2 (optional)")}
+            {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+              <>
+                {/* Optional CTA Buttons */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                  <p className="mb-1 text-sm font-semibold text-slate-700">
+                    {tt("Action Buttons")}
+                    <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
                   </p>
+                  <p className="mb-3 text-xs text-slate-500">
+                    {tt("Extra buttons shown on the expanded notification (up to 2).")}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        {tt("Button Label")}
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        value={formData.ctaLabel}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            ctaLabel: e.target.value,
+                          }))
+                        }
+                        placeholder={tt("e.g. View Details")}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        {tt("Button URL")}
+                      </label>
+                      <input
+                        type="url"
+                        className={inputClass}
+                        value={formData.ctaValue}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            ctaValue: e.target.value,
+                          }))
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {showSecondaryCta ? (
+                  <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-slate-700">
+                        {tt("CTA Button 2 (optional)")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecondaryCta(false);
+                          setFormData((prev) => ({
+                            ...prev,
+                            ctaTypeSecondary: "none",
+                            ctaLabelSecondary: "",
+                            ctaValueSecondary: "",
+                          }));
+                        }}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50"
+                      >
+                        {tt("Delete")}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold mb-2">
+                          {tt("CTA Type")}
+                        </label>
+                        <select
+                          className={inputClass}
+                          value={formData.ctaTypeSecondary}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              ctaTypeSecondary: e.target.value as CtaType,
+                            }))
+                          }
+                        >
+                          {CTA_TYPE_OPTIONS.map((option) => (
+                            <option
+                              key={`secondary-${option.value}`}
+                              value={option.value}
+                            >
+                              {getCtaTypeLabel(option.value)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-2">
+                          {tt("CTA Label")}
+                        </label>
+                        <input
+                          type="text"
+                          className={inputClass}
+                          value={formData.ctaLabelSecondary}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              ctaLabelSecondary: e.target.value,
+                            }))
+                          }
+                          placeholder={tt("Learn more")}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-2">
+                          {tt("CTA URL")}
+                        </label>
+                        <input
+                          type="url"
+                          className={inputClass}
+                          value={formData.ctaValueSecondary}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              ctaValueSecondary: e.target.value,
+                            }))
+                          }
+                          disabled={!secondaryCtaNeedsValue}
+                          placeholder={tt(
+                            getCtaValuePlaceholder(formData.ctaTypeSecondary),
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowSecondaryCta(false);
-                      setFormData((prev) => ({
-                        ...prev,
-                        ctaTypeSecondary: "none",
-                        ctaLabelSecondary: "",
-                        ctaValueSecondary: "",
-                      }));
-                    }}
-                    className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 bg-white hover:bg-rose-50"
+                    onClick={() => setShowSecondaryCta(true)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
                   >
-                    {tt("Delete")}
+                    <Plus className="w-3.5 h-3.5" />
+                    {tt("Add second CTA button")}
                   </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold mb-2">
-                      {tt("CTA Type")}
-                    </label>
-                    <select
-                      className={inputClass}
-                      value={formData.ctaTypeSecondary}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ctaTypeSecondary: e.target.value as CtaType,
-                        }))
-                      }
-                    >
-                      {CTA_TYPE_OPTIONS.map((option) => (
-                        <option
-                          key={`secondary-${option.value}`}
-                          value={option.value}
-                        >
-                          {getCtaTypeLabel(option.value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-2">
-                      {tt("CTA Label")}
-                    </label>
-                    <input
-                      type="text"
-                      className={inputClass}
-                      value={formData.ctaLabelSecondary}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ctaLabelSecondary: e.target.value,
-                        }))
-                      }
-                      placeholder={tt("Learn more")}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-2">
-                      {tt("CTA URL")}
-                    </label>
-                    <input
-                      type="url"
-                      className={inputClass}
-                      value={formData.ctaValueSecondary}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ctaValueSecondary: e.target.value,
-                        }))
-                      }
-                      disabled={!secondaryCtaNeedsValue}
-                      placeholder={tt(
-                        getCtaValuePlaceholder(formData.ctaTypeSecondary),
-                      )}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowSecondaryCta(true)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {tt("Add second CTA button")}
-              </button>
+                )}
+              </>
             )}
           </div>
 
