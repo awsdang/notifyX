@@ -18601,6 +18601,13 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "additionalProperties": false,
                 "id": "RegisterDeviceRequest",
                 "properties": {
+                  "deviceId": {
+                    "description": "Existing device ID to update (e.g. on token refresh). When provided, the existing device record is updated in-place instead of creating a duplicate.",
+                    "example": "d1e2f3a4-b5c6-7890-abcd-ef1234567890",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
                   "platform": {
                     "enum": [
                       "android",

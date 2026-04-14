@@ -79,9 +79,11 @@
       });
       this.log("User registered", { id: user.id, externalUserId: settings.externalUserId });
 
+      const existingState = this.getState();
       const device = await this.registerDevice({
         userId: user.id,
         pushToken: JSON.stringify(subscription.toJSON()),
+        deviceId: existingState?.deviceId,
       });
       this.log("Device registered", { id: device.id, provider: device.provider });
 
@@ -159,14 +161,17 @@
     }
 
     async registerDevice(data) {
+      const body = {
+        userId: data.userId,
+        platform: "web",
+        provider: "web",
+        pushToken: data.pushToken,
+      };
+      if (data.deviceId) body.deviceId = data.deviceId;
+
       const response = await this.request("/api/v1/users/device", {
         method: "POST",
-        body: {
-          userId: data.userId,
-          platform: "web",
-          provider: "web",
-          pushToken: data.pushToken,
-        },
+        body,
       });
       return response.data;
     }

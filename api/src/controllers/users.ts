@@ -484,58 +484,64 @@ export const registerDevice = async (
     }
 
     let device;
-    try {
-      device = await prisma.device.upsert({
-        where: {
-          tokenHash_provider: {
-            tokenHash: tokenHashed,
-            provider: data.provider,
-          },
-        },
-        update: {
-          userId: data.userId, // Reassign
-          pushToken: encryptedPushToken,
-          isActive: true,
-          lastSeenAt: new Date(),
-        },
-        create: {
-          userId: data.userId,
-          platform: data.platform,
-          pushToken: encryptedPushToken,
-          tokenHash: tokenHashed,
-          provider: data.provider,
-          isActive: true,
-        },
-      });
-    } catch (error) {
-      if (!isMissingUpsertConstraintError(error)) {
-        throw error;
-      }
 
-      // Fallback for environments where the unique(token_hash, provider)
-      // constraint has not been applied yet.
-      const existing = await prisma.device.findFirst({
-        where: {
-          tokenHash: tokenHashed,
-          provider: data.provider,
-        },
-        select: { id: true },
+    // When a deviceId is provided (e.g. on token refresh), update the existing
+    // device record in-place to prevent creating duplicates for the same
+    // physical device.
+    if (data.deviceId) {
+      const existing = await prisma.device.findUnique({
+        where: { id: data.deviceId },
+        include: { user: { select: { appId: true } } },
       });
 
-      if (existing) {
+      if (existing && existing.user.appId === user.appId) {
         device = await prisma.device.update({
-          where: { id: existing.id },
+          where: { id: data.deviceId },
           data: {
             userId: data.userId,
             platform: data.platform,
             pushToken: encryptedPushToken,
+            tokenHash: tokenHashed,
             isActive: true,
             lastSeenAt: new Date(),
           },
         });
-      } else {
-        device = await prisma.device.create({
+
+        // Deactivate any other device that happens to hold the new token
+        // (edge case: token was briefly registered on another device record).
+        await prisma.device.updateMany({
+          where: {
+            tokenHash: tokenHashed,
+            provider: data.provider,
+            id: { not: device.id },
+          },
           data: {
+            isActive: false,
+            deactivatedAt: new Date(),
+            deactivationReason: "token_transferred",
+          },
+        });
+      }
+      // If deviceId was invalid or belongs to another app, fall through to
+      // the normal upsert path below (graceful degradation).
+    }
+
+    if (!device) {
+      try {
+        device = await prisma.device.upsert({
+          where: {
+            tokenHash_provider: {
+              tokenHash: tokenHashed,
+              provider: data.provider,
+            },
+          },
+          update: {
+            userId: data.userId, // Reassign
+            pushToken: encryptedPushToken,
+            isActive: true,
+            lastSeenAt: new Date(),
+          },
+          create: {
             userId: data.userId,
             platform: data.platform,
             pushToken: encryptedPushToken,
@@ -544,6 +550,44 @@ export const registerDevice = async (
             isActive: true,
           },
         });
+      } catch (error) {
+        if (!isMissingUpsertConstraintError(error)) {
+          throw error;
+        }
+
+        // Fallback for environments where the unique(token_hash, provider)
+        // constraint has not been applied yet.
+        const existing = await prisma.device.findFirst({
+          where: {
+            tokenHash: tokenHashed,
+            provider: data.provider,
+          },
+          select: { id: true },
+        });
+
+        if (existing) {
+          device = await prisma.device.update({
+            where: { id: existing.id },
+            data: {
+              userId: data.userId,
+              platform: data.platform,
+              pushToken: encryptedPushToken,
+              isActive: true,
+              lastSeenAt: new Date(),
+            },
+          });
+        } else {
+          device = await prisma.device.create({
+            data: {
+              userId: data.userId,
+              platform: data.platform,
+              pushToken: encryptedPushToken,
+              tokenHash: tokenHashed,
+              provider: data.provider,
+              isActive: true,
+            },
+          });
+        }
       }
     }
 

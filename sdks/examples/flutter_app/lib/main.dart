@@ -259,6 +259,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
         pushToken: normalized,
         platform: _platformValue(),
         provider: 'fcm',
+        deviceId: state?['deviceId']?.toString(),
       );
       await _loadState();
       _setStatus('FCM token refreshed and device registered.');

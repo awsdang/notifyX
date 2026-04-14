@@ -28,6 +28,15 @@ export const registerDeviceSchema = z
       .meta({ example: "android" }),
     pushToken: z.string().meta({ example: "fcm-token-123" }),
     provider: z.enum(["fcm", "apns", "hms", "web"]).meta({ example: "fcm" }),
+    deviceId: z
+      .string()
+      .uuid()
+      .optional()
+      .meta({
+        example: "d1e2f3a4-b5c6-7890-abcd-ef1234567890",
+        description:
+          "Existing device ID to update (e.g. on token refresh). When provided, the existing device record is updated in-place instead of creating a duplicate.",
+      }),
   })
   .register(registry, { id: "RegisterDeviceRequest" });
 

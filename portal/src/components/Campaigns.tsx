@@ -1507,12 +1507,22 @@ function CampaignEditorPage({
                   <select
                     className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm bg-white"
                     value={formData.ctaType}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const newType = event.target.value as CtaType;
+                      const noUrl = newType === "open_app" || newType === "dismiss" || newType === "none";
                       setFormData((prev) => ({
                         ...prev,
-                        ctaType: event.target.value as CtaType,
-                      }))
-                    }
+                        ctaType: newType,
+                        ...(noUrl && {
+                          actionUrl: "",
+                          ctaValue: "",
+                          ctaLabel: "",
+                          ctaLabelSecondary: "",
+                          ctaValueSecondary: "",
+                          ctaTypeSecondary: "none" as CtaType,
+                        }),
+                      }));
+                    }}
                   >
                     {CTA_TYPE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1550,60 +1560,62 @@ function CampaignEditorPage({
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <p className="mb-1 text-sm font-semibold text-slate-700">
-                {tt("Action Buttons")}
-                <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
-              </p>
-              <p className="mb-3 text-xs text-slate-500">
-                {tt("Extra buttons shown on the expanded notification.")}
-              </p>
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 1 Label")}</label>
-                    <input
-                      className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.ctaLabel}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, ctaLabel: event.target.value }))}
-                      placeholder={tt("e.g. View Details")}
-                    />
+            {/* Action Buttons — only shown for open_url / deep_link tap actions */}
+            {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                <p className="mb-1 text-sm font-semibold text-slate-700">
+                  {tt("Action Buttons")}
+                  <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
+                </p>
+                <p className="mb-3 text-xs text-slate-500">
+                  {tt("Extra buttons shown on the expanded notification.")}
+                </p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 1 Label")}</label>
+                      <input
+                        className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
+                        value={formData.ctaLabel}
+                        onChange={(event) => setFormData((prev) => ({ ...prev, ctaLabel: event.target.value }))}
+                        placeholder={tt("e.g. View Details")}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 1 URL")}</label>
+                      <input
+                        type="url"
+                        className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
+                        value={formData.ctaValue}
+                        onChange={(event) => setFormData((prev) => ({ ...prev, ctaValue: event.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 1 URL")}</label>
-                    <input
-                      type="url"
-                      className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.ctaValue}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, ctaValue: event.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 2 Label")}</label>
-                    <input
-                      className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.ctaLabelSecondary}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, ctaLabelSecondary: event.target.value }))}
-                      placeholder={tt("e.g. Learn More")}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 2 URL")}</label>
-                    <input
-                      type="url"
-                      className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.ctaValueSecondary}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, ctaValueSecondary: event.target.value }))}
-                      placeholder="https://..."
-                    />
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 2 Label")}</label>
+                      <input
+                        className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
+                        value={formData.ctaLabelSecondary}
+                        onChange={(event) => setFormData((prev) => ({ ...prev, ctaLabelSecondary: event.target.value }))}
+                        placeholder={tt("e.g. Learn More")}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">{tt("Button 2 URL")}</label>
+                      <input
+                        type="url"
+                        className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
+                        value={formData.ctaValueSecondary}
+                        onChange={(event) => setFormData((prev) => ({ ...prev, ctaValueSecondary: event.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div>
@@ -1689,61 +1701,65 @@ function CampaignEditorPage({
                 {tt("Campaign Preview")}
               </h4>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleSendTest()}
-                disabled={isAnyActionRunning}
-              >
-                {isSendingTest ? (
-                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 me-2" />
-                )}
-                {tt("Send Test")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleSaveCampaign()}
-                disabled={isAnyActionRunning}
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                ) : null}
-                {tt("Save")}
-              </Button>
-              <input
-                type="datetime-local"
-                value={scheduleAtLocal}
-                onChange={(event) => setScheduleAtLocal(event.target.value)}
-                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleScheduleCampaign()}
-                disabled={isAnyActionRunning}
-              >
-                {isSchedulingLive ? (
-                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                ) : (
-                  <Calendar className="w-4 h-4 me-2" />
-                )}
-                {tt("Schedule")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleSendNowCampaign()}
-                disabled={isAnyActionRunning}
-              >
-                {isSendingNow ? (
-                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                ) : (
-                  <Play className="w-4 h-4 me-2" />
-                )}
-                {tt("Send Now")}
-              </Button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleSendTest()}
+                  disabled={isAnyActionRunning}
+                >
+                  {isSendingTest ? (
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 me-2" />
+                  )}
+                  {tt("Send Test")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveCampaign()}
+                  disabled={isAnyActionRunning}
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  ) : null}
+                  {tt("Save")}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="datetime-local"
+                  value={scheduleAtLocal}
+                  onChange={(event) => setScheduleAtLocal(event.target.value)}
+                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleScheduleCampaign()}
+                  disabled={isAnyActionRunning}
+                >
+                  {isSchedulingLive ? (
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  ) : (
+                    <Calendar className="w-4 h-4 me-2" />
+                  )}
+                  {tt("Schedule")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSendNowCampaign()}
+                  disabled={isAnyActionRunning}
+                >
+                  {isSendingNow ? (
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 me-2" />
+                  )}
+                  {tt("Send Now")}
+                </Button>
+              </div>
             </div>
           </div>
 

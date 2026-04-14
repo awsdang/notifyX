@@ -16,6 +16,8 @@ export interface DeviceRegistrationData {
     platform: 'android' | 'ios' | 'web' | 'huawei';
     provider: 'fcm' | 'apns' | 'hms' | 'web';
     pushToken: string;
+    /** Existing device ID to update (e.g. on token refresh) to prevent duplicates. */
+    deviceId?: string;
 }
 
 export interface NotifyXUser {

@@ -168,11 +168,13 @@ export class NotifyX {
     let device: NotifyXDevice | undefined;
 
     if (params.pushToken && params.platform && params.provider) {
+      const existingState = await this.getState();
       device = await this.registerDevice({
         userId: user.id,
         pushToken: params.pushToken,
         platform: params.platform,
         provider: params.provider,
+        deviceId: existingState?.deviceId,
       });
     }
 
@@ -217,6 +219,7 @@ export class NotifyX {
         pushToken: data.pushToken,
         platform: data.platform,
         provider: data.provider,
+        ...(data.deviceId && { deviceId: data.deviceId }),
       },
     });
 
