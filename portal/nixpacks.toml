@@ -4,10 +4,10 @@ NIXPACKS_SPA_CADDY = "true"
 NIXPACKS_SPA_OUT_DIR = "dist"
 
 [phases.setup]
-nixPkgs = ["nodejs_latest"]
+nixPkgs = ["nodejs_latest", "bun"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["bun install"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["bun run build"]
