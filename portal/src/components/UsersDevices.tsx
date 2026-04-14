@@ -865,50 +865,53 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
       )}
 
       {activeTab === "users" && filterAppId && (
-        <div className="bg-white rounded-xl border p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+        <details className="group rounded-xl border bg-white">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-3">
               <h4 className="text-sm font-semibold text-slate-900">
                 {tt("Test notification target users")}
               </h4>
-              <p className="text-xs text-slate-500 mt-1">
-                {tt(
-                  "Only these users appear in Test notification target selectors across Send, Campaigns, and A/B Testing.",
-                )}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-600">
+              <span className="text-xs font-medium text-slate-500">
                 {hasCustomTestTargetUsers
                   ? tt("{{count}} selected", {
                       count: preferredTestTargetIds.length,
                     })
-                  : tt("All users are currently visible in test selectors.")}
+                  : tt("All users visible")}
               </span>
+            </div>
+            <div className="flex items-center gap-2">
               {hasCustomTestTargetUsers && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={clearPreferredTestTargetIds}
+                  onClick={(e) => { e.preventDefault(); clearPreferredTestTargetIds(); }}
                 >
                   {tt("Clear")}
                 </Button>
               )}
+              <ChevronRight className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-90" />
             </div>
-          </div>
+          </summary>
 
-          <div className="relative">
-            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              value={testTargetSearch}
-              onChange={(event) => setTestTargetSearch(event.target.value)}
-              placeholder={tt("Filter users for test target list...")}
-              className="w-full ps-10 pe-4 py-2 border rounded-lg text-sm"
-            />
-          </div>
+          <div className="space-y-3 border-t p-4">
+            <p className="text-xs text-slate-500">
+              {tt(
+                "Only these users appear in Test notification target selectors across Send, Campaigns, and A/B Testing.",
+              )}
+            </p>
 
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y">
+            <div className="relative">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                value={testTargetSearch}
+                onChange={(event) => setTestTargetSearch(event.target.value)}
+                placeholder={tt("Filter users for test target list...")}
+                className="w-full ps-10 pe-4 py-2.5 border border-slate-200 rounded-xl text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 divide-y">
             {isLoadingTestTargetUsers ? (
               <div className="p-3 text-sm text-slate-500">
                 {tt("Loading users...")}
@@ -949,20 +952,21 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
             )}
           </div>
 
-          {!normalizedTestTargetSearch &&
-            testTargetCandidates.length > MAX_VISIBLE_TEST_TARGET_USERS && (
-              <p className="text-xs text-slate-500">
-                {tt(
-                  "Showing first {{count}} users. Use search to find additional users.",
-                  { count: MAX_VISIBLE_TEST_TARGET_USERS },
-                )}
-              </p>
-            )}
+            {!normalizedTestTargetSearch &&
+              testTargetCandidates.length > MAX_VISIBLE_TEST_TARGET_USERS && (
+                <p className="text-xs text-slate-500">
+                  {tt(
+                    "Showing first {{count}} users. Use search to find additional users.",
+                    { count: MAX_VISIBLE_TEST_TARGET_USERS },
+                  )}
+                </p>
+              )}
 
-          {testTargetUsersError && (
-            <p className="text-xs text-rose-600">{testTargetUsersError}</p>
-          )}
-        </div>
+            {testTargetUsersError && (
+              <p className="text-xs text-rose-600">{testTargetUsersError}</p>
+            )}
+          </div>
+        </details>
       )}
 
       {/* Users List */}
@@ -1018,18 +1022,15 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                 <tbody className="divide-y">
                   {users.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <span className="font-medium">
+                      <td className="px-4 py-3 max-w-[200px]">
+                        <span className="block truncate font-medium">
                           {getUserDisplayName(user)}
                         </span>
                         {user.nickname ? (
-                          <p className="text-xs text-gray-500 font-mono">
+                          <p className="truncate text-xs text-gray-500 font-mono" title={user.externalUserId}>
                             {user.externalUserId}
                           </p>
                         ) : null}
-                        <p className="text-xs text-gray-400 font-mono">
-                          {user.id}
-                        </p>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {user.app.name}

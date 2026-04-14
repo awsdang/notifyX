@@ -270,7 +270,7 @@ export function WebhookSimulator() {
           <label className="mb-4 ms-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             Verification Feed
           </label>
-          <div className="flex flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8">
+          <div className="flex min-h-[200px] flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 lg:flex-1">
             {!lastResponse && !isSimulating && (
               <EmptyState
                 icon={<Code2 className="h-6 w-6" />}

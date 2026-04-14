@@ -94,9 +94,9 @@ NotifyX.registerDevice(
     };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 flex max-w-5xl mx-auto min-h-[400px]">
+        <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col lg:flex-row max-w-5xl mx-auto lg:min-h-[400px]">
             {/* Sidebar */}
-            <div className="w-64 bg-gray-50/50 border-e border-gray-100 p-6 flex flex-col">
+            <div className="w-full border-b border-gray-100 p-4 lg:w-64 lg:border-b-0 lg:border-e lg:p-6 flex flex-col">
                 <div className="mb-8">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2">
                         <Box className="w-5 h-5 text-blue-600" />
@@ -105,7 +105,7 @@ NotifyX.registerDevice(
                     <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold">Developer Workspace</p>
                 </div>
 
-                <div className="space-y-1 flex-1">
+                <div className="flex gap-1 overflow-x-auto lg:flex-col lg:flex-1">
                     {SNIPPETS.map(s => (
                         <button
                             key={s.id}
@@ -128,7 +128,7 @@ NotifyX.registerDevice(
                     ))}
                 </div>
 
-                <div className="pt-6 border-t border-gray-100 space-y-4">
+                <div className="hidden pt-6 border-t border-gray-100 space-y-4 lg:block">
                     <a href="#" className="flex items-center justify-between text-xs text-blue-600 font-bold hover:underline">
                         Full API Docs <ExternalLink size={12} />
                     </a>
