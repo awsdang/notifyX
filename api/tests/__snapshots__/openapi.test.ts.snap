@@ -11123,7 +11123,6 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "properties": {
                   "actionUrl": {
                     "example": "https://example.com/action",
-                    "format": "uri",
                     "type": "string",
                   },
                   "actions": {
@@ -11258,7 +11257,6 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                   "targetingMode",
                   "title",
                   "body",
-                  "actionUrl",
                   "priority",
                 ],
                 "type": "object",
@@ -13744,7 +13742,6 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "properties": {
                   "actionUrl": {
                     "example": "https://example.com/action",
-                    "format": "uri",
                     "type": "string",
                   },
                   "actions": {
@@ -13861,7 +13858,6 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "required": [
                   "appId",
                   "type",
-                  "actionUrl",
                   "priority",
                 ],
                 "type": "object",
