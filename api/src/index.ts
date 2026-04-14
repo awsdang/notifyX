@@ -332,9 +332,7 @@ v1.use("/automations", automationRouter);
 v1.use("/automation-triggers", automationTriggerRouter);
 v1.use("/ab-tests", abTestRouter); // A/B testing routes
 v1.use("/campaigns", campaignRouter); // Bulk campaign routes
-if (process.env.NODE_ENV !== "production") {
-  v1.use("/assets", assetRouter); // Asset routes (machine support - dev only)
-}
+v1.use("/assets", assetRouter); // Asset upload routes
 
 // Mount versioned API
 app.use("/api/v1", v1);
