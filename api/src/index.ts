@@ -25,6 +25,7 @@ import {
 import { checkRedisHealth, disconnectRedis } from "./services/redis";
 import { closeQueues, getQueueHealth } from "./services/queue";
 import { getConfiguredProviders } from "./services/push-providers";
+import { isOriginAllowedByWebCredentials } from "./services/corsOrigins";
 import { validateEnv } from "./config/env";
 import { sendSuccess } from "./utils/response";
 
@@ -56,6 +57,17 @@ app.use(requestLogger);
 const corsOrigin =
   process.env.CORS_ORIGIN ||
   (process.env.NODE_ENV === "production" ? undefined : "*");
+const disableCors = env.CORS_DISABLE;
+
+const envCorsAllowAll = corsOrigin === "*";
+const envCorsOrigins = envCorsAllowAll
+  ? []
+  : (corsOrigin || "")
+      .split(",")
+      .map((origin) => origin.trim().toLowerCase())
+      .filter(Boolean);
+
+const envCorsOriginSet = new Set(envCorsOrigins);
 if (
   process.env.NODE_ENV === "production" &&
   (!corsOrigin || corsOrigin === "*")
@@ -68,8 +80,31 @@ if (
 }
 app.use(
   cors({
-    origin:
-      corsOrigin === "*" ? true : corsOrigin?.split(",").map((o) => o.trim()),
+    origin: (origin, callback) => {
+      if (disableCors) {
+        return callback(null, true);
+      }
+
+      // Non-browser clients (no Origin header) should continue to work.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const normalizedOrigin = origin.trim().toLowerCase();
+
+      if (envCorsAllowAll || envCorsOriginSet.has(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      void isOriginAllowedByWebCredentials(normalizedOrigin)
+        .then((isAllowed) => callback(null, isAllowed))
+        .catch((error) => {
+          console.error(
+            `[CORS] Failed to evaluate credential origin allowlist: ${error instanceof Error ? error.message : "unknown error"}`,
+          );
+          callback(null, false);
+        });
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: [
       "Content-Type",

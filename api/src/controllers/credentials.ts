@@ -4,6 +4,7 @@ import { prisma } from "../services/database";
 import { AppError, sendSuccess } from "../utils/response";
 import { encrypt, decrypt } from "../utils/crypto";
 import { clearAppProviderCache } from "../services/push-providers";
+import { clearCorsOriginCache } from "../services/corsOrigins";
 import { invalidateCache } from "../middleware/cacheMiddleware";
 import { credentialSchemaMap } from "../schemas/credentials";
 import { parseEnvironment } from "../utils/environment";
@@ -36,7 +37,7 @@ export const createCredentialVersion = async (
       env: string;
       provider: string;
     };
-    const credentialData = req.body;
+    let credentialData = req.body;
     const parsedEnv = parseEnvironment(env);
     if (!parsedEnv) {
       throw new AppError(
@@ -60,6 +61,9 @@ export const createCredentialVersion = async (
           "VALIDATION_ERROR",
         );
       }
+
+      // Persist normalized/transformed schema output (e.g. web allowedOrigins parsing).
+      credentialData = result.data;
     }
     const adminUserId = req.adminUser?.id;
 
@@ -233,6 +237,7 @@ export const getWebSdkConfig = async (
     });
 
     let vapidPublicKey: string | null = null;
+    let allowedOrigins: string[] = [];
     const activeVersion = webCredential?.versions?.[0];
 
     if (activeVersion) {
@@ -241,8 +246,14 @@ export const getWebSdkConfig = async (
         if (typeof decrypted?.vapidPublicKey === "string") {
           vapidPublicKey = decrypted.vapidPublicKey;
         }
+        if (Array.isArray(decrypted?.allowedOrigins)) {
+          allowedOrigins = decrypted.allowedOrigins.filter(
+            (origin: unknown) => typeof origin === "string" && origin.length > 0,
+          );
+        }
       } catch {
         vapidPublicKey = null;
+        allowedOrigins = [];
       }
     }
 
@@ -252,6 +263,7 @@ export const getWebSdkConfig = async (
       hasWebCredential: !!webCredential,
       hasActiveWebCredential: !!activeVersion,
       vapidPublicKey,
+      allowedOrigins,
     });
   } catch (error) {
     next(error);
@@ -369,6 +381,9 @@ export const activateCredential = async (
     const appId = version.credential.appEnvironment.appId;
     const provider = version.credential.provider as any;
     clearAppProviderCache(appId, provider);
+    if (provider === "web") {
+      clearCorsOriginCache();
+    }
 
     // Invalidate onboarding cache so portal detects credential setup
     await invalidateCache("/onboarding-status");
@@ -433,6 +448,9 @@ export const deactivateCredential = async (
       credential.appEnvironment.appId,
       credential.provider as any,
     );
+    if (credential.provider === "web") {
+      clearCorsOriginCache();
+    }
     await invalidateCache("/onboarding-status");
 
     await prisma.auditLog.create({
@@ -492,6 +510,9 @@ export const deleteCredential = async (
       credential.appEnvironment.appId,
       credential.provider as any,
     );
+    if (credential.provider === "web") {
+      clearCorsOriginCache();
+    }
     await invalidateCache("/onboarding-status");
 
     await prisma.auditLog.create({

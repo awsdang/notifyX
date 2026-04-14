@@ -43,6 +43,10 @@ const envSchema = z
 
     // ── CORS ────────────────────────────────────────────────────────
     CORS_ORIGIN: z.string().optional(),
+    CORS_DISABLE: z
+      .string()
+      .default("false")
+      .transform((v) => v === "true" || v === "1"),
 
     // ── Metrics ─────────────────────────────────────────────────────
     MONITORING_TOKEN: z.string().optional(),
@@ -118,6 +122,11 @@ export function validateEnv(): Env {
 
   // Warn about missing recommended vars in production
   if (_env.NODE_ENV === "production") {
+    if (_env.CORS_DISABLE) {
+      console.warn(
+        "[Config] ⚠ CORS_DISABLE=true — all browser origins are allowed. Use only for temporary debugging.",
+      );
+    }
     if (!_env.API_KEYS) {
       console.warn(
         "[Config] ℹ API_KEYS not set — using DB-backed API keys only (recommended)",
