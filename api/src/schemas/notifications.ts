@@ -27,7 +27,8 @@ export const createNotificationSchema = z
       .optional()
       .meta({ example: "https://example.com/icon.png" }),
     actionUrl: z
-      .url()
+      .string()
+      .optional()
       .meta({ example: "https://example.com/action" }),
     data: z
       .record(z.string(), z.string())
@@ -89,7 +90,8 @@ export const testNotificationSchema = z
       .meta({ example: "https://example.com/image.png" }),
     icon: z.url().optional().meta({ example: "https://example.com/icon.png" }),
     actionUrl: z
-      .url()
+      .string()
+      .optional()
       .meta({ example: "https://example.com/action" }),
     data: z
       .record(z.string(), z.string())
