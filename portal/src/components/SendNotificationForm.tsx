@@ -485,10 +485,12 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       Boolean(selectedTemplateVariant.body.trim())
     : Boolean(formData.title.trim()) && Boolean(formData.body.trim());
 
+  const needsActionUrl =
+    formData.ctaType !== "open_app" && formData.ctaType !== "dismiss";
   const canSubmit =
     !!formData.appId &&
     hasRequiredContent &&
-    Boolean(formData.actionUrl.trim()) &&
+    (!needsActionUrl || Boolean(formData.actionUrl.trim())) &&
     readinessErrors.length === 0 &&
     !isSubmitting;
 
