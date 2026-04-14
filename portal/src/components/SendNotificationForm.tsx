@@ -14,6 +14,7 @@ import { clsx } from "clsx";
 import type { App } from "../types";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useScopedTranslation } from "../context/I18nContext";
 import { getUserIdentityLabel } from "../lib/userIdentity";
 import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
@@ -106,7 +107,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     userIds: [] as string[],
     testUserIds: [] as string[],
     platforms: [...SEND_PLATFORMS] as SendPlatform[],
-    priority: "HIGH" as "LOW" | "NORMAL" | "HIGH",
+    priority: "NORMAL" as "LOW" | "NORMAL" | "HIGH",
     scheduledLocal: "",
   });
 
@@ -566,17 +567,36 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     setFormData(getInitialFormData());
   };
 
+  const { confirm } = useConfirmDialog();
+
   const sendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !token) return;
+
+    // Confirm before live send
+    if (step === "live") {
+      const targetDesc = showTargetUsers && formData.userIds.length > 0
+        ? `${formData.userIds.length} specific users`
+        : "all users";
+      const confirmed = await confirm({
+        title: deliveryMode === "scheduled" ? "Schedule Live Notification?" : "Send Live Notification?",
+        description: `This will ${deliveryMode === "scheduled" ? "schedule" : "immediately send"} a notification to ${targetDesc} on ${formData.platforms.join(", ")}.`,
+        confirmText: deliveryMode === "scheduled" ? "Schedule" : "Send Now",
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
 
     setStatus(null);
     setIsSubmitting(true);
 
     try {
       const defaultActionUrl = formData.actionUrl.trim();
-      if (!defaultActionUrl) {
-        throw new Error(tt("Default open-link URL is required."));
+      if (formData.ctaType === "open_url" && !defaultActionUrl) {
+        throw new Error(tt("URL is required when action type is Open URL."));
+      }
+      if (formData.ctaType === "deep_link" && !defaultActionUrl) {
+        throw new Error(tt("Deep link URI is required."));
       }
 
       const ctaData: Record<string, string> = {};
@@ -742,7 +762,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     : "text-slate-600",
                 )}
               >
-                {tt("Step 1: Test")}
+                {tt("Test")}
               </button>
               <button
                 type="button"
@@ -752,7 +772,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   step === "live" ? "bg-rose-600 text-white" : "text-slate-600",
                 )}
               >
-                {tt("Step 2: Live")}
+                {tt("Live")}
               </button>
             </div>
           </div>
@@ -833,8 +853,8 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
           </button>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-2">
-                {tt("Type")}
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                {tt("Category")}
               </label>
               <select
                 className={inputClass}
@@ -852,9 +872,16 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {formData.type === "transactional" && tt("Triggered by user action (order, password reset)")}
+                {formData.type === "marketing" && tt("Promotional content, offers, announcements")}
+                {formData.type === "engagement" && tt("Re-engage inactive users")}
+                {formData.type === "utility" && tt("Updates, reminders, status changes")}
+                {formData.type === "campaign" && tt("Scheduled batch delivery")}
+              </p>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2">
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 {tt("Priority")}
               </label>
               <select
@@ -866,10 +893,10 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     priority: e.target.value as "LOW" | "NORMAL" | "HIGH",
                   }))
                 }
-                >
-                <option value="LOW">{tt("Low")}</option>
-                <option value="NORMAL">{tt("Normal")}</option>
-                <option value="HIGH">{tt("High")}</option>
+              >
+                <option value="LOW">{tt("Low")} - {tt("batch delivery, non-urgent")}</option>
+                <option value="NORMAL">{tt("Normal")} - {tt("standard delivery")}</option>
+                <option value="HIGH">{tt("High")} - {tt("immediate, may wake device")}</option>
               </select>
             </div>
           </div>
@@ -1086,93 +1113,114 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
           </div>
 
           <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                {tt("Default open-link URL")} *
-              </label>
-              <input
-                type="url"
-                className={inputClass}
-                value={formData.actionUrl}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    actionUrl: e.target.value,
-                  }))
-                }
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
-              <div className="text-sm font-semibold text-slate-700 mb-3">
-                {tt("CTA Button 1 (optional)")}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <p className="mb-3 text-sm font-semibold text-slate-700">
+                {tt("Tap Action")}
+              </p>
+              <p className="mb-3 text-xs text-slate-500">
+                {tt("What happens when the user taps the notification.")}
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    {tt("Action")}
+                  </label>
+                  <select
+                    className={inputClass}
+                    value={formData.ctaType}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        ctaType: e.target.value as CtaType,
+                      }))
+                    }
+                  >
+                    {CTA_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {getCtaTypeLabel(option.value)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {formData.ctaType === "open_url" || formData.ctaType === "deep_link" ? (
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                      {formData.ctaType === "deep_link" ? tt("Deep Link URI") : tt("URL")}
+                    </label>
+                    <input
+                      type={formData.ctaType === "open_url" ? "url" : "text"}
+                      className={inputClass}
+                      value={formData.actionUrl || formData.ctaValue}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          actionUrl: e.target.value,
+                          ctaValue: e.target.value,
+                        }))
+                      }
+                      placeholder={getCtaValuePlaceholder(formData.ctaType)}
+                    />
+                  </div>
+                ) : null}
               </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  {tt("CTA Type")}
-                </label>
-                <select
-                  className={inputClass}
-                  value={formData.ctaType}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      ctaType: e.target.value as CtaType,
-                    }))
-                  }
-                >
-                  {CTA_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {getCtaTypeLabel(option.value)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  {tt("CTA Label")}
-                </label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  value={formData.ctaLabel}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      ctaLabel: e.target.value,
-                    }))
-                  }
-                  placeholder={tt("Open link")}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  {tt("CTA URL")}
-                </label>
-                <input
-                  type="url"
-                  className={inputClass}
-                  value={formData.ctaValue}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      ctaValue: e.target.value,
-                    }))
-                  }
-                  disabled={!ctaNeedsValue}
-                  placeholder={tt(getCtaValuePlaceholder(formData.ctaType))}
-                />
-              </div>
-            </div>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              {tt(
-                "Notification click always opens the default URL above. CTA buttons are optional and can add up to two extra links.",
+              {formData.ctaType === "open_app" && (
+                <p className="mt-2 text-xs text-slate-400">
+                  {tt("Tapping opens your app to its default screen.")}
+                </p>
               )}
-            </p>
+              {formData.ctaType === "dismiss" && (
+                <p className="mt-2 text-xs text-slate-400">
+                  {tt("Notification is dismissed without opening the app.")}
+                </p>
+              )}
+            </div>
+
+            {/* Optional CTA Buttons */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <p className="mb-1 text-sm font-semibold text-slate-700">
+                {tt("Action Buttons")}
+                <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
+              </p>
+              <p className="mb-3 text-xs text-slate-500">
+                {tt("Extra buttons shown on the expanded notification (up to 2).")}
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    {tt("Button Label")}
+                  </label>
+                  <input
+                    type="text"
+                    className={inputClass}
+                    value={formData.ctaLabel}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        ctaLabel: e.target.value,
+                      }))
+                    }
+                    placeholder={tt("e.g. View Details")}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                    {tt("Button URL")}
+                  </label>
+                  <input
+                    type="url"
+                    className={inputClass}
+                    value={formData.ctaValue}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        ctaValue: e.target.value,
+                      }))
+                    }
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </div>
 
             {showSecondaryCta ? (
               <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
