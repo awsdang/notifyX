@@ -436,24 +436,24 @@ export function ABTesting({ apps, token }: ABTestingProps) {
   const getDisplayStatus = (test: ABTest) => {
     if (test.status === "COMPLETED" || test.status === "CANCELLED") {
       return {
-        label: tt("status_finished", undefined, "finished"),
+        label: tt("status_finished", undefined, "Finished"),
         className: "bg-green-100 text-green-700",
       };
     }
     if (test.status === "ACTIVE") {
       return {
-        label: tt("status_sent", undefined, "sent"),
+        label: tt("status_sent", undefined, "Sent"),
         className: "bg-blue-100 text-blue-700",
       };
     }
     if (test.hasTestPhase) {
       return {
-        label: tt("status_tested", undefined, "tested"),
+        label: tt("status_tested", undefined, "Tested"),
         className: "bg-amber-100 text-amber-700",
       };
     }
     return {
-      label: tt("status_draft", undefined, "draft"),
+      label: tt("status_draft", undefined, "Draft"),
       className: "bg-slate-100 text-slate-700",
     };
   };
@@ -506,7 +506,8 @@ export function ABTesting({ apps, token }: ABTestingProps) {
       ) : tests.length === 0 ? (
         <div className="bg-white rounded-xl border p-12 text-center text-gray-400">
           <FlaskConical className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>{tt("No A/B tests yet. Create your first test!")}</p>
+          <p>{tt("No A/B tests yet.")}</p>
+          <p className="text-sm mt-2">{tt("Create your first A/B test to compare notification variants.")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -1186,7 +1187,7 @@ function ABTestEditorPage({
               }
               disabled={mode === "edit"}
             >
-              <option value="">{tt("Select an app")}</option>
+              <option value="" disabled>{tt("Select an app...")}</option>
               {apps.map((app) => (
                 <option key={app.id} value={app.id}>
                   {app.name}
@@ -1333,13 +1334,16 @@ function ABTestEditorPage({
 
           <div className="border-t border-slate-100 pt-5 space-y-4">
             <div className="flex justify-between items-center">
-              <label className="block text-sm font-semibold">{tt("Variants")}</label>
+              <label className="block text-sm font-semibold">{tt("Variants")} *</label>
               {variants.length < 5 && (
                 <Button size="sm" variant="outline" onClick={addVariant}>
                   + {tt("Add Variant")}
                 </Button>
               )}
             </div>
+            <p className="text-xs text-slate-500 -mt-2">
+              {tt("Weight determines how traffic is split between variants. Higher weight = more users see this variant. Weights are relative (e.g., 50/50 = equal split).")}
+            </p>
 
             <div className="space-y-4">
               {variants.map((variant, index) => {

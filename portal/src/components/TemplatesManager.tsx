@@ -13,12 +13,16 @@ import {
   MessageSquare,
   AlignLeft,
   AlignRight,
+  Loader2,
+  Inbox,
+  SearchX,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAuthenticatedFetch } from "../context/AuthContext";
 import { clsx } from "clsx";
 import { NotificationPreview } from "./NotificationPreview";
 import { useScopedTranslation } from "../context/I18nContext";
+import { useConfirmDialog } from "../context/ConfirmDialogContext";
 
 type TemplateType = "transactional" | "campaign";
 type CreateTargetField = "title" | "body";
@@ -215,6 +219,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
     fallback?: string,
   ) => ttRaw(key, fallback || key, params);
   const authFetch = useAuthenticatedFetch();
+  const { confirm } = useConfirmDialog();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -463,9 +468,12 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
   const handleDeleteTemplate = async () => {
     if (!selectedTemplate) return;
 
-    const shouldDelete = window.confirm(
-      `Delete "${selectedTemplate.name}" in all languages?`,
-    );
+    const shouldDelete = await confirm({
+      title: `Delete "${selectedTemplate.name}"?`,
+      description: "This will permanently remove the template in all languages. This action cannot be undone.",
+      confirmText: "Delete",
+      destructive: true,
+    });
     if (!shouldDelete) return;
 
     setIsSaving(true);
@@ -907,21 +915,36 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
             </div>
           )}
           {isLoading ? (
-            Array(3)
-              .fill(0)
-              .map((_, i) => (
-                <div
-                  key={i}
-                  className="h-16 bg-white rounded-2xl animate-pulse border border-gray-50"
-                />
-              ))
-          ) : filteredTemplates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+              <p className="text-xs text-gray-400">{tt("Loading templates...")}</p>
+            </div>
+          ) : filteredTemplates.length === 0 && searchTerm ? (
             <div className="text-center py-12">
-              <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-              <p className="text-xs text-gray-400">{tt("No templates found")}</p>
+              <SearchX className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-500 mb-1">{tt("No templates match your search")}</p>
+              <p className="text-xs text-gray-400 mb-4">{tt("Try a different keyword or clear the search")}</p>
               <Button
                 size="sm"
-                className="mt-4 rounded-xl px-4"
+                variant="outline"
+                className="rounded-xl px-4"
+                onClick={() => setSearchTerm("")}
+              >
+                {tt("Clear search")}
+              </Button>
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Inbox className="w-8 h-8 text-gray-300" />
+              </div>
+              <h4 className="text-sm font-bold text-gray-700 mb-1">{tt("No templates yet")}</h4>
+              <p className="text-xs text-gray-400 mb-4 max-w-[200px] mx-auto">
+                {tt("Create your first notification template to get started.")}
+              </p>
+              <Button
+                size="sm"
+                className="rounded-xl px-4"
                 onClick={openCreatePage}
               >
                 <Plus className="w-3 h-3 me-1" />
@@ -1286,6 +1309,9 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                   <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                     {tt("Metadata Variables")}
                   </h5>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    {tt("Click a variable to insert it. Use {{variableName}} syntax in title or body.")}
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     {editorVariables.map((v) => (
                       <div

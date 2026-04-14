@@ -754,8 +754,11 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 font-mono mt-1 truncate max-w-md">
-                        {device.pushToken.slice(0, 50)}...
+                      <p
+                        className="text-xs text-gray-400 font-mono mt-1 truncate max-w-md"
+                        title={device.pushToken}
+                      >
+                        {device.pushToken}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {tt("Last seen")}: {formatDate(device.lastSeenAt)}
@@ -1031,7 +1034,23 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
           ) : users.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{getNoUsersFoundLabel()}</p>
+              <p>
+                {searchQuery
+                  ? tt(
+                      "No users found matching \"{{query}}\"",
+                      { query: searchQuery },
+                      "No users found matching \"{{query}}\"",
+                    )
+                  : getNoUsersFoundLabel()}
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                >
+                  {tt("Clear search", undefined, "Clear search")}
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -1115,7 +1134,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                       usersPagination.total,
                     )}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1124,6 +1143,12 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                     >
                       <PrevIcon className="w-4 h-4" />
                     </Button>
+                    <span className="text-sm text-gray-600 min-w-max">
+                      {tt("Page {{page}} of {{totalPages}}", {
+                        page: usersPagination.page,
+                        totalPages: usersPagination.totalPages,
+                      })}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1277,7 +1302,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                       devicesPagination.total,
                     )}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1286,6 +1311,12 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                     >
                       <PrevIcon className="w-4 h-4" />
                     </Button>
+                    <span className="text-sm text-gray-600 min-w-max">
+                      {tt("Page {{page}} of {{totalPages}}", {
+                        page: devicesPagination.page,
+                        totalPages: devicesPagination.totalPages,
+                      })}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"

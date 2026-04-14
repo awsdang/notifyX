@@ -74,7 +74,7 @@ function formatDateTime(value?: string | null): string {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString();
+  return parsed.toLocaleString(undefined, { timeZoneName: "short" });
 }
 
 function getNotificationTitle(
@@ -581,9 +581,26 @@ export function NotificationHistoryPage({
         {!isLoading && !error && notifications.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
             <Megaphone className="mx-auto mb-3 h-10 w-10 opacity-50" />
-            {tp(
-              "noNotificationsFound",
-              "No notifications found for the selected filters.",
+            <p>
+              {tp(
+                "noNotificationsFound",
+                "No notifications found for the selected filters.",
+              )}
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              {tp(
+                "noNotificationsHint",
+                "Try clearing your filters or expanding the date range to see more results.",
+              )}
+            </p>
+            {(filters.appId !== "all" || filters.from || filters.to || filters.userId || filters.deviceId) && (
+              <Button
+                variant="outline"
+                className="mt-3"
+                onClick={clearFilters}
+              >
+                {tp("clearFilters", "Clear all filters")}
+              </Button>
             )}
           </div>
         ) : null}
@@ -607,12 +624,20 @@ export function NotificationHistoryPage({
                   <h4 className="truncate text-base font-bold text-slate-900">
                     {getNotificationTitle(item, tp)}
                   </h4>
-                  <p className="truncate font-mono text-[11px] text-slate-500">{item.id}</p>
+                  <p
+                    className="truncate font-mono text-[11px] text-slate-500 cursor-pointer select-all"
+                    title={item.id}
+                    onClick={() => void navigator.clipboard.writeText(item.id)}
+                  >
+                    {item.id}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                    {item.type}
+                    {item.type
+                      .replace(/_/g, " ")
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
                   </span>
                   <span
                     className={clsx(
@@ -794,7 +819,7 @@ export function NotificationHistoryPage({
                       {tp("deliveryStatuses", "Delivery Statuses")}
                     </p>
                     <p>
-                      delivered={summary?.delivered || 0}, failed={summary?.failed || 0}, retry={summary?.retry || 0}, pending={summary?.pending || 0}
+                      {summary?.delivered || 0} delivered, {summary?.failed || 0} failed, {summary?.retry || 0} retrying, {summary?.pending || 0} pending
                     </p>
                   </div>
                   <div className="md:col-span-2">

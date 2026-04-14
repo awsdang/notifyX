@@ -67,6 +67,20 @@ const MOCK_LOGS: AuditEntry[] = [
     }
 ];
 
+function humanizeAction(action: string): string {
+    return action
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+function formatTimestamp(timestamp: string): string {
+    const date = new Date(timestamp.replace(' ', 'T'));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' at '
+        + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 export function AuditLogs() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -144,10 +158,7 @@ export function AuditLogs() {
                             {filteredLogs.map((log) => (
                                 <tr key={log.id} className="group hover:bg-slate-50/50 transition-colors">
                                     <td className="px-8 py-5 whitespace-nowrap">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-gray-900 line-clamp-1">{log.timestamp.split(' ')[1]}</span>
-                                            <span className="text-[10px] text-gray-400">{log.timestamp.split(' ')[0]}</span>
-                                        </div>
+                                        <span className="text-sm font-medium text-gray-900">{formatTimestamp(log.timestamp)}</span>
                                     </td>
                                     <td className="px-6 py-5">
                                         <span className={clsx(
@@ -169,7 +180,7 @@ export function AuditLogs() {
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-gray-900">{log.action.replace(/_/g, ' ')}</span>
+                                            <span className="text-sm font-bold text-gray-900">{humanizeAction(log.action)}</span>
                                             <span className="text-xs text-blue-600 font-medium">{log.resource}</span>
                                         </div>
                                     </td>
@@ -199,7 +210,7 @@ export function AuditLogs() {
                     {filteredLogs.length === 0 && (
                         <div className="py-24 text-center">
                             <ScrollText className="w-12 h-12 text-gray-100 mx-auto mb-4" />
-                            <p className="text-gray-400 text-sm">No audit logs found matching your criteria.</p>
+                            <p className="text-gray-400 text-sm">No audit logs found. Try adjusting your filters or expanding the date range.</p>
                         </div>
                     )}
                 </div>

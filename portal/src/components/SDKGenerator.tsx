@@ -90,7 +90,7 @@ NotifyX.registerDevice(
     const copyToClipboard = () => {
         navigator.clipboard.writeText(currentSnippet.code);
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setTimeout(() => setCopied(false), 3000);
     };
 
     return (
@@ -163,6 +163,9 @@ NotifyX.registerDevice(
                 </header>
 
                 <div className="flex-1 p-8 overflow-auto font-mono text-sm leading-relaxed scrollbar-hide text-blue-300">
+                    <p className="text-[11px] text-amber-400/80 font-sans mb-4 tracking-wide">
+                        Replace the placeholder values with your actual app ID and user ID.
+                    </p>
                     <pre className="whitespace-pre-wrap">
                         {currentSnippet.code}
                     </pre>

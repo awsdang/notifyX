@@ -183,6 +183,7 @@ export function AdminAccessManager() {
               required
               minLength={8}
             />
+            <p className="text-xs text-slate-400 -mt-1 md:col-span-2">Minimum 8 characters. The user should change this on first login.</p>
             <select
               className="rounded-lg border px-3 py-2 text-sm"
               value={createState.role}
@@ -194,9 +195,9 @@ export function AdminAccessManager() {
                 }))
               }
             >
-              <option value="MARKETING_MANAGER">MARKETING_MANAGER</option>
-              <option value="APP_MANAGER">APP_MANAGER</option>
-              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+              <option value="MARKETING_MANAGER">Marketing - Campaigns, templates, and audience only</option>
+              <option value="APP_MANAGER">App Manager - Manage assigned apps and credentials</option>
+              <option value="SUPER_ADMIN">Super Admin - Full access to all apps and settings</option>
             </select>
           </div>
 
@@ -262,9 +263,9 @@ export function AdminAccessManager() {
                           }))
                         }
                       >
-                        <option value="MARKETING_MANAGER">MARKETING_MANAGER</option>
-                        <option value="APP_MANAGER">APP_MANAGER</option>
-                        <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                        <option value="MARKETING_MANAGER">Marketing - Campaigns, templates, and audience only</option>
+                        <option value="APP_MANAGER">App Manager - Manage assigned apps and credentials</option>
+                        <option value="SUPER_ADMIN">Super Admin - Full access to all apps and settings</option>
                       </select>
                     </label>
 
@@ -285,6 +286,7 @@ export function AdminAccessManager() {
                       />
                       Active
                     </label>
+                    <p className="text-xs text-slate-400 md:col-span-2">Inactive users cannot log in or access the portal.</p>
                   </div>
 
                   {draft.role !== "SUPER_ADMIN" && (

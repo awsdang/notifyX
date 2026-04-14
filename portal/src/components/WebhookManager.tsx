@@ -175,7 +175,10 @@ export function WebhookManager({ appId, appName, token }: WebhookManagerProps) {
       ) : webhooks.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed p-12 text-center text-gray-400">
           <Activity className="w-12 h-12 mx-auto mb-4 opacity-20" />
-          <p>No webhooks configured for this app.</p>
+          <p className="font-medium text-gray-500 mb-2">No webhooks configured for this app.</p>
+          <p className="text-sm text-gray-400 max-w-md mx-auto">
+            Webhooks send real-time HTTP callbacks when notification events occur (sent, delivered, failed). Add an endpoint to start receiving events.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -206,14 +209,21 @@ export function WebhookManager({ appId, appName, token }: WebhookManagerProps) {
                   {webhook.description || "No description"}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {webhook.events.map((event) => (
-                    <span
-                      key={event}
-                      className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium"
-                    >
-                      {event}
-                    </span>
-                  ))}
+                  {webhook.events.map((event) => {
+                    const humanLabel = AVAILABLE_EVENTS.find((e) => e.id === event)?.label ??
+                      event
+                        .split(".")
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(" ");
+                    return (
+                      <span
+                        key={event}
+                        className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium"
+                      >
+                        {humanLabel}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 shrink-0">
@@ -237,7 +247,7 @@ export function WebhookManager({ appId, appName, token }: WebhookManagerProps) {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    console.error(`Webhook Secret: ${webhook.secret}`)
+                    navigator.clipboard.writeText(webhook.secret)
                   }
                 >
                   <Shield className="w-4 h-4 text-yellow-600" />
@@ -282,6 +292,9 @@ export function WebhookManager({ appId, appName, token }: WebhookManagerProps) {
                     setFormData({ ...formData, url: e.target.value })
                   }
                 />
+                <p className="text-xs text-gray-400 mt-1.5">
+                  Must be a publicly accessible HTTPS endpoint. We'll send POST requests with event payloads.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
