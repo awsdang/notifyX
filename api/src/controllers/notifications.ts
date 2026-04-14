@@ -18,6 +18,7 @@ import { decryptTokenIfNeeded } from "../utils/crypto";
 import { appIdScopeFilter } from "../middleware/tenantScope";
 import { buildCampaignTargetingData } from "../utils/campaignTargeting";
 import { normalizeOpenLinkCta } from "../utils/cta";
+import { resolvePushMessageIcons, withAppIconData } from "../utils/appIcons";
 
 const BROADCAST_TO_CAMPAIGN_THRESHOLD = parseInt(
   process.env.BROADCAST_TO_CAMPAIGN_THRESHOLD || "5000",
@@ -836,6 +837,7 @@ export const sendTestNotification = async (
       requireActionUrl: true,
       maxActions: 2,
     });
+    const messageIcons = resolvePushMessageIcons(app, data.icon);
 
     const message: PushMessage = {
       token: resolvedToken,
@@ -843,13 +845,16 @@ export const sendTestNotification = async (
       subtitle: data.subtitle,
       body: data.body,
       image: data.image,
-      icon: data.icon,
+      ...messageIcons,
       actionUrl: normalizedCta.actionUrl,
       actions: normalizedCta.actions,
-      data: {
-        ...normalizedCta.data,
-        _test: "true",
-      },
+      data: withAppIconData(
+        {
+          ...normalizedCta.data,
+          _test: "true",
+        },
+        messageIcons.icon,
+      ),
     };
 
     const result = await sendPush(

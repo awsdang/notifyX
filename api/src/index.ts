@@ -16,6 +16,7 @@ import {
   validateContentType,
   securityHeaders,
 } from "./middleware/security";
+import { presignStorageUrls } from "./middleware/presignStorageUrls";
 import {
   prisma,
   checkDatabaseHealth,
@@ -24,6 +25,7 @@ import {
 import { checkRedisHealth, disconnectRedis } from "./services/redis";
 import { closeQueues, getQueueHealth } from "./services/queue";
 import { getConfiguredProviders } from "./services/push-providers";
+import { isOriginAllowedByWebCredentials } from "./services/corsOrigins";
 import { validateEnv } from "./config/env";
 import { sendSuccess } from "./utils/response";
 
@@ -55,20 +57,54 @@ app.use(requestLogger);
 const corsOrigin =
   process.env.CORS_ORIGIN ||
   (process.env.NODE_ENV === "production" ? undefined : "*");
+const disableCors = env.CORS_DISABLE;
+
+const envCorsAllowAll = corsOrigin === "*";
+const envCorsOrigins = envCorsAllowAll
+  ? []
+  : (corsOrigin || "")
+      .split(",")
+      .map((origin) => origin.trim().toLowerCase())
+      .filter(Boolean);
+
+const envCorsOriginSet = new Set(envCorsOrigins);
 if (
   process.env.NODE_ENV === "production" &&
   (!corsOrigin || corsOrigin === "*")
 ) {
   console.warn(
     '[Security] CORS_ORIGIN is not set or is "*" in production. ' +
-    "Requests with credentials will be rejected by browsers. " +
-    "Set CORS_ORIGIN to your portal domain (e.g. https://portal.example.com).",
+      "Requests with credentials will be rejected by browsers. " +
+      "Set CORS_ORIGIN to your portal domain (e.g. https://portal.example.com).",
   );
 }
 app.use(
   cors({
-    origin:
-      corsOrigin === "*" ? true : corsOrigin?.split(",").map((o) => o.trim()),
+    origin: (origin, callback) => {
+      if (disableCors) {
+        return callback(null, true);
+      }
+
+      // Non-browser clients (no Origin header) should continue to work.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const normalizedOrigin = origin.trim().toLowerCase();
+
+      if (envCorsAllowAll || envCorsOriginSet.has(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      void isOriginAllowedByWebCredentials(normalizedOrigin)
+        .then((isAllowed) => callback(null, isAllowed))
+        .catch((error) => {
+          console.error(
+            `[CORS] Failed to evaluate credential origin allowlist: ${error instanceof Error ? error.message : "unknown error"}`,
+          );
+          callback(null, false);
+        });
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: [
       "Content-Type",
@@ -83,6 +119,9 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(validateContentType);
 app.use(sanitize);
+
+// Ensure MinIO/S3 object URLs in JSON responses are always returned as presigned URLs.
+app.use(presignStorageUrls);
 
 // Rate limiting
 app.use(rateLimit());
@@ -123,16 +162,19 @@ function metricsAuth(
 }
 
 // Liveness endpoint (fast, no dependency checks)
-app.get("/health", (req, res) => {
+const healthHandler: express.RequestHandler = (req, res) => {
   sendSuccess(res, {
     status: "ok",
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || "1.0.0",
   });
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 // Readiness endpoint (dependency checks)
-app.get("/ready", async (req, res) => {
+const readyHandler: express.RequestHandler = async (req, res) => {
   const dbHealth = await checkDatabaseHealth();
 
   const redisHealth = env.REDIS_DISABLED
@@ -177,7 +219,10 @@ app.get("/ready", async (req, res) => {
     isReady ? 200 : 503,
     isReady ? "Ready" : "Not Ready",
   );
-});
+};
+
+app.get("/ready", readyHandler);
+app.get("/api/ready", readyHandler);
 
 // Metrics endpoint (for dashboards) — token protected
 app.get("/metrics", metricsAuth, async (req, res) => {
@@ -228,9 +273,13 @@ import {
 } from "./routes";
 
 // Documentation (no auth required - handled in authenticate middleware)
-app.get("/openapi.json", (req, res) => {
+const openApiHandler: express.RequestHandler = (req, res) => {
   res.json(getOpenApiSpec());
-});
+};
+
+app.get("/openapi.json", openApiHandler);
+app.get("/api/openapi.json", openApiHandler);
+
 app.use(
   "/docs",
   apiReference({
@@ -244,6 +293,22 @@ app.use(
   apiReference({
     spec: {
       url: "/openapi.json",
+    },
+  } as any),
+);
+app.use(
+  "/api/docs",
+  apiReference({
+    spec: {
+      url: "/api/openapi.json",
+    },
+  } as any),
+);
+app.use(
+  "/api/reference",
+  apiReference({
+    spec: {
+      url: "/api/openapi.json",
     },
   } as any),
 );

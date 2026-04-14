@@ -96,7 +96,10 @@ export function securityHeaders(
   next: NextFunction,
 ): void {
   const isDocsRoute =
-    req.path.startsWith("/docs") || req.path.startsWith("/reference");
+    req.path.startsWith("/docs") ||
+    req.path.startsWith("/reference") ||
+    req.path.startsWith("/api/docs") ||
+    req.path.startsWith("/api/reference");
 
   // Prevent MIME-type sniffing
   res.setHeader("X-Content-Type-Options", "nosniff");

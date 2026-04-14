@@ -1,0 +1,14 @@
+[variables]
+NODE_ENV = "production"
+
+[phases.setup]
+nixPkgs = ["...", "bun", "openssl"]
+
+[phases.install]
+cmds = ["bun install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["bun run db:generate", "bun run build"]
+
+[start]
+cmd = "sh -c 'bunx prisma migrate deploy && bun run start'"

@@ -40,8 +40,8 @@ export async function addToDeadLetterQueue(
       },
     });
 
-    console.log(
-      `[DLQ] Added failed delivery: ${entry.deliveryId || entry.notificationId}`,
+    console.error(
+      `[DLQ] Added failed delivery: ${entry.deliveryId || entry.notificationId} provider=${entry.provider} attempts=${entry.attempts} errorCode=${entry.errorCode || "UNKNOWN"} error=${entry.errorMessage}`,
     );
 
     // Check if we need to alert

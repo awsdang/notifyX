@@ -7,6 +7,62 @@ import { z } from "zod";
  */
 const base64urlPattern = /^[A-Za-z0-9_-]+$/;
 
+function normalizeOrigin(input: string): string | null {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            return null;
+        }
+        return parsed.origin.toLowerCase();
+    } catch {
+        return null;
+    }
+}
+
+const allowedOriginsSchema = z
+    .preprocess((value) => {
+        if (typeof value === "string") {
+            return value
+                .split(/[\n,]/)
+                .map((v) => v.trim())
+                .filter(Boolean);
+        }
+
+        if (Array.isArray(value)) {
+            return value
+                .map((v) => String(v).trim())
+                .filter(Boolean);
+        }
+
+        return [];
+    }, z.array(z.string().min(1)).max(100))
+    .transform((origins, ctx) => {
+        const deduped: string[] = [];
+        const seen = new Set<string>();
+
+        origins.forEach((origin, index) => {
+            const normalized = normalizeOrigin(origin);
+            if (!normalized) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [index],
+                    message: `Invalid origin: ${origin}`,
+                });
+                return;
+            }
+
+            if (!seen.has(normalized)) {
+                seen.add(normalized);
+                deduped.push(normalized);
+            }
+        });
+
+        return deduped;
+    });
+
 /**
  * Validation schema for Web Push (VAPID) credentials
  */
@@ -26,6 +82,7 @@ export const webPushCredentialSchema = z.object({
             (val) => val.startsWith("mailto:") || val.startsWith("https://"),
             "Subject must start with mailto: or https://",
         ),
+    allowedOrigins: allowedOriginsSchema.optional().default([]),
 });
 
 /**

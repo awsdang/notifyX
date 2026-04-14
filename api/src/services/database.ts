@@ -4,10 +4,14 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 // Extend PrismaClient for metrics if needed
 const createPrismaClient = () => {
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+
     return new PrismaClient({
+        adapter,
         log: process.env.NODE_ENV === 'production'
             ? ['error', 'warn']
             : ['query', 'info', 'warn', 'error'],

@@ -28,3 +28,8 @@ Open this folder with a static server (required for service worker):
 ## Important
 
 This demo passes `x-api-key` from browser for speed. In production, register/send through your backend with short-lived tokens.
+
+## Notification Icon Setup
+
+- Web notifications can use the uploaded app icon URL directly.
+- After uploading an icon in the NotifyX portal, browser pushes from this example will use that icon automatically through the service worker payload.

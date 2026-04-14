@@ -3020,6 +3020,59 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
         "x-notifyx-doc-status": "placeholder",
       },
     },
+    "/admin/signup": {
+      "post": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "post__admin_signup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "summary": "Signup invited admin",
+        "tags": [
+          "Admin",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
     "/admin/users": {
       "get": {
         "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
@@ -3308,6 +3361,64 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
         "x-notifyx-doc-status": "placeholder",
       },
     },
+    "/admin/users/{id}/apps": {
+      "put": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "put__admin_users__id__apps",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Replace admin app assignments",
+        "tags": [
+          "Admin",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
     "/apps": {
       "get": {
         "deprecated": undefined,
@@ -3328,6 +3439,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "androidNotificationIcon": {
+                                "example": "ic_stat_notifyx",
+                                "nullable": true,
+                                "type": "string",
+                              },
                               "bundleId": {
                                 "example": "com.example.app",
                                 "nullable": true,
@@ -3355,6 +3471,18 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               },
                               "name": {
                                 "example": "My App",
+                                "type": "string",
+                              },
+                              "notificationIconAssetId": {
+                                "example": "123e4567-e89b-12d3-a456-426614174000",
+                                "format": "uuid",
+                                "nullable": true,
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string",
+                              },
+                              "notificationIconUrl": {
+                                "example": "https://example.com/icon.png",
+                                "nullable": true,
                                 "type": "string",
                               },
                               "orgId": {
@@ -3420,6 +3548,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               "packageName",
                               "platforms",
                               "defaultLanguage",
+                              "notificationIconAssetId",
+                              "notificationIconUrl",
+                              "androidNotificationIcon",
                               "isKilled",
                               "webhookUrl",
                               "webhookSecret",
@@ -3721,6 +3852,12 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                   },
                   "platforms": {
                     "additionalProperties": false,
+                    "default": {
+                      "android": true,
+                      "huawei": false,
+                      "ios": true,
+                      "web": false,
+                    },
                     "example": {
                       "android": true,
                       "ios": true,
@@ -3786,6 +3923,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "additionalProperties": false,
                           "description": "The response data",
                           "properties": {
+                            "androidNotificationIcon": {
+                              "example": "ic_stat_notifyx",
+                              "nullable": true,
+                              "type": "string",
+                            },
                             "bundleId": {
                               "example": "com.example.app",
                               "nullable": true,
@@ -3813,6 +3955,18 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             },
                             "name": {
                               "example": "My App",
+                              "type": "string",
+                            },
+                            "notificationIconAssetId": {
+                              "example": "123e4567-e89b-12d3-a456-426614174000",
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string",
+                            },
+                            "notificationIconUrl": {
+                              "example": "https://example.com/icon.png",
+                              "nullable": true,
                               "type": "string",
                             },
                             "orgId": {
@@ -3878,6 +4032,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "packageName",
                             "platforms",
                             "defaultLanguage",
+                            "notificationIconAssetId",
+                            "notificationIconUrl",
+                            "androidNotificationIcon",
                             "isKilled",
                             "webhookUrl",
                             "webhookSecret",
@@ -4820,6 +4977,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "additionalProperties": false,
                           "description": "The response data",
                           "properties": {
+                            "androidNotificationIcon": {
+                              "example": "ic_stat_notifyx",
+                              "nullable": true,
+                              "type": "string",
+                            },
                             "bundleId": {
                               "example": "com.example.app",
                               "nullable": true,
@@ -4847,6 +5009,18 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             },
                             "name": {
                               "example": "My App",
+                              "type": "string",
+                            },
+                            "notificationIconAssetId": {
+                              "example": "123e4567-e89b-12d3-a456-426614174000",
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string",
+                            },
+                            "notificationIconUrl": {
+                              "example": "https://example.com/icon.png",
+                              "nullable": true,
                               "type": "string",
                             },
                             "orgId": {
@@ -4912,6 +5086,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "packageName",
                             "platforms",
                             "defaultLanguage",
+                            "notificationIconAssetId",
+                            "notificationIconUrl",
+                            "androidNotificationIcon",
                             "isKilled",
                             "webhookUrl",
                             "webhookSecret",
@@ -5175,6 +5352,13 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "additionalProperties": false,
                 "id": "UpdateAppRequest",
                 "properties": {
+                  "androidNotificationIcon": {
+                    "example": "ic_stat_notifyx",
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "nullable": true,
+                    "type": "string",
+                  },
                   "defaultLanguage": {
                     "example": "en",
                     "maxLength": 5,
@@ -5185,6 +5369,13 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "example": "My App",
                     "maxLength": 100,
                     "minLength": 1,
+                    "type": "string",
+                  },
+                  "notificationIconAssetId": {
+                    "example": "123e4567-e89b-12d3-a456-426614174000",
+                    "format": "uuid",
+                    "nullable": true,
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                     "type": "string",
                   },
                   "platforms": {
@@ -5239,6 +5430,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "additionalProperties": false,
                           "description": "The response data",
                           "properties": {
+                            "androidNotificationIcon": {
+                              "example": "ic_stat_notifyx",
+                              "nullable": true,
+                              "type": "string",
+                            },
                             "bundleId": {
                               "example": "com.example.app",
                               "nullable": true,
@@ -5266,6 +5462,18 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             },
                             "name": {
                               "example": "My App",
+                              "type": "string",
+                            },
+                            "notificationIconAssetId": {
+                              "example": "123e4567-e89b-12d3-a456-426614174000",
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string",
+                            },
+                            "notificationIconUrl": {
+                              "example": "https://example.com/icon.png",
+                              "nullable": true,
                               "type": "string",
                             },
                             "orgId": {
@@ -5331,6 +5539,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "packageName",
                             "platforms",
                             "defaultLanguage",
+                            "notificationIconAssetId",
+                            "notificationIconUrl",
+                            "androidNotificationIcon",
                             "isKilled",
                             "webhookUrl",
                             "webhookSecret",
@@ -5607,6 +5818,64 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
         ],
       },
     },
+    "/apps/{id}/access": {
+      "get": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "get__apps__id__access",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "List app collaborators and invites",
+        "tags": [
+          "Apps",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
     "/apps/{id}/env": {
       "post": {
         "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
@@ -5665,6 +5934,122 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
         "x-notifyx-doc-status": "placeholder",
       },
     },
+    "/apps/{id}/invites": {
+      "post": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "post__apps__id__invites",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Invite app collaborator",
+        "tags": [
+          "Apps",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
+    "/apps/{id}/invites/{inviteId}": {
+      "delete": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "delete__apps__id__invites__inviteId_",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Revoke app invite",
+        "tags": [
+          "Apps",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
     "/apps/{id}/kill": {
       "post": {
         "deprecated": undefined,
@@ -5698,6 +6083,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "app": {
                               "additionalProperties": false,
                               "properties": {
+                                "androidNotificationIcon": {
+                                  "example": "ic_stat_notifyx",
+                                  "nullable": true,
+                                  "type": "string",
+                                },
                                 "bundleId": {
                                   "example": "com.example.app",
                                   "nullable": true,
@@ -5725,6 +6115,18 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                                 },
                                 "name": {
                                   "example": "My App",
+                                  "type": "string",
+                                },
+                                "notificationIconAssetId": {
+                                  "example": "123e4567-e89b-12d3-a456-426614174000",
+                                  "format": "uuid",
+                                  "nullable": true,
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string",
+                                },
+                                "notificationIconUrl": {
+                                  "example": "https://example.com/icon.png",
+                                  "nullable": true,
                                   "type": "string",
                                 },
                                 "orgId": {
@@ -5790,6 +6192,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                                 "packageName",
                                 "platforms",
                                 "defaultLanguage",
+                                "notificationIconAssetId",
+                                "notificationIconUrl",
+                                "androidNotificationIcon",
                                 "isKilled",
                                 "webhookUrl",
                                 "webhookSecret",
@@ -7280,6 +7685,2912 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
         "x-notifyx-doc-status": "placeholder",
       },
     },
+    "/automation-triggers": {
+      "get": {
+        "deprecated": undefined,
+        "description": "List automation triggers",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "query",
+            "name": "appId",
+            "required": false,
+            "schema": {
+              "type": "string",
+            },
+          },
+          {
+            "in": "query",
+            "name": "includeInactive",
+            "required": false,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "The response data",
+                          "items": {
+                            "$ref": "#/definitions/AutomationTrigger",
+                          },
+                          "type": "array",
+                        },
+                        "error": {
+                          "description": "False for successful responses",
+                          "enum": [
+                            false,
+                          ],
+                          "example": false,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Human-readable response message",
+                          "example": "Success",
+                          "type": "string",
+                        },
+                        "totalCount": {
+                          "description": "Optional total count for list responses",
+                          "example": 100,
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "Error details payload",
+                          "example": null,
+                          "nullable": true,
+                        },
+                        "error": {
+                          "description": "True for failed responses",
+                          "enum": [
+                            true,
+                          ],
+                          "example": true,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Error message",
+                          "example": "Validation Error",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  ],
+                  "definitions": {
+                    "AutomationTrigger": {
+                      "additionalProperties": false,
+                      "id": "AutomationTrigger",
+                      "properties": {
+                        "appId": {
+                          "example": "app-xyz",
+                          "type": "string",
+                        },
+                        "conditionFields": {
+                          "items": {
+                            "type": "string",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "conditionSchema": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                              },
+                              "enumValues": {
+                                "items": {
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "key": {
+                                "type": "string",
+                              },
+                              "label": {
+                                "type": "string",
+                              },
+                              "operators": {
+                                "items": {
+                                  "enum": [
+                                    "equals",
+                                    "not_equals",
+                                    "contains",
+                                    "exists",
+                                    "greater_than",
+                                    "less_than",
+                                  ],
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "required": {
+                                "type": "boolean",
+                              },
+                              "type": {
+                                "enum": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "datetime",
+                                  "enum",
+                                ],
+                                "type": "string",
+                              },
+                            },
+                            "required": [
+                              "key",
+                              "type",
+                              "operators",
+                            ],
+                            "type": "object",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                        "createdBy": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "description": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "eventName": {
+                          "example": "order_created",
+                          "type": "string",
+                        },
+                        "id": {
+                          "example": "atrg-123",
+                          "type": "string",
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                        },
+                        "name": {
+                          "example": "Order Created",
+                          "type": "string",
+                        },
+                        "payloadExample": {
+                          "additionalProperties": {},
+                          "nullable": true,
+                          "type": "object",
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "appId",
+                        "name",
+                        "eventName",
+                        "description",
+                        "conditionFields",
+                        "conditionSchema",
+                        "payloadExample",
+                        "isActive",
+                        "createdBy",
+                        "createdAt",
+                        "updatedAt",
+                      ],
+                      "type": "object",
+                    },
+                  },
+                  "id": "AutomationTriggerListResponse",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Automation trigger list",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+      "post": {
+        "deprecated": undefined,
+        "description": "Create an automation trigger for an app",
+        "operationId": undefined,
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "CreateAutomationTriggerRequest",
+                "properties": {
+                  "appId": {
+                    "example": "app-xyz",
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "conditionFields": {
+                    "default": [],
+                    "items": {
+                      "example": "payload.orderTotal",
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "maxItems": 100,
+                    "type": "array",
+                  },
+                  "conditionSchema": {
+                    "default": [],
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "maxLength": 300,
+                          "type": "string",
+                        },
+                        "enumValues": {
+                          "items": {
+                            "maxLength": 120,
+                            "minLength": 1,
+                            "type": "string",
+                          },
+                          "maxItems": 100,
+                          "type": "array",
+                        },
+                        "key": {
+                          "example": "payload.total",
+                          "maxLength": 120,
+                          "minLength": 1,
+                          "type": "string",
+                        },
+                        "label": {
+                          "maxLength": 120,
+                          "type": "string",
+                        },
+                        "operators": {
+                          "items": {
+                            "enum": [
+                              "equals",
+                              "not_equals",
+                              "contains",
+                              "exists",
+                              "greater_than",
+                              "less_than",
+                            ],
+                            "type": "string",
+                          },
+                          "maxItems": 10,
+                          "minItems": 1,
+                          "type": "array",
+                        },
+                        "required": {
+                          "default": false,
+                          "type": "boolean",
+                        },
+                        "type": {
+                          "enum": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "datetime",
+                            "enum",
+                          ],
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "key",
+                        "type",
+                        "operators",
+                        "required",
+                      ],
+                      "type": "object",
+                    },
+                    "maxItems": 100,
+                    "type": "array",
+                  },
+                  "description": {
+                    "maxLength": 500,
+                    "nullable": true,
+                    "type": "string",
+                  },
+                  "eventName": {
+                    "example": "order_created",
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "isActive": {
+                    "default": true,
+                    "type": "boolean",
+                  },
+                  "name": {
+                    "example": "Order Created",
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "payloadExample": {
+                    "additionalProperties": {},
+                    "nullable": true,
+                    "type": "object",
+                  },
+                },
+                "required": [
+                  "appId",
+                  "name",
+                  "eventName",
+                  "conditionFields",
+                  "conditionSchema",
+                  "isActive",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/definitions/AutomationTrigger",
+                            },
+                          ],
+                          "description": "The response data",
+                        },
+                        "error": {
+                          "description": "False for successful responses",
+                          "enum": [
+                            false,
+                          ],
+                          "example": false,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Human-readable response message",
+                          "example": "Success",
+                          "type": "string",
+                        },
+                        "totalCount": {
+                          "description": "Optional total count for list responses",
+                          "example": 100,
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "Error details payload",
+                          "example": null,
+                          "nullable": true,
+                        },
+                        "error": {
+                          "description": "True for failed responses",
+                          "enum": [
+                            true,
+                          ],
+                          "example": true,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Error message",
+                          "example": "Validation Error",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  ],
+                  "definitions": {
+                    "AutomationTrigger": {
+                      "additionalProperties": false,
+                      "id": "AutomationTrigger",
+                      "properties": {
+                        "appId": {
+                          "example": "app-xyz",
+                          "type": "string",
+                        },
+                        "conditionFields": {
+                          "items": {
+                            "type": "string",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "conditionSchema": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                              },
+                              "enumValues": {
+                                "items": {
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "key": {
+                                "type": "string",
+                              },
+                              "label": {
+                                "type": "string",
+                              },
+                              "operators": {
+                                "items": {
+                                  "enum": [
+                                    "equals",
+                                    "not_equals",
+                                    "contains",
+                                    "exists",
+                                    "greater_than",
+                                    "less_than",
+                                  ],
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "required": {
+                                "type": "boolean",
+                              },
+                              "type": {
+                                "enum": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "datetime",
+                                  "enum",
+                                ],
+                                "type": "string",
+                              },
+                            },
+                            "required": [
+                              "key",
+                              "type",
+                              "operators",
+                            ],
+                            "type": "object",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                        "createdBy": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "description": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "eventName": {
+                          "example": "order_created",
+                          "type": "string",
+                        },
+                        "id": {
+                          "example": "atrg-123",
+                          "type": "string",
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                        },
+                        "name": {
+                          "example": "Order Created",
+                          "type": "string",
+                        },
+                        "payloadExample": {
+                          "additionalProperties": {},
+                          "nullable": true,
+                          "type": "object",
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "appId",
+                        "name",
+                        "eventName",
+                        "description",
+                        "conditionFields",
+                        "conditionSchema",
+                        "payloadExample",
+                        "isActive",
+                        "createdBy",
+                        "createdAt",
+                        "updatedAt",
+                      ],
+                      "type": "object",
+                    },
+                  },
+                  "id": "AutomationTriggerResponse",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Automation trigger created",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+    },
+    "/automation-triggers/{id}": {
+      "delete": {
+        "deprecated": undefined,
+        "description": "Delete automation trigger by ID",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "description": "Automation trigger deleted",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+      "get": {
+        "deprecated": undefined,
+        "description": "Get automation trigger by ID",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/definitions/AutomationTrigger",
+                            },
+                          ],
+                          "description": "The response data",
+                        },
+                        "error": {
+                          "description": "False for successful responses",
+                          "enum": [
+                            false,
+                          ],
+                          "example": false,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Human-readable response message",
+                          "example": "Success",
+                          "type": "string",
+                        },
+                        "totalCount": {
+                          "description": "Optional total count for list responses",
+                          "example": 100,
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "Error details payload",
+                          "example": null,
+                          "nullable": true,
+                        },
+                        "error": {
+                          "description": "True for failed responses",
+                          "enum": [
+                            true,
+                          ],
+                          "example": true,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Error message",
+                          "example": "Validation Error",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  ],
+                  "definitions": {
+                    "AutomationTrigger": {
+                      "additionalProperties": false,
+                      "id": "AutomationTrigger",
+                      "properties": {
+                        "appId": {
+                          "example": "app-xyz",
+                          "type": "string",
+                        },
+                        "conditionFields": {
+                          "items": {
+                            "type": "string",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "conditionSchema": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                              },
+                              "enumValues": {
+                                "items": {
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "key": {
+                                "type": "string",
+                              },
+                              "label": {
+                                "type": "string",
+                              },
+                              "operators": {
+                                "items": {
+                                  "enum": [
+                                    "equals",
+                                    "not_equals",
+                                    "contains",
+                                    "exists",
+                                    "greater_than",
+                                    "less_than",
+                                  ],
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "required": {
+                                "type": "boolean",
+                              },
+                              "type": {
+                                "enum": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "datetime",
+                                  "enum",
+                                ],
+                                "type": "string",
+                              },
+                            },
+                            "required": [
+                              "key",
+                              "type",
+                              "operators",
+                            ],
+                            "type": "object",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                        "createdBy": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "description": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "eventName": {
+                          "example": "order_created",
+                          "type": "string",
+                        },
+                        "id": {
+                          "example": "atrg-123",
+                          "type": "string",
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                        },
+                        "name": {
+                          "example": "Order Created",
+                          "type": "string",
+                        },
+                        "payloadExample": {
+                          "additionalProperties": {},
+                          "nullable": true,
+                          "type": "object",
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "appId",
+                        "name",
+                        "eventName",
+                        "description",
+                        "conditionFields",
+                        "conditionSchema",
+                        "payloadExample",
+                        "isActive",
+                        "createdBy",
+                        "createdAt",
+                        "updatedAt",
+                      ],
+                      "type": "object",
+                    },
+                  },
+                  "id": "AutomationTriggerResponse",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Automation trigger details",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+      "put": {
+        "deprecated": undefined,
+        "description": "Update automation trigger by ID",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "UpdateAutomationTriggerRequest",
+                "properties": {
+                  "conditionFields": {
+                    "items": {
+                      "example": "payload.orderTotal",
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "maxItems": 100,
+                    "type": "array",
+                  },
+                  "conditionSchema": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "maxLength": 300,
+                          "type": "string",
+                        },
+                        "enumValues": {
+                          "items": {
+                            "maxLength": 120,
+                            "minLength": 1,
+                            "type": "string",
+                          },
+                          "maxItems": 100,
+                          "type": "array",
+                        },
+                        "key": {
+                          "example": "payload.total",
+                          "maxLength": 120,
+                          "minLength": 1,
+                          "type": "string",
+                        },
+                        "label": {
+                          "maxLength": 120,
+                          "type": "string",
+                        },
+                        "operators": {
+                          "items": {
+                            "enum": [
+                              "equals",
+                              "not_equals",
+                              "contains",
+                              "exists",
+                              "greater_than",
+                              "less_than",
+                            ],
+                            "type": "string",
+                          },
+                          "maxItems": 10,
+                          "minItems": 1,
+                          "type": "array",
+                        },
+                        "required": {
+                          "default": false,
+                          "type": "boolean",
+                        },
+                        "type": {
+                          "enum": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "datetime",
+                            "enum",
+                          ],
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "key",
+                        "type",
+                        "operators",
+                        "required",
+                      ],
+                      "type": "object",
+                    },
+                    "maxItems": 100,
+                    "type": "array",
+                  },
+                  "description": {
+                    "maxLength": 500,
+                    "nullable": true,
+                    "type": "string",
+                  },
+                  "eventName": {
+                    "example": "order_created",
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                  },
+                  "name": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "payloadExample": {
+                    "additionalProperties": {},
+                    "nullable": true,
+                    "type": "object",
+                  },
+                },
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            {
+                              "$ref": "#/definitions/AutomationTrigger",
+                            },
+                          ],
+                          "description": "The response data",
+                        },
+                        "error": {
+                          "description": "False for successful responses",
+                          "enum": [
+                            false,
+                          ],
+                          "example": false,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Human-readable response message",
+                          "example": "Success",
+                          "type": "string",
+                        },
+                        "totalCount": {
+                          "description": "Optional total count for list responses",
+                          "example": 100,
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "Error details payload",
+                          "example": null,
+                          "nullable": true,
+                        },
+                        "error": {
+                          "description": "True for failed responses",
+                          "enum": [
+                            true,
+                          ],
+                          "example": true,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Error message",
+                          "example": "Validation Error",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  ],
+                  "definitions": {
+                    "AutomationTrigger": {
+                      "additionalProperties": false,
+                      "id": "AutomationTrigger",
+                      "properties": {
+                        "appId": {
+                          "example": "app-xyz",
+                          "type": "string",
+                        },
+                        "conditionFields": {
+                          "items": {
+                            "type": "string",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "conditionSchema": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "description": {
+                                "type": "string",
+                              },
+                              "enumValues": {
+                                "items": {
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "key": {
+                                "type": "string",
+                              },
+                              "label": {
+                                "type": "string",
+                              },
+                              "operators": {
+                                "items": {
+                                  "enum": [
+                                    "equals",
+                                    "not_equals",
+                                    "contains",
+                                    "exists",
+                                    "greater_than",
+                                    "less_than",
+                                  ],
+                                  "type": "string",
+                                },
+                                "type": "array",
+                              },
+                              "required": {
+                                "type": "boolean",
+                              },
+                              "type": {
+                                "enum": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "datetime",
+                                  "enum",
+                                ],
+                                "type": "string",
+                              },
+                            },
+                            "required": [
+                              "key",
+                              "type",
+                              "operators",
+                            ],
+                            "type": "object",
+                          },
+                          "nullable": true,
+                          "type": "array",
+                        },
+                        "createdAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                        "createdBy": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "description": {
+                          "nullable": true,
+                          "type": "string",
+                        },
+                        "eventName": {
+                          "example": "order_created",
+                          "type": "string",
+                        },
+                        "id": {
+                          "example": "atrg-123",
+                          "type": "string",
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                        },
+                        "name": {
+                          "example": "Order Created",
+                          "type": "string",
+                        },
+                        "payloadExample": {
+                          "additionalProperties": {},
+                          "nullable": true,
+                          "type": "object",
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "appId",
+                        "name",
+                        "eventName",
+                        "description",
+                        "conditionFields",
+                        "conditionSchema",
+                        "payloadExample",
+                        "isActive",
+                        "createdBy",
+                        "createdAt",
+                        "updatedAt",
+                      ],
+                      "type": "object",
+                    },
+                  },
+                  "id": "AutomationTriggerResponse",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Automation trigger updated",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+    },
+    "/automation-triggers/{id}/test": {
+      "post": {
+        "deprecated": undefined,
+        "description": "Run a test invocation for the trigger",
+        "operationId": undefined,
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+            },
+          },
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "id": "TestAutomationTriggerRequest",
+                "properties": {
+                  "deviceId": {
+                    "type": "string",
+                  },
+                  "externalUserId": {
+                    "type": "string",
+                  },
+                  "payload": {
+                    "additionalProperties": {},
+                    "default": {},
+                    "type": "object",
+                  },
+                  "priority": {
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                    ],
+                    "type": "string",
+                  },
+                  "userId": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "payload",
+                ],
+                "type": "object",
+                "~standard": {
+                  "jsonSchema": {
+                    "input": [Function],
+                    "output": [Function],
+                  },
+                  "validate": [Function],
+                  "vendor": "zod",
+                  "version": 1,
+                },
+              },
+            },
+          },
+          "description": undefined,
+          "required": undefined,
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "additionalProperties": false,
+                          "description": "The response data",
+                          "properties": {
+                            "eventName": {
+                              "example": "order_created",
+                              "type": "string",
+                            },
+                            "matchedAutomations": {
+                              "example": 1,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer",
+                            },
+                            "spawnedExecutions": {
+                              "example": 1,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer",
+                            },
+                            "triggerId": {
+                              "example": "atrg-123",
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "triggerId",
+                            "eventName",
+                            "matchedAutomations",
+                            "spawnedExecutions",
+                          ],
+                          "type": "object",
+                        },
+                        "error": {
+                          "description": "False for successful responses",
+                          "enum": [
+                            false,
+                          ],
+                          "example": false,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Human-readable response message",
+                          "example": "Success",
+                          "type": "string",
+                        },
+                        "totalCount": {
+                          "description": "Optional total count for list responses",
+                          "example": 100,
+                          "type": "number",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "data",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "data": {
+                          "description": "Error details payload",
+                          "example": null,
+                          "nullable": true,
+                        },
+                        "error": {
+                          "description": "True for failed responses",
+                          "enum": [
+                            true,
+                          ],
+                          "example": true,
+                          "type": "boolean",
+                        },
+                        "message": {
+                          "description": "Error message",
+                          "example": "Validation Error",
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                      ],
+                      "type": "object",
+                    },
+                  ],
+                  "id": "AutomationTriggerTestResponse",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Trigger test queued",
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Bad Request",
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Unauthorized",
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Forbidden",
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Not Found",
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "nullable": true,
+                    },
+                    "error": {
+                      "enum": [
+                        true,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Internal Server Error",
+          },
+        },
+        "summary": undefined,
+        "tags": [
+          "Automation Triggers",
+        ],
+      },
+    },
+    "/automations": {
+      "get": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "get__automations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "List automation workflows",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+      "post": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "post__automations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Create automation workflow",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
+    "/automations/{id}": {
+      "delete": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "delete__automations__id_",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Delete automation workflow",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+      "get": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "get__automations__id_",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Get automation workflow",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+      "put": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "put__automations__id_",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Update automation workflow",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
+    "/automations/{id}/toggle": {
+      "post": {
+        "description": "Auto-generated route coverage placeholder. Add explicit request/response schema in docs/paths.ts.",
+        "operationId": "post__automations__id__toggle",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {},
+                    "error": {
+                      "enum": [
+                        false,
+                      ],
+                      "type": "boolean",
+                    },
+                    "message": {
+                      "type": "string",
+                    },
+                    "totalCount": {
+                      "type": "number",
+                    },
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "data",
+                  ],
+                  "type": "object",
+                  "~standard": {
+                    "jsonSchema": {
+                      "input": [Function],
+                      "output": [Function],
+                    },
+                    "validate": [Function],
+                    "vendor": "zod",
+                    "version": 1,
+                  },
+                },
+              },
+            },
+            "description": "Success",
+          },
+        },
+        "security": [
+          {
+            "bearerAuth": [],
+          },
+        ],
+        "summary": "Toggle automation workflow",
+        "tags": [
+          "Automations",
+        ],
+        "x-notifyx-doc-status": "placeholder",
+      },
+    },
     "/campaigns": {
       "get": {
         "deprecated": undefined,
@@ -7319,6 +10630,23 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "actionUrl": {
+                                "example": "https://example.com/action",
+                                "nullable": true,
+                                "type": "string",
+                              },
+                              "actions": {
+                                "example": [
+                                  {
+                                    "action": "open_url",
+                                    "title": "Open",
+                                    "url": "https://example.com",
+                                  },
+                                ],
+                                "items": {},
+                                "nullable": true,
+                                "type": "array",
+                              },
                               "appId": {
                                 "example": "app-xyz",
                                 "format": "uuid",
@@ -7352,6 +10680,16 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                                 "nullable": true,
                                 "type": "string",
                               },
+                              "data": {
+                                "additionalProperties": {
+                                  "type": "string",
+                                },
+                                "example": {
+                                  "orderId": "123",
+                                },
+                                "nullable": true,
+                                "type": "object",
+                              },
                               "deliveredCount": {
                                 "example": 10,
                                 "type": "number",
@@ -7379,6 +10717,23 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               "name": {
                                 "example": "My Campaign",
                                 "type": "string",
+                              },
+                              "platforms": {
+                                "example": [
+                                  "ios",
+                                  "android",
+                                ],
+                                "items": {
+                                  "enum": [
+                                    "android",
+                                    "ios",
+                                    "huawei",
+                                    "web",
+                                  ],
+                                  "type": "string",
+                                },
+                                "nullable": true,
+                                "type": "array",
                               },
                               "priority": {
                                 "example": "NORMAL",
@@ -7469,6 +10824,10 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               "subtitle",
                               "body",
                               "image",
+                              "actionUrl",
+                              "data",
+                              "actions",
+                              "platforms",
                               "scheduledAt",
                               "startedAt",
                               "completedAt",
@@ -7762,6 +11121,22 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "additionalProperties": false,
                 "id": "CreateCampaignRequest",
                 "properties": {
+                  "actionUrl": {
+                    "example": "https://example.com/action",
+                    "format": "uri",
+                    "type": "string",
+                  },
+                  "actions": {
+                    "example": [
+                      {
+                        "action": "open_url",
+                        "title": "Open",
+                        "url": "https://example.com",
+                      },
+                    ],
+                    "items": {},
+                    "type": "array",
+                  },
                   "appId": {
                     "example": "app-xyz",
                     "format": "uuid",
@@ -7790,6 +11165,15 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "minLength": 1,
                     "type": "string",
                   },
+                  "data": {
+                    "additionalProperties": {
+                      "type": "string",
+                    },
+                    "example": {
+                      "orderId": "123",
+                    },
+                    "type": "object",
+                  },
                   "description": {
                     "example": "Description of my campaign",
                     "type": "string",
@@ -7804,6 +11188,22 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "maxLength": 200,
                     "minLength": 1,
                     "type": "string",
+                  },
+                  "platforms": {
+                    "example": [
+                      "ios",
+                      "android",
+                    ],
+                    "items": {
+                      "enum": [
+                        "android",
+                        "ios",
+                        "huawei",
+                        "web",
+                      ],
+                      "type": "string",
+                    },
+                    "type": "array",
                   },
                   "priority": {
                     "default": "NORMAL",
@@ -7858,6 +11258,7 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                   "targetingMode",
                   "title",
                   "body",
+                  "actionUrl",
                   "priority",
                 ],
                 "type": "object",
@@ -7889,6 +11290,23 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "additionalProperties": false,
                           "description": "The response data",
                           "properties": {
+                            "actionUrl": {
+                              "example": "https://example.com/action",
+                              "nullable": true,
+                              "type": "string",
+                            },
+                            "actions": {
+                              "example": [
+                                {
+                                  "action": "open_url",
+                                  "title": "Open",
+                                  "url": "https://example.com",
+                                },
+                              ],
+                              "items": {},
+                              "nullable": true,
+                              "type": "array",
+                            },
                             "appId": {
                               "example": "app-xyz",
                               "format": "uuid",
@@ -7922,6 +11340,16 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               "nullable": true,
                               "type": "string",
                             },
+                            "data": {
+                              "additionalProperties": {
+                                "type": "string",
+                              },
+                              "example": {
+                                "orderId": "123",
+                              },
+                              "nullable": true,
+                              "type": "object",
+                            },
                             "deliveredCount": {
                               "example": 10,
                               "type": "number",
@@ -7949,6 +11377,23 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "name": {
                               "example": "My Campaign",
                               "type": "string",
+                            },
+                            "platforms": {
+                              "example": [
+                                "ios",
+                                "android",
+                              ],
+                              "items": {
+                                "enum": [
+                                  "android",
+                                  "ios",
+                                  "huawei",
+                                  "web",
+                                ],
+                                "type": "string",
+                              },
+                              "nullable": true,
+                              "type": "array",
                             },
                             "priority": {
                               "example": "NORMAL",
@@ -8039,6 +11484,10 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                             "subtitle",
                             "body",
                             "image",
+                            "actionUrl",
+                            "data",
+                            "actions",
+                            "platforms",
                             "scheduledAt",
                             "startedAt",
                             "completedAt",
@@ -10298,6 +13747,10 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "format": "uri",
                     "type": "string",
                   },
+                  "actions": {
+                    "items": {},
+                    "type": "array",
+                  },
                   "appId": {
                     "example": "app-xyz",
                     "type": "string",
@@ -10315,6 +13768,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     },
                     "type": "object",
                   },
+                  "icon": {
+                    "example": "https://example.com/icon.png",
+                    "format": "uri",
+                    "type": "string",
+                  },
                   "idempotencyKey": {
                     "example": "idem-abc123",
                     "maxLength": 255,
@@ -10324,6 +13782,22 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "example": "https://example.com/image.png",
                     "format": "uri",
                     "type": "string",
+                  },
+                  "platforms": {
+                    "example": [
+                      "ios",
+                      "android",
+                    ],
+                    "items": {
+                      "enum": [
+                        "android",
+                        "ios",
+                        "huawei",
+                        "web",
+                      ],
+                      "type": "string",
+                    },
+                    "type": "array",
                   },
                   "priority": {
                     "default": "NORMAL",
@@ -10357,6 +13831,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "enum": [
                       "transactional",
                       "campaign",
+                      "utility",
+                      "marketing",
+                      "engagement",
                     ],
                     "example": "transactional",
                     "type": "string",
@@ -10371,10 +13848,20 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     },
                     "type": "array",
                   },
+                  "variables": {
+                    "additionalProperties": {
+                      "type": "string",
+                    },
+                    "example": {
+                      "orderId": "A1023",
+                    },
+                    "type": "object",
+                  },
                 },
                 "required": [
                   "appId",
                   "type",
+                  "actionUrl",
                   "priority",
                 ],
                 "type": "object",
@@ -12687,6 +16174,10 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "example": "en",
                     "type": "string",
                   },
+                  "name": {
+                    "example": "Order Confirmation",
+                    "type": "string",
+                  },
                   "subtitle": {
                     "type": "string",
                   },
@@ -12714,9 +16205,6 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 },
                 "required": [
                   "appId",
-                  "type",
-                  "eventName",
-                  "language",
                   "title",
                   "body",
                 ],
@@ -13751,16 +17239,10 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                 "additionalProperties": false,
                 "id": "UpdateTemplateRequest",
                 "properties": {
-                  "appId": {
-                    "example": "app-xyz",
-                    "type": "string",
-                  },
                   "body": {
-                    "example": "Your order has been created.",
                     "type": "string",
                   },
                   "eventName": {
-                    "example": "order_created",
                     "type": "string",
                   },
                   "image": {
@@ -13772,14 +17254,12 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                       "ar",
                       "ku",
                     ],
-                    "example": "en",
                     "type": "string",
                   },
                   "subtitle": {
                     "type": "string",
                   },
                   "title": {
-                    "example": "Order #{orderId}",
                     "type": "string",
                   },
                   "type": {
@@ -13787,13 +17267,9 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                       "transactional",
                       "campaign",
                     ],
-                    "example": "transactional",
                     "type": "string",
                   },
                   "variables": {
-                    "example": [
-                      "orderId",
-                    ],
                     "items": {
                       "type": "string",
                     },
@@ -14412,6 +17888,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                                     "example": "en",
                                     "type": "string",
                                   },
+                                  "nickname": {
+                                    "example": "Jane",
+                                    "nullable": true,
+                                    "type": "string",
+                                  },
                                   "timezone": {
                                     "example": "UTC",
                                     "type": "string",
@@ -14426,6 +17907,7 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                                 "required": [
                                   "id",
                                   "externalUserId",
+                                  "nickname",
                                   "appId",
                                   "language",
                                   "timezone",
@@ -14734,6 +18216,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                     "example": "en",
                     "type": "string",
                   },
+                  "nickname": {
+                    "example": "Jane",
+                    "maxLength": 64,
+                    "type": "string",
+                  },
                   "timezone": {
                     "example": "UTC",
                     "type": "string",
@@ -14805,6 +18292,11 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                               "example": "en",
                               "type": "string",
                             },
+                            "nickname": {
+                              "example": "Jane",
+                              "nullable": true,
+                              "type": "string",
+                            },
                             "timezone": {
                               "example": "UTC",
                               "type": "string",
@@ -14819,6 +18311,7 @@ exports[`OpenAPI Spec should capture snapshot 1`] = `
                           "required": [
                             "id",
                             "externalUserId",
+                            "nickname",
                             "appId",
                             "language",
                             "timezone",

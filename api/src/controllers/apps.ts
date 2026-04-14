@@ -25,6 +25,62 @@ const getQueryString = (val: any): string | undefined => {
 const DEFAULT_INVITE_EXPIRY_DAYS = 14;
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+const normalizeAndroidNotificationIcon = (
+  value: string | null | undefined,
+): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+async function resolveAppIconUpdate(
+  appId: string,
+  notificationIconAssetId: string | null | undefined,
+): Promise<
+  | {
+      notificationIconAssetId?: string | null;
+      notificationIconUrl?: string | null;
+    }
+  | undefined
+> {
+  if (notificationIconAssetId === undefined) {
+    return undefined;
+  }
+
+  if (notificationIconAssetId === null) {
+    return {
+      notificationIconAssetId: null,
+      notificationIconUrl: null,
+    };
+  }
+
+  const asset = await prisma.asset.findFirst({
+    where: {
+      id: notificationIconAssetId,
+      appId,
+      mimeType: { startsWith: "image/" },
+    },
+    select: {
+      id: true,
+      url: true,
+    },
+  });
+
+  if (!asset) {
+    throw new AppError(
+      400,
+      "Notification icon asset must be an uploaded image for this app",
+      "INVALID_NOTIFICATION_ICON_ASSET",
+    );
+  }
+
+  return {
+    notificationIconAssetId: asset.id,
+    notificationIconUrl: asset.url,
+  };
+}
 
 const DEFAULT_AUTOMATION_TRIGGERS: Array<{
   name: string;
@@ -479,9 +535,25 @@ export const updateApp = async (
       throw new AppError(404, "App not found");
     }
 
+    const iconUpdate = await resolveAppIconUpdate(
+      id,
+      data.notificationIconAssetId,
+    );
+    const androidNotificationIcon = normalizeAndroidNotificationIcon(
+      data.androidNotificationIcon,
+    );
+
+    const updateData = {
+      ...data,
+      ...(iconUpdate || {}),
+      ...(androidNotificationIcon !== undefined
+        ? { androidNotificationIcon }
+        : {}),
+    };
+
     const app = await prisma.app.update({
       where: { id },
-      data,
+      data: updateData,
     });
 
     await logAudit({
@@ -490,7 +562,7 @@ export const updateApp = async (
       resource: "app",
       resourceId: app.id,
       appId: app.id,
-      details: { changes: data },
+      details: { changes: updateData },
       ...extractRequestInfo(req),
     });
 

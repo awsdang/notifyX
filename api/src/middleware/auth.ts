@@ -162,8 +162,13 @@ export async function authenticate(
     // Skip auth for health check and docs (public / ops endpoints)
     if (
       req.path === "/health" ||
+      req.path === "/api/health" ||
       req.path === "/ready" ||
+      req.path === "/api/ready" ||
       req.path === "/openapi.json" ||
+      req.path === "/api/openapi.json" ||
+      req.path.startsWith("/api/reference") ||
+      req.path.startsWith("/api/docs") ||
       req.path.startsWith("/reference") ||
       req.path.startsWith("/docs")
     ) {

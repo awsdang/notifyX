@@ -4,6 +4,11 @@ import { pathRegistry, type OpenApiPathDefinition } from "./path-registry";
 import { mountedRouteSurface } from "./route-surface";
 import "./paths"; // Import paths to ensure they are registered
 
+const OPENAPI_JSON_SCHEMA_OPTIONS = {
+  target: "openapi-3.0" as const,
+  unrepresentable: "any" as const,
+};
+
 // Standard Error Schema
 const errorSchema = z.object({
   error: z.literal(true),
@@ -21,9 +26,7 @@ const successSchema = z.object({
 const errorResponseRef = {
   content: {
     "application/json": {
-      schema: z.toJSONSchema(errorSchema, {
-        target: "openapi-3.0",
-      }),
+      schema: z.toJSONSchema(errorSchema, OPENAPI_JSON_SCHEMA_OPTIONS),
     },
   },
 };
@@ -31,18 +34,14 @@ const errorResponseRef = {
 const successResponseRef = {
   content: {
     "application/json": {
-      schema: z.toJSONSchema(successSchema, {
-        target: "openapi-3.0",
-      }),
+      schema: z.toJSONSchema(successSchema, OPENAPI_JSON_SCHEMA_OPTIONS),
     },
   },
 };
 
 export function getOpenApiSpec() {
   // 1. Generate JSON Schemas for all registered components
-  const jsonSchemaOutput = z.toJSONSchema(registry, {
-    target: "openapi-3.0",
-  }) as any;
+  const jsonSchemaOutput = z.toJSONSchema(registry, OPENAPI_JSON_SCHEMA_OPTIONS) as any;
 
   const components: any = {
     schemas: jsonSchemaOutput.$defs || {}, // Extract registered schemas
@@ -92,7 +91,7 @@ export function getOpenApiSpec() {
       )) {
         content[mediaType] = {
           schema: z.toJSONSchema(mediaTypeObj.schema, {
-            target: "openapi-3.0",
+            ...OPENAPI_JSON_SCHEMA_OPTIONS,
             metadata: registry, // Use registry to resolve refs
           }),
         };
@@ -112,7 +111,7 @@ export function getOpenApiSpec() {
     ) => {
       if (!schema) return;
       const paramJson = z.toJSONSchema(schema, {
-        target: "openapi-3.0",
+        ...OPENAPI_JSON_SCHEMA_OPTIONS,
         metadata: registry,
       }) as any;
 
@@ -149,7 +148,7 @@ export function getOpenApiSpec() {
         )) {
           responseObj.content[mediaType] = {
             schema: z.toJSONSchema(mediaTypeObj.schema, {
-              target: "openapi-3.0",
+              ...OPENAPI_JSON_SCHEMA_OPTIONS,
               metadata: registry,
             }),
           };
@@ -164,7 +163,7 @@ export function getOpenApiSpec() {
           responseObj.headers[headerName] = {
             description: headerDef.description,
             schema: headerDef.schema
-              ? z.toJSONSchema(headerDef.schema, { target: "openapi-3.0" })
+              ? z.toJSONSchema(headerDef.schema, OPENAPI_JSON_SCHEMA_OPTIONS)
               : undefined,
           };
         }

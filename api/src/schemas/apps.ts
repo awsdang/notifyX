@@ -41,6 +41,19 @@ export const updateAppSchema = z
       })
       .optional()
       .meta({ example: { android: true, ios: true } }),
+    notificationIconAssetId: z
+      .uuid()
+      .nullable()
+      .optional()
+      .meta({ example: "123e4567-e89b-12d3-a456-426614174000" }),
+    androidNotificationIcon: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .nullable()
+      .optional()
+      .meta({ example: "ic_stat_notifyx" }),
   })
   .register(registry, { id: "UpdateAppRequest" });
 
@@ -89,6 +102,18 @@ export const appSchema = z.object({
     })
     .meta({ example: { android: true, ios: true } }),
   defaultLanguage: z.string().meta({ example: "en" }),
+  notificationIconAssetId: z
+    .uuid()
+    .nullable()
+    .meta({ example: "123e4567-e89b-12d3-a456-426614174000" }),
+  notificationIconUrl: z
+    .string()
+    .nullable()
+    .meta({ example: "https://example.com/icon.png" }),
+  androidNotificationIcon: z
+    .string()
+    .nullable()
+    .meta({ example: "ic_stat_notifyx" }),
   isKilled: z.boolean().meta({ example: false }),
   webhookUrl: z
     .string()

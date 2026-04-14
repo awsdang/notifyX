@@ -33,6 +33,7 @@ export interface WebSdkViewConfig {
   hasWebCredential: boolean;
   hasActiveWebCredential: boolean;
   vapidPublicKey: string | null;
+  allowedOrigins: string[];
 }
 
 /** Default environment used when the portal doesn't specify one */

@@ -62,6 +62,13 @@ If everything is set up correctly, you should see your new app running in the An
 
 This is one way to run your app — you can also build it directly from Android Studio or Xcode.
 
+## Notification Icon Setup
+
+- Android small status-bar icons must be bundled inside the app as drawable resources.
+- This example now ships `@drawable/ic_stat_notifyx` and sets it as the Firebase default notification icon in [AndroidManifest.xml](./android/app/src/main/AndroidManifest.xml).
+- In the NotifyX portal, set the app's `Android Notification Icon Resource` to `ic_stat_notifyx` for this example app.
+- On iOS, the system notification UI uses the app icon from the Xcode asset catalog. There is no APNS payload field to replace that icon from the backend.
+
 ## Step 3: Modify your app
 
 Now that you have successfully run the app, let's make changes!

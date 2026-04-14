@@ -53,6 +53,12 @@ export const PROVIDER_INFO = {
             { key: 'vapidPublicKey', label: 'VAPID Public Key', type: 'text', placeholder: 'BEl62i...' },
             { key: 'vapidPrivateKey', label: 'VAPID Private Key', type: 'password', placeholder: '••••••••' },
             { key: 'subject', label: 'Subject', type: 'text', placeholder: 'mailto:admin@yourapp.com' },
+            {
+                key: 'allowedOrigins',
+                label: 'Allowed Origins (CORS)',
+                type: 'textarea',
+                placeholder: 'https://notification.sadeek.app',
+            },
         ],
     },
 };

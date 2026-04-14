@@ -5,6 +5,7 @@ datasource db {
 
 generator client {
   provider        = "prisma-client-js"
+  engineType      = "client"
   previewFeatures = ["metrics"]
 }
 
@@ -170,6 +171,9 @@ model App {
   packageName     String?  @map("package_name")
   platforms       Json // { android: boolean, ios: boolean, web: boolean, huawei: boolean }
   defaultLanguage String   @map("default_language")
+  notificationIconAssetId String? @map("notification_icon_asset_id")
+  notificationIconUrl String? @map("notification_icon_url")
+  androidNotificationIcon String? @map("android_notification_icon")
   isKilled        Boolean  @default(false) @map("is_killed")
   webhookUrl      String?  @map("webhook_url")
   webhookSecret   String?  @map("webhook_secret")

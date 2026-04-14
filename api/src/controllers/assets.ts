@@ -5,7 +5,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/database";
-import { uploadFile } from "../services/storage";
+import { uploadFileWithUrls } from "../services/storage";
 import { sendSuccess, AppError } from "../utils/response";
 import crypto from "crypto";
 
@@ -62,7 +62,8 @@ export const uploadAsset = async (
     }
 
     // Upload to storage
-    const url = await uploadFile(buffer, originalname, mimetype);
+    const uploaded = await uploadFileWithUrls(buffer, originalname, mimetype);
+    const url = uploaded.url;
 
     // Calculate SHA256
     const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
@@ -81,7 +82,16 @@ export const uploadAsset = async (
       },
     });
 
-    sendSuccess(res, asset, 201);
+    sendSuccess(
+      res,
+      {
+        ...asset,
+        publicUrl: uploaded.url,
+        presignedUrl: uploaded.presignedUrl,
+        objectKey: uploaded.objectName,
+      },
+      201,
+    );
   } catch (error) {
     next(error);
   }

@@ -125,6 +125,13 @@ export class FCMProvider implements PushProvider {
 
         if (message.image) {
             normalizedData.image = message.image;
+            normalizedData.imageUrl = message.image;
+            normalizedData['attachment-url'] = message.image;
+        }
+
+        if (message.icon) {
+            normalizedData.icon = message.icon;
+            normalizedData.appIconUrl = message.icon;
         }
 
         if (message.actionUrl) {
@@ -183,15 +190,21 @@ export class FCMProvider implements PushProvider {
                         ...(message.collapseKey ? { collapse_key: message.collapseKey } : {}),
                         notification: {
                             sound: message.sound || 'default',
-                            ...(message.icon && { icon: message.icon }),
+                            ...(message.androidIcon && { icon: message.androidIcon }),
                             ...(message.image && { image: message.image }),
                         },
                     },
                     apns: {
                         payload: {
                             aps: {
+                                alert: {
+                                    title: message.title,
+                                    body: message.body,
+                                    ...(message.subtitle ? { subtitle: message.subtitle } : {}),
+                                },
                                 sound: message.sound || 'default',
                                 badge: message.badge,
+                                ...(message.image ? { 'mutable-content': 1 } : {}),
                             },
                         },
                         ...(message.image ? { fcm_options: { image: message.image } } : {}),
