@@ -10,7 +10,6 @@ Thumbs.db
 
 # Node / Bun
 node_modules/
-bun.lock
 dist/
 .npm
 .eslintcache
