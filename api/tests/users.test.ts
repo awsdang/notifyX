@@ -207,11 +207,16 @@ describe("Devices API - Single Requests", () => {
     // Deactivate device
     const res = await http.patch<{
       success: boolean;
-      data: { isActive: boolean };
+      data: { deleted: boolean; deviceId: string; userId: string };
     }>(`/devices/${deviceId}/deactivate`, { token: adminToken });
 
     expectSuccess(res);
-    expect(res.data.data.isActive).toBe(false);
+    expect(res.data.data.deleted).toBe(true);
+    expect(res.data.data.deviceId).toBe(deviceId);
+    expect(res.data.data.userId).toBe(testUserId);
+
+    const userRes = await http.get(`/users/${testUserId}`, { token: adminToken });
+    expectError(userRes, 404);
   });
 
   test("should handle duplicate device token update", async () => {
@@ -302,30 +307,36 @@ describe("Users API - Bulk Requests", () => {
   });
 
   test("should handle bulk device deactivation", async () => {
-    // Create user with multiple devices
-    const userRes = await http.post<{ success: boolean; data: { id: string } }>(
-      "/users",
-      {
-        body: { ...factory.user(), appId: testAppId },
-      },
-    );
-    expectSuccess(userRes);
-    const userId = userRes.data.data.id;
-    cleanup.trackUser(userId);
-
-    // Register multiple devices
+    // Create one user/device pair per request so each deactivate can hard-delete.
+    const userIds: string[] = [];
     const deviceIds: string[] = [];
     for (let i = 0; i < 5; i++) {
-      const res = await http.post<{ success: boolean; data: { id: string } }>(
+      const userRes = await http.post<{ success: boolean; data: { id: string } }>(
+        "/users",
+        {
+          body: { ...factory.user(), appId: testAppId },
+        },
+      );
+      if (!userRes.ok) {
+        continue;
+      }
+
+      const userId = userRes.data.data.id;
+      userIds.push(userId);
+      cleanup.trackUser(userId);
+
+      const deviceRes = await http.post<{ success: boolean; data: { id: string } }>(
         "/users/device",
         {
           body: factory.device(userId, testAppId),
         },
       );
-      if (res.ok) {
-        deviceIds.push(res.data.data.id);
+      if (deviceRes.ok) {
+        deviceIds.push(deviceRes.data.data.id);
       }
     }
+
+    expect(deviceIds.length).toBe(5);
 
     // Deactivate all devices in parallel
     const deactivateRequests = deviceIds.map(
@@ -338,6 +349,14 @@ describe("Users API - Bulk Requests", () => {
     const results = await Promise.all(deactivateRequests.map((fn) => fn()));
     const successful = results.filter((r) => r.ok);
     expect(successful.length).toBe(5);
+
+    const getUserRequests = userIds.map((userId) =>
+      http.get(`/users/${userId}`, { token: adminToken }),
+    );
+    const getUserResults = await Promise.all(getUserRequests);
+    for (const getUserRes of getUserResults) {
+      expectError(getUserRes, 404);
+    }
   });
 });
 
@@ -346,7 +365,7 @@ describe("Users API - Bulk Requests", () => {
 // ============================================================
 
 describe("Device Cleanup - Safety Action Scenario", () => {
-  test("should deactivate suspicious device with audit trail", async () => {
+  test("should permanently delete suspicious device and user", async () => {
     // Create user
     const userRes = await http.post<{ success: boolean; data: { id: string } }>(
       "/users",
@@ -373,13 +392,15 @@ describe("Device Cleanup - Safety Action Scenario", () => {
     // Manager deactivates device
     const deactivateRes = await http.patch<{
       success: boolean;
-      data: { isActive: boolean };
+      data: { deleted: boolean; deviceId: string; userId: string };
     }>(`/devices/${deviceId}/deactivate`, { token: adminToken });
 
     expectSuccess(deactivateRes);
-    expect(deactivateRes.data.data.isActive).toBe(false);
+    expect(deactivateRes.data.data.deleted).toBe(true);
+    expect(deactivateRes.data.data.deviceId).toBe(deviceId);
+    expect(deactivateRes.data.data.userId).toBe(userId);
 
-    // Verify device is inactive (won't receive notifications)
+    // Verify the device no longer exists in listings.
     const devicesRes = await http.get<{
       success: boolean;
       data: { devices: Array<{ id: string; isActive: boolean }> };
@@ -387,6 +408,10 @@ describe("Device Cleanup - Safety Action Scenario", () => {
 
     expectSuccess(devicesRes);
     const device = devicesRes.data.data.devices.find((d) => d.id === deviceId);
-    expect(device?.isActive).toBe(false);
+
+    expect(device).toBeUndefined();
+
+    const getUserRes = await http.get(`/users/${userId}`, { token: adminToken });
+    expectError(getUserRes, 404);
   });
 });

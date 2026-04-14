@@ -248,16 +248,11 @@ export const deactivateDevice = async (
 ) => {
   try {
     const { id } = req.params as { id: string };
-    const { reason, note } = (req.body || {}) as {
-      reason?: string;
-      note?: string;
-    };
-    const adminUser = req.adminUser;
 
     // Verify device belongs to an accessible app
     const existing = await prisma.device.findUnique({
       where: { id },
-      include: { user: { select: { appId: true } } },
+      include: { user: { select: { id: true, appId: true } } },
     });
     if (!existing) {
       return res
@@ -276,19 +271,22 @@ export const deactivateDevice = async (
         .json({ error: true, message: "Device not found", data: null });
     }
 
-    const device = await prisma.device.update({
-      where: { id },
-      data: {
-        isActive: false,
-        deactivatedAt: new Date(),
-        deactivatedBy: adminUser?.id,
-        deactivationReason: reason,
-        deactivationNote: note,
-      },
+    if (req.machineAuth && req.machineAuth.appId !== existing.user.appId) {
+      return res
+        .status(403)
+        .json({ error: true, message: "API key is not scoped to this app", data: null });
+    }
+
+    await prisma.user.delete({
+      where: { id: existing.user.id },
     });
 
     await Promise.all([invalidateCache("/devices"), invalidateCache("/users")]);
-    sendSuccess(res, device);
+    sendSuccess(res, {
+      deleted: true,
+      deviceId: existing.id,
+      userId: existing.user.id,
+    });
   } catch (error) {
     next(error);
   }
@@ -321,6 +319,12 @@ export const activateDevice = async (
       return res
         .status(404)
         .json({ error: true, message: "Device not found", data: null });
+    }
+
+    if (req.machineAuth && req.machineAuth.appId !== existing.user.appId) {
+      return res
+        .status(403)
+        .json({ error: true, message: "API key is not scoped to this app", data: null });
     }
 
     const device = await prisma.device.update({
