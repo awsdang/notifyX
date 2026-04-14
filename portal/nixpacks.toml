@@ -4,10 +4,10 @@ NIXPACKS_SPA_CADDY = "true"
 NIXPACKS_SPA_OUT_DIR = "dist"
 
 [phases.setup]
-nixPkgs = ["nodejs_22", "bun"]
+nixPkgs = ["nodejs_latest"]
 
 [phases.install]
-cmds = ["bun install --frozen-lockfile"]
+cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["bun run build"]
+cmds = ["npm run build"]
