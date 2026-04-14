@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
+import { Skeleton } from "./ui/Skeleton";
 
 interface StatCardProps {
   title: string;
@@ -7,9 +8,10 @@ interface StatCardProps {
   color: "blue" | "green" | "red" | "purple";
   icon?: ReactNode;
   subtitle?: string;
+  loading?: boolean;
 }
 
-export function StatCard({ title, value, color, icon, subtitle }: StatCardProps) {
+export function StatCard({ title, value, color, icon, subtitle, loading }: StatCardProps) {
   const colorMap = {
     blue: {
       bg: "bg-blue-50",
@@ -46,9 +48,13 @@ export function StatCard({ title, value, color, icon, subtitle }: StatCardProps)
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
-            {value}
-          </p>
+          {loading ? (
+            <Skeleton className="mt-2 h-9 w-24" />
+          ) : (
+            <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+              {value}
+            </p>
+          )}
           {subtitle && (
             <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
           )}

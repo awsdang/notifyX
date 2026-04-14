@@ -153,6 +153,7 @@ import {
   requireSuperAdmin,
   requireManager,
   requireMarketing,
+  requireMarketingOrMachineAuth,
   canManageApp,
   requirePermission,
 } from "./middleware/adminAuth";
@@ -550,26 +551,22 @@ export const deviceRouter = Router();
 deviceRouter.get("/", authenticateAdmin, requireMarketing, cache(), getDevices);
 deviceRouter.patch(
   "/:id/deactivate",
-  authenticateAdmin,
-  requireMarketing,
+  requireMarketingOrMachineAuth,
   deactivateDevice,
 );
 deviceRouter.post(
   "/:id/deactivate",
-  authenticateAdmin,
-  requireMarketing,
+  requireMarketingOrMachineAuth,
   deactivateDevice,
 );
 deviceRouter.patch(
   "/:id/activate",
-  authenticateAdmin,
-  requireMarketing,
+  requireMarketingOrMachineAuth,
   activateDevice,
 );
 deviceRouter.post(
   "/:id/activate",
-  authenticateAdmin,
-  requireMarketing,
+  requireMarketingOrMachineAuth,
   activateDevice,
 );
 

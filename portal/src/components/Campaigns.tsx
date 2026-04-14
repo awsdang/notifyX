@@ -767,7 +767,11 @@ function CampaignEditorPage({
       setStatus({ type: "error", message: tt("Title and body are required.") });
       return false;
     }
-    if (!formData.actionUrl.trim()) {
+    if (
+      formData.ctaType !== "open_app" &&
+      formData.ctaType !== "dismiss" &&
+      !formData.actionUrl.trim()
+    ) {
       setStatus({
         type: "error",
         message: tt("Default open-link URL is required."),
@@ -838,7 +842,7 @@ function CampaignEditorPage({
 
     const ctaData: Record<string, string> = {};
     for (const cta of ctaCandidates) {
-      if (cta.type === "none") continue;
+      if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
       if (!cta.label || !cta.value) {
         setStatus({
           type: "error",

@@ -1,8 +1,10 @@
 import { SDKGenerator } from "../components/SDKGenerator";
 import { WebhookManager } from "../components/WebhookManager";
+import { Card, CardHeader, CardTitle } from "../components/ui/Card";
 import { useAppContext } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { useScopedTranslation } from "../context/I18nContext";
+import { Globe } from "lucide-react";
 
 export function DevXPage() {
   const ta = useScopedTranslation("components", "AppShell");
@@ -10,25 +12,23 @@ export function DevXPage() {
   const { token } = useAuth();
 
   return (
-    <div className="space-y-8">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       <SDKGenerator />
-      <div className="rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-sm">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">
-              {ta("webhookManagementTitle", "Webhook Management")}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {ta("webhookManagementSubtitle", "Receive real-time delivery and click insights")}
-            </p>
-          </div>
-        </div>
+      <Card padding="lg">
+        <CardHeader>
+          <CardTitle icon={<Globe className="h-5 w-5 text-blue-600" />}>
+            {ta("webhookManagementTitle", "Webhook Management")}
+          </CardTitle>
+        </CardHeader>
+        <p className="-mt-2 mb-6 text-sm text-slate-500">
+          {ta("webhookManagementSubtitle", "Receive real-time delivery and click insights")}
+        </p>
         <WebhookManager
           appId={selectedApp?.id || ""}
           appName={selectedApp?.name || ""}
           token={token || ""}
         />
-      </div>
+      </Card>
     </div>
   );
 }

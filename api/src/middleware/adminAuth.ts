@@ -143,6 +143,18 @@ export const requireMarketing = requireRole(
   "MARKETING_MANAGER",
 );
 
+export function requireMarketingOrMachineAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.machineAuth) {
+    return next();
+  }
+
+  return requireMarketing(req, res, next);
+}
+
 /**
  * Check if user can manage a specific app
  * SUPER_ADMIN can manage all apps

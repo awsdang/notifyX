@@ -9,6 +9,10 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/Badge";
+import { Card } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { SkeletonCard } from "./ui/Skeleton";
 import { useAutomations, type Automation } from "../hooks/useAutomations";
 import {
   useAutomationTriggers,
@@ -150,9 +154,9 @@ export function AutomationList({ appId, appName }: AutomationListProps) {
       </div>
 
       {inlineError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          {inlineError}
-        </div>
+        <Card padding="sm" className="border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-700">{inlineError}</p>
+        </Card>
       ) : null}
 
       {activeSection === "triggers" ? (
@@ -182,24 +186,21 @@ export function AutomationList({ appId, appName }: AutomationListProps) {
           ) : null}
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-slate-900" />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
             </div>
           ) : automations.length === 0 ? (
-            <div className="col-span-full rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-400">
-              <Zap className="mx-auto mb-4 h-12 w-12 text-purple-500 opacity-50" />
-              <p className="mb-2 text-lg font-medium text-slate-900">No workflows yet</p>
-              <p className="mb-6">
-                Create your first automated workflow to engage users automatically.
-              </p>
-              <Button
-                onClick={handleCreate}
-                variant="outline"
-                className="border-purple-200 text-purple-700 hover:bg-purple-50"
-              >
-                Create First Workflow
-              </Button>
-            </div>
+            <EmptyState
+              icon={<Zap className="h-6 w-6" />}
+              title="No workflows yet"
+              description="Create your first automated workflow to engage users automatically."
+              action={{
+                label: "Create First Workflow",
+                onClick: handleCreate,
+              }}
+            />
           ) : (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {automations.map((auto) => (
@@ -211,38 +212,20 @@ export function AutomationList({ appId, appName }: AutomationListProps) {
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
                       <Zap size={20} />
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          auto.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <Badge variant={auto.isActive ? "success" : "default"} dot>
                         {auto.isActive ? "Live" : "Inactive"}
-                      </span>
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                      </Badge>
+                      <Badge variant={auto.publishedVersion ? "info" : "default"}>
                         {auto.publishedVersion
-                          ? `Published v${auto.publishedVersion}`
-                          : "Not Published"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                        Draft v{auto.draftVersion || 1}
-                      </span>
+                          ? `v${auto.publishedVersion}`
+                          : "Unpublished"}
+                      </Badge>
                       {auto.hasUnpublishedChanges ? (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                          Unpublished
-                        </span>
+                        <Badge variant="warning" dot>
+                          Unsaved
+                        </Badge>
                       ) : null}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          auto.isActive
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        Runtime {auto.isActive ? "on" : "off"}
-                      </span>
                     </div>
                   </div>
 

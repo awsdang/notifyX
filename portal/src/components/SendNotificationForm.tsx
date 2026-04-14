@@ -448,7 +448,11 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     if (formData.platforms.length === 0) {
       errors.push(tt("Select at least one platform."));
     }
-    if (!formData.actionUrl.trim()) {
+    if (
+      formData.ctaType !== "open_app" &&
+      formData.ctaType !== "dismiss" &&
+      !formData.actionUrl.trim()
+    ) {
       errors.push(tt("Default open-link URL is required."));
     }
     if (step === "test" && formData.testUserIds.length === 0) {
@@ -481,10 +485,12 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       Boolean(selectedTemplateVariant.body.trim())
     : Boolean(formData.title.trim()) && Boolean(formData.body.trim());
 
+  const needsActionUrl =
+    formData.ctaType !== "open_app" && formData.ctaType !== "dismiss";
   const canSubmit =
     !!formData.appId &&
     hasRequiredContent &&
-    Boolean(formData.actionUrl.trim()) &&
+    (!needsActionUrl || Boolean(formData.actionUrl.trim())) &&
     readinessErrors.length === 0 &&
     !isSubmitting;
 
@@ -622,7 +628,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       ];
 
       for (const cta of ctaCandidates) {
-        if (cta.type === "none") continue;
+        if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
 
         if (!cta.label || !cta.value) {
           throw new Error(
