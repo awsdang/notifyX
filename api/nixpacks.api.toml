@@ -2,7 +2,7 @@
 NODE_ENV = "production"
 
 [phases.setup]
-nixPkgs = ["nodejs_latest", "bun", "openssl"]
+nixPkgs = ["nodejs_22", "bun", "openssl"]
 
 [phases.install]
 cmds = ["bun install --frozen-lockfile"]
