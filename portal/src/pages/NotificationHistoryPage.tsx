@@ -3,7 +3,11 @@ import { CalendarRange, Filter, Megaphone, Pause, Play } from "lucide-react";
 import type { Application, NotificationHistoryItem } from "../types";
 import { apiFetch, apiFetchEnvelope } from "../lib/api";
 import { Button } from "../components/ui/button";
-import { clsx } from "clsx";
+import { Card } from "../components/ui/Card";
+import { Input, Select } from "../components/ui/Input";
+import { Badge, StatusBadge } from "../components/ui/Badge";
+import { EmptyState } from "../components/ui/EmptyState";
+import { SkeletonTable } from "../components/ui/Skeleton";
 import { useScopedTranslation } from "../context/I18nContext";
 import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import {
@@ -86,32 +90,6 @@ function getNotificationTitle(
   return item.type === "campaign"
     ? tp("campaignNotification", "Campaign Notification")
     : tp("transactionalNotification", "Transactional Notification");
-}
-
-function getStatusClass(status: string): string {
-  const normalized = status.toUpperCase();
-  if (["SENT", "COMPLETED", "DELIVERED"].includes(normalized)) {
-    return "bg-emerald-100 text-emerald-700";
-  }
-  if (["SCHEDULED", "QUEUED", "PROCESSING"].includes(normalized)) {
-    return "bg-blue-100 text-blue-700";
-  }
-  if (["FAILED", "CANCELLED", "PARTIAL"].includes(normalized)) {
-    return "bg-red-100 text-red-700";
-  }
-  return "bg-slate-100 text-slate-700";
-}
-
-function getStatusLabel(
-  status: string,
-  tp: (
-    key: string,
-    fallback?: string,
-    params?: Record<string, string | number>,
-  ) => string,
-): string {
-  const normalized = status.toUpperCase();
-  return tp(`status_${normalized}`, normalized);
 }
 
 function truncateText(value: string, max = 160): string {
@@ -419,6 +397,13 @@ export function NotificationHistoryPage({
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  const hasActiveFilters =
+    filters.appId !== "all" ||
+    filters.from ||
+    filters.to ||
+    filters.userId ||
+    filters.deviceId;
+
   const applyFilters = () => {
     const normalized: HistoryFilters = {
       appId: draftFilters.appId,
@@ -439,8 +424,9 @@ export function NotificationHistoryPage({
   };
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+      {/* ── Filter Panel ── */}
+      <Card padding="md">
         <div className="mb-3 flex items-center gap-2 text-slate-800">
           <Filter className="h-4 w-4" />
           <h3 className="text-xs font-bold uppercase tracking-wider">
@@ -448,97 +434,80 @@ export function NotificationHistoryPage({
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-6">
-          <label className="space-y-1 text-xs">
-            <span className="text-slate-600">{tp("app", "App")}</span>
-            <select
-              value={draftFilters.appId}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({
-                  ...prev,
-                  appId: event.target.value,
-                  userId: "",
-                  deviceId: "",
-                }))
-              }
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
-            >
-              <option value="all">{tp("allApps", "All Apps")}</option>
-              {sortedApps.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+          <Select
+            label={tp("app", "App")}
+            value={draftFilters.appId}
+            onChange={(event) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                appId: event.target.value,
+                userId: "",
+                deviceId: "",
+              }))
+            }
+          >
+            <option value="all">{tp("allApps", "All Apps")}</option>
+            {sortedApps.map((app) => (
+              <option key={app.id} value={app.id}>
+                {app.name}
+              </option>
+            ))}
+          </Select>
 
-          <label className="space-y-1 text-xs">
-            <span className="text-slate-600">{tp("from", "From")}</span>
-            <input
-              type="date"
-              value={draftFilters.from}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, from: event.target.value }))
-              }
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
-            />
-          </label>
+          <Input
+            label={tp("from", "From")}
+            type="date"
+            value={draftFilters.from}
+            onChange={(event) =>
+              setDraftFilters((prev) => ({ ...prev, from: event.target.value }))
+            }
+          />
 
-          <label className="space-y-1 text-xs">
-            <span className="text-slate-600">{tp("to", "To")}</span>
-            <input
-              type="date"
-              value={draftFilters.to}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, to: event.target.value }))
-              }
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
-            />
-          </label>
+          <Input
+            label={tp("to", "To")}
+            type="date"
+            value={draftFilters.to}
+            onChange={(event) =>
+              setDraftFilters((prev) => ({ ...prev, to: event.target.value }))
+            }
+          />
 
-          <label className="space-y-1 text-xs">
-            <span className="text-slate-600">{tp("user", "User")}</span>
-            <select
-              value={draftFilters.userId}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({
-                  ...prev,
-                  userId: event.target.value,
-                  deviceId: "",
-                }))
-              }
-              disabled={draftFilters.appId === "all" || isLoadingUsers}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
-            >
-              <option value="">{tp("allUsers", "All users")}</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.externalUserId}>
-                  {getUserIdentityLabel(user)} ({user.devicesCount})
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label={tp("user", "User")}
+            value={draftFilters.userId}
+            onChange={(event) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                userId: event.target.value,
+                deviceId: "",
+              }))
+            }
+            disabled={draftFilters.appId === "all" || isLoadingUsers}
+          >
+            <option value="">{tp("allUsers", "All users")}</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.externalUserId}>
+                {getUserIdentityLabel(user)} ({user.devicesCount})
+              </option>
+            ))}
+          </Select>
 
-          <label className="space-y-1 text-xs">
-            <span className="text-slate-600">
-              {tp("activeDevice", "Active Device")}
-            </span>
-            <select
-              value={draftFilters.deviceId}
-              onChange={(event) =>
-                setDraftFilters((prev) => ({ ...prev, deviceId: event.target.value }))
-              }
-              disabled={!selectedDraftUser || isLoadingDevices}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
-            >
-              <option value="">{tp("allDevices", "All devices")}</option>
-              {devices.map((device) => (
-                <option key={device.id} value={device.id}>
-                  {device.platform}/{device.provider} - {device.id.slice(0, 8)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label={tp("activeDevice", "Active Device")}
+            value={draftFilters.deviceId}
+            onChange={(event) =>
+              setDraftFilters((prev) => ({ ...prev, deviceId: event.target.value }))
+            }
+            disabled={!selectedDraftUser || isLoadingDevices}
+          >
+            <option value="">{tp("allDevices", "All devices")}</option>
+            {devices.map((device) => (
+              <option key={device.id} value={device.id}>
+                {device.platform}/{device.provider} - {device.id.slice(0, 8)}
+              </option>
+            ))}
+          </Select>
 
           <div className="flex items-end gap-2">
             <Button variant="outline" className="w-full" onClick={clearFilters}>
@@ -563,46 +532,40 @@ export function NotificationHistoryPage({
             )}
           </span>
         </div>
-      </div>
+      </Card>
 
+      {/* ── Results ── */}
       <div className="space-y-2">
         {isLoading && notifications.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">
-            {tp("loadingHistory", "Loading notification history...")}
-          </div>
+          <SkeletonTable rows={8} />
         ) : null}
 
         {!isLoading && error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
+          <Card padding="sm" className="border-rose-200 bg-rose-50">
+            <p className="text-sm text-rose-700">{error}</p>
+          </Card>
         ) : null}
 
         {!isLoading && !error && notifications.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
-            <Megaphone className="mx-auto mb-3 h-10 w-10 opacity-50" />
-            <p>
-              {tp(
-                "noNotificationsFound",
-                "No notifications found for the selected filters.",
-              )}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              {tp(
-                "noNotificationsHint",
-                "Try clearing your filters or expanding the date range to see more results.",
-              )}
-            </p>
-            {(filters.appId !== "all" || filters.from || filters.to || filters.userId || filters.deviceId) && (
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={clearFilters}
-              >
-                {tp("clearFilters", "Clear all filters")}
-              </Button>
+          <EmptyState
+            icon={<Megaphone className="h-6 w-6" />}
+            title={tp(
+              "noNotificationsFound",
+              "No notifications found for the selected filters.",
             )}
-          </div>
+            description={tp(
+              "noNotificationsHint",
+              "Try clearing your filters or expanding the date range to see more results.",
+            )}
+            action={
+              hasActiveFilters
+                ? {
+                    label: tp("clearFilters", "Clear all filters"),
+                    onClick: clearFilters,
+                  }
+                : undefined
+            }
+          />
         ) : null}
 
         {notifications.map((item) => {
@@ -615,10 +578,7 @@ export function NotificationHistoryPage({
           const workerProcessed = (summary?.totalDeliveries || 0) > 0;
 
           return (
-            <article
-              key={item.id}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
+            <Card key={item.id} padding="md">
               <header className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                   <h4 className="truncate text-base font-bold text-slate-900">
@@ -634,22 +594,13 @@ export function NotificationHistoryPage({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                  <Badge variant="default">
                     {item.type
                       .replace(/_/g, " ")
                       .replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </span>
-                  <span
-                    className={clsx(
-                      "rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
-                      getStatusClass(item.status),
-                    )}
-                  >
-                    {getStatusLabel(item.status, tp)}
-                  </span>
-                  <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                    {item.priority}
-                  </span>
+                  </Badge>
+                  <StatusBadge status={item.status} />
+                  <Badge variant="warning">{item.priority}</Badge>
                   {canStop(item.status) ? (
                     <Button
                       size="sm"
@@ -708,14 +659,7 @@ export function NotificationHistoryPage({
               </div>
 
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span
-                  className={clsx(
-                    "rounded-md px-2 py-1 font-semibold",
-                    workerProcessed
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-slate-100 text-slate-700",
-                  )}
-                >
+                <Badge variant={workerProcessed ? "success" : "default"}>
                   {workerProcessed
                     ? tp(
                         "workerDelivered",
@@ -729,18 +673,18 @@ export function NotificationHistoryPage({
                         "workerNoRecords",
                         "Worker: no delivery records yet",
                       )}
-                </span>
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">
+                </Badge>
+                <Badge variant="default">
                   {tp("lastSentLabel", "Last Sent")}:{" "}
                   {formatDateTime(summary?.lastSentAt)}
-                </span>
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">
+                </Badge>
+                <Badge variant="default">
                   {tp("providersLabel", "Providers")}:{" "}
                   {summary?.providers?.join(", ") || "-"}
-                </span>
+                </Badge>
               </div>
 
-              <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-700">
                   {tp("details", "Details")}
                 </summary>
@@ -826,7 +770,7 @@ export function NotificationHistoryPage({
                     <p className="font-semibold text-slate-500">
                       {tp("variables", "Variables")}
                     </p>
-                    <pre className="max-h-24 overflow-auto rounded bg-white p-2 text-[11px]">
+                    <pre className="max-h-24 overflow-auto rounded-lg bg-white p-2 text-[11px]">
                       {JSON.stringify(item.payload?.variables || {}, null, 2)}
                     </pre>
                   </div>
@@ -834,7 +778,7 @@ export function NotificationHistoryPage({
                     <p className="font-semibold text-slate-500">
                       {tp("ctaActionsPayload", "CTA Actions Payload")}
                     </p>
-                    <pre className="max-h-24 overflow-auto rounded bg-white p-2 text-[11px]">
+                    <pre className="max-h-24 overflow-auto rounded-lg bg-white p-2 text-[11px]">
                       {JSON.stringify(actions, null, 2)}
                     </pre>
                   </div>
@@ -842,17 +786,18 @@ export function NotificationHistoryPage({
                     <p className="font-semibold text-slate-500">
                       {tp("customData", "Custom Data")}
                     </p>
-                    <pre className="max-h-24 overflow-auto rounded bg-white p-2 text-[11px]">
+                    <pre className="max-h-24 overflow-auto rounded-lg bg-white p-2 text-[11px]">
                       {JSON.stringify(content?.data || {}, null, 2)}
                     </pre>
                   </div>
                 </div>
               </details>
-            </article>
+            </Card>
           );
         })}
       </div>
 
+      {/* ── Pagination ── */}
       <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
         <p className="text-sm text-slate-600">
           {tp("pageOf", "Page {{page}} of {{totalPages}}", {

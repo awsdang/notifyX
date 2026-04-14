@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/button";
+import { Card } from "./ui/Card";
+import { Badge } from "./ui/Badge";
+import { EmptyState } from "./ui/EmptyState";
+import { SkeletonTable } from "./ui/Skeleton";
+import { Input, Select } from "./ui/Input";
 import {
   Users,
   Smartphone,
@@ -10,6 +15,9 @@ import {
   XCircle,
   RefreshCw,
   UploadCloud,
+  Bot,
+  Globe,
+  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { AudienceManager } from "./AudienceManager";
@@ -20,16 +28,7 @@ import {
   normalizeNickname,
 } from "../lib/userIdentity";
 import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
-
-function getApiBaseUrl(): string {
-  const configured = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  return configured.endsWith("/api/v1")
-    ? configured
-    : `${configured.replace(/\/$/, "")}/api/v1`;
-}
-
-const API_URL = getApiBaseUrl();
-const API_KEY = import.meta.env.VITE_API_KEY || "";
+import { apiFetch } from "../lib/api";
 const MAX_VISIBLE_TEST_TARGET_USERS = 300;
 
 interface User {
@@ -125,39 +124,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> => {
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...(API_KEY && { "X-API-Key": API_KEY }),
-      ...options.headers,
-    };
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-    const json = await response.json().catch(() => null);
-    if (!response.ok) {
-      const message =
-        json?.message ||
-        json?.error?.message ||
-        json?.error ||
-        tt("Request failed");
-      throw new Error(message);
-    }
-    // New envelope
-    if (json && typeof json === "object" && "error" in json && "data" in json) {
-      return json.data as T;
-    }
-    // Legacy envelope
-    if (
-      json &&
-      typeof json === "object" &&
-      "success" in json &&
-      "data" in json
-    ) {
-      return json.data as T;
-    }
-    return json as T;
+    return apiFetch<T>(endpoint, options, token);
   };
 
   const fetchUsers = async (page = 1) => {
@@ -580,268 +547,242 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
   const getPlatformIcon = (platform: string) => {
     switch (platform.toLowerCase()) {
       case "android":
-        return "🤖";
+        return <Bot className="h-5 w-5 text-emerald-600" />;
       case "ios":
-        return "🍎";
+        return <Smartphone className="h-5 w-5 text-slate-700" />;
       case "web":
-        return "🌐";
+        return <Globe className="h-5 w-5 text-blue-600" />;
       case "huawei":
-        return "📱";
+        return <Smartphone className="h-5 w-5 text-rose-500" />;
       default:
-        return "📱";
+        return <Smartphone className="h-5 w-5 text-slate-400" />;
     }
   };
 
-  const getProviderBadge = (provider: string) => {
-    const colors: Record<string, string> = {
-      fcm: "bg-orange-100 text-orange-700",
-      apns: "bg-blue-100 text-blue-700",
-      hms: "bg-red-100 text-red-700",
-      web: "bg-purple-100 text-purple-700",
+  const getProviderBadgeVariant = (provider: string): "warning" | "info" | "error" | "default" => {
+    const map: Record<string, "warning" | "info" | "error" | "default"> = {
+      fcm: "warning",
+      apns: "info",
+      hms: "error",
+      web: "default",
     };
-    return colors[provider.toLowerCase()] || "bg-gray-100 text-gray-700";
+    return map[provider.toLowerCase()] || "default";
   };
 
-  // User Details View
-  if (selectedUser) {
-    return (
-      <div className="space-y-6">
-        <button
-          onClick={() => setSelectedUser(null)}
-          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-        >
-          <PrevIcon className="w-4 h-4" /> {tt("Back to Users")}
-        </button>
-
-        <div className="bg-white rounded-xl border p-6">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-xl font-semibold">
-                {getUserDisplayName(selectedUser)}
-              </h3>
-              {selectedUser.nickname ? (
-                <p className="text-xs text-gray-500 mt-1 font-mono">
-                  {selectedUser.externalUserId}
-                </p>
-              ) : null}
-              <p className="text-sm text-gray-500 mt-1">
-                {tt("App")}:{" "}
-                <span className="font-medium">{selectedUser.app.name}</span>
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:bg-red-50"
-              onClick={() => deleteUser(selectedUser.id)}
-            >
-              <Trash2 className="w-4 h-4 me-2" /> {tt("Delete User")}
-            </Button>
-          </div>
-
-          <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <label className="block text-sm font-semibold mb-2">
-              {tt("Nickname", undefined, "Nickname")}
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={nicknameDraft}
-                maxLength={64}
-                onChange={(event) => setNicknameDraft(event.target.value)}
-                placeholder={tt(
-                  "Optional display name",
-                  undefined,
-                  "Optional display name",
-                )}
-                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void updateSelectedUserNickname()}
-                disabled={
-                  isSavingNickname ||
-                  normalizeNickname(nicknameDraft) ===
-                    normalizeNickname(selectedUser.nickname)
-                }
-              >
-                {isSavingNickname
-                  ? tt("Saving...", undefined, "Saving...")
-                  : tt("Save nickname", undefined, "Save nickname")}
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {tt(
-                "Used first in Target User IDs / Device IDs selectors.",
-                undefined,
-                "Used first in Target User IDs / Device IDs selectors.",
-              )}
-            </p>
-            {nicknameStatus ? (
-              <p
-                className={clsx(
-                  "mt-2 text-xs font-medium",
-                  nicknameStatus.type === "success"
-                    ? "text-emerald-700"
-                    : "text-rose-700",
-                )}
-              >
-                {nicknameStatus.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
-            <div>
-              <p className="text-gray-500">{tt("Language")}</p>
-              <p className="font-medium">{selectedUser.language}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">{tt("Timezone")}</p>
-              <p className="font-medium">{selectedUser.timezone}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">{tt("Devices")}</p>
-              <p className="font-medium">{selectedUser.devices?.length || 0}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">{tt("Created")}</p>
-              <p className="font-medium">
-                {new Date(selectedUser.createdAt).toLocaleDateString(
-                  language === "ar" ? "ar" : "en-US",
-                  localeDateOptions,
-                )}
-              </p>
-            </div>
-          </div>
-
-          <h4 className="font-semibold mb-4">{tt("Registered Devices")}</h4>
-          {selectedUser.devices && selectedUser.devices.length > 0 ? (
-            <div className="space-y-3">
-              {selectedUser.devices.map((device) => (
-                <div
-                  key={device.id}
-                  className={clsx(
-                    "p-4 rounded-lg border flex justify-between items-center",
-                    device.isActive ? "bg-white" : "bg-gray-50 opacity-60",
-                  )}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">
-                      {getPlatformIcon(device.platform)}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium capitalize">
-                          {device.platform}
-                        </span>
-                        <span
-                          className={clsx(
-                            "text-xs px-2 py-0.5 rounded-full",
-                            getProviderBadge(device.provider),
-                          )}
-                        >
-                          {device.provider.toUpperCase()}
-                        </span>
-                        {device.isActive ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                            {tt("Active")}
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            {tt("Inactive")}
-                          </span>
-                        )}
-                      </div>
-                      <p
-                        className="text-xs text-gray-400 font-mono mt-1 truncate max-w-md"
-                        title={device.pushToken}
-                      >
-                        {device.pushToken}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {tt("Last seen")}: {formatDate(device.lastSeenAt)}
-                      </p>
-                    </div>
-                  </div>
-                  {device.isActive ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deactivateDevice(device.id)}
-                    >
-                      <XCircle className="w-4 h-4 me-1" /> {tt("Deactivate")}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => activateDevice(device.id)}
-                    >
-                      <RefreshCw className="w-4 h-4 me-1" /> {tt("Activate")}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-center py-8">
-              {tt("No devices registered")}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+      {/* Slide-over panel for user details */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-40">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setSelectedUser(null)}
+          />
+          <div className="absolute inset-y-0 end-0 flex w-full max-w-lg animate-in slide-in-from-right duration-300">
+            <Card className="h-full w-full overflow-y-auto rounded-none border-s shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {getUserDisplayName(selectedUser)}
+                  </h3>
+                  {selectedUser.nickname ? (
+                    <p className="mt-1 font-mono text-xs text-slate-500">
+                      {selectedUser.externalUserId}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-sm text-slate-500">
+                    {tt("App")}:{" "}
+                    <span className="font-medium">{selectedUser.app.name}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-rose-600 hover:bg-rose-50"
+                    onClick={() => deleteUser(selectedUser.id)}
+                  >
+                    <Trash2 className="h-4 w-4 me-1" /> {tt("Delete User")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedUser(null)}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <label className="mb-2 block text-sm font-semibold">
+                  {tt("Nickname", undefined, "Nickname")}
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    value={nicknameDraft}
+                    maxLength={64}
+                    onChange={(event) => setNicknameDraft(event.target.value)}
+                    placeholder={tt(
+                      "Optional display name",
+                      undefined,
+                      "Optional display name",
+                    )}
+                    hint={tt(
+                      "Used first in Target User IDs / Device IDs selectors.",
+                      undefined,
+                      "Used first in Target User IDs / Device IDs selectors.",
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="shrink-0 self-start"
+                    onClick={() => void updateSelectedUserNickname()}
+                    disabled={
+                      isSavingNickname ||
+                      normalizeNickname(nicknameDraft) ===
+                        normalizeNickname(selectedUser.nickname)
+                    }
+                  >
+                    {isSavingNickname
+                      ? tt("Saving...", undefined, "Saving...")
+                      : tt("Save nickname", undefined, "Save nickname")}
+                  </Button>
+                </div>
+                {nicknameStatus ? (
+                  <Badge
+                    variant={nicknameStatus.type === "success" ? "success" : "error"}
+                    className="mt-2"
+                  >
+                    {nicknameStatus.message}
+                  </Badge>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-500">{tt("Language")}</p>
+                  <p className="font-medium">{selectedUser.language}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">{tt("Timezone")}</p>
+                  <p className="font-medium">{selectedUser.timezone}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">{tt("Devices")}</p>
+                  <p className="font-medium">{selectedUser.devices?.length || 0}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">{tt("Created")}</p>
+                  <p className="font-medium">
+                    {new Date(selectedUser.createdAt).toLocaleDateString(
+                      language === "ar" ? "ar" : "en-US",
+                      localeDateOptions,
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <h4 className="mt-6 font-semibold">{tt("Registered Devices")}</h4>
+              {selectedUser.devices && selectedUser.devices.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {selectedUser.devices.map((device) => (
+                    <div
+                      key={device.id}
+                      className={clsx(
+                        "flex items-center justify-between rounded-xl border p-4",
+                        device.isActive ? "bg-white" : "bg-slate-50 opacity-60",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {getPlatformIcon(device.platform)}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium capitalize">
+                              {device.platform}
+                            </span>
+                            <Badge variant={getProviderBadgeVariant(device.provider)}>
+                              {device.provider.toUpperCase()}
+                            </Badge>
+                            <Badge variant={device.isActive ? "success" : "default"} dot>
+                              {device.isActive ? tt("Active") : tt("Inactive")}
+                            </Badge>
+                          </div>
+                          <p
+                            className="mt-1 max-w-xs truncate font-mono text-xs text-slate-400"
+                            title={device.pushToken}
+                          >
+                            {device.pushToken}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {tt("Last seen")}: {formatDate(device.lastSeenAt)}
+                          </p>
+                        </div>
+                      </div>
+                      {device.isActive ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deactivateDevice(device.id)}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => activateDevice(device.id)}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Smartphone className="h-5 w-5" />}
+                  title={tt("No devices registered")}
+                  description=""
+                />
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
       {/* Tabs */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setActiveTab("users")}
-          className={clsx(
-            "px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors",
-            activeTab === "users"
-              ? "bg-blue-600 text-white"
-              : "bg-white border text-gray-600 hover:bg-gray-50",
-          )}
-        >
-          <Users className="w-4 h-4" /> {tt("Users", undefined, "Users")}
-        </button>
-        <button
-          onClick={() => setActiveTab("devices")}
-          className={clsx(
-            "px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors",
-            activeTab === "devices"
-              ? "bg-blue-600 text-white"
-              : "bg-white border text-gray-600 hover:bg-gray-50",
-          )}
-        >
-          <Smartphone className="w-4 h-4" /> {tt("Devices", undefined, "Devices")}
-        </button>
-        <button
-          onClick={() => setActiveTab("import")}
-          className={clsx(
-            "px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors",
-            activeTab === "import"
-              ? "bg-purple-600 text-white"
-              : "bg-white border text-gray-600 hover:bg-gray-50",
-          )}
-        >
-          <UploadCloud className="w-4 h-4" /> {getImportAudienceLabel()}
-        </button>
+      <div className="inline-flex rounded-xl border bg-white p-1">
+        {(
+          [
+            { key: "users", icon: <Users className="h-4 w-4" />, label: tt("Users", undefined, "Users") },
+            { key: "devices", icon: <Smartphone className="h-4 w-4" />, label: tt("Devices", undefined, "Devices") },
+            { key: "import", icon: <UploadCloud className="h-4 w-4" />, label: getImportAudienceLabel() },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={clsx(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+              activeTab === tab.key
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900",
+            )}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border p-4">
-        <div className="flex flex-wrap gap-4">
-          <select
+      <Card padding="md">
+        <div className="flex flex-wrap items-end gap-4">
+          <Select
             value={filterAppId}
             onChange={(e) => setFilterAppId(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm bg-white min-w-37.5"
+            className="min-w-[150px]"
           >
             {apps.length === 0 ? (
               <option value="">{getAllAppsLabel()}</option>
@@ -852,75 +793,75 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                 </option>
               ))
             )}
-          </select>
+          </Select>
 
           {activeTab === "users" && (
-            <form onSubmit={handleSearch} className="flex-1 min-w-50">
+            <form onSubmit={handleSearch} className="min-w-[200px] flex-1">
               <div className="relative">
-                <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder={getSearchUsersPlaceholder()}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full ps-10 pe-4 py-2 border rounded-lg text-sm"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pe-3.5 ps-10 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
             </form>
           )}
           {activeTab === "devices" && (
             <>
-              <select
+              <Select
                 value={filterPlatform}
                 onChange={(e) => setFilterPlatform(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm bg-white min-w-30"
+                className="min-w-[120px]"
               >
                 <option value="">{getAllPlatformsLabel()}</option>
                 <option value="android">{tt("Android", undefined, "Android")}</option>
                 <option value="ios">{tt("iOS", undefined, "iOS")}</option>
                 <option value="web">{tt("Web", undefined, "Web")}</option>
                 <option value="huawei">{tt("Huawei", undefined, "Huawei")}</option>
-              </select>
-              <select
+              </Select>
+              <Select
                 value={filterProvider}
                 onChange={(e) => setFilterProvider(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm bg-white min-w-30"
+                className="min-w-[120px]"
               >
                 <option value="">{getAllProvidersLabel()}</option>
                 <option value="fcm">{tt("FCM", undefined, "FCM")}</option>
                 <option value="apns">{tt("APNS", undefined, "APNS")}</option>
                 <option value="hms">{tt("HMS", undefined, "HMS")}</option>
                 <option value="web">{tt("Web Push", undefined, "Web Push")}</option>
-              </select>
-              <select
+              </Select>
+              <Select
                 value={filterActive}
                 onChange={(e) => setFilterActive(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm bg-white min-w-30"
+                className="min-w-[120px]"
               >
                 <option value="">{getAllStatusLabel()}</option>
                 <option value="true">{tt("Active", undefined, "Active")}</option>
                 <option value="false">{tt("Inactive", undefined, "Inactive")}</option>
-              </select>
+              </Select>
             </>
           )}
           {activeTab !== "import" && (
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() =>
                 activeTab === "users" ? fetchUsers() : fetchDevices()
               }
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
             </Button>
           )}
         </div>
-      </div>
+      </Card>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          {error}
-        </div>
+        <Card padding="sm" className="border-rose-200 bg-rose-50">
+          <p className="text-sm text-rose-700">{error}</p>
+        </Card>
       )}
 
       {activeTab === "users" && filterAppId && (
@@ -1026,32 +967,31 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
 
       {/* Users List */}
       {activeTab === "users" && (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <Card padding="sm" className="overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-400">
-              {tt("Loading...", undefined, "Loading...")}
-            </div>
+            <SkeletonTable rows={5} />
           ) : users.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>
-                {searchQuery
+            <EmptyState
+              icon={<Users className="h-6 w-6" />}
+              title={
+                searchQuery
                   ? tt(
                       "No users found matching \"{{query}}\"",
                       { query: searchQuery },
                       "No users found matching \"{{query}}\"",
                     )
-                  : getNoUsersFoundLabel()}
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {tt("Clear search", undefined, "Clear search")}
-                </button>
-              )}
-            </div>
+                  : getNoUsersFoundLabel()
+              }
+              description=""
+              action={
+                searchQuery
+                  ? {
+                      label: tt("Clear search", undefined, "Clear search"),
+                      onClick: () => setSearchQuery(""),
+                    }
+                  : undefined
+              }
+            />
           ) : (
             <>
               <table className="w-full text-sm">
@@ -1098,9 +1038,9 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                         {user.language}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
+                        <Badge variant="info">
                           {getDeviceCountLabel(user._count.devices)}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
                         {formatDate(user.createdAt)}
@@ -1164,21 +1104,20 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
               )}
             </>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Devices List */}
       {activeTab === "devices" && (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <Card padding="sm" className="overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-400">
-              {tt("Loading...", undefined, "Loading...")}
-            </div>
+            <SkeletonTable rows={5} />
           ) : devices.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <Smartphone className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{getNoDevicesFoundLabel()}</p>
-            </div>
+            <EmptyState
+              icon={<Smartphone className="h-6 w-6" />}
+              title={getNoDevicesFoundLabel()}
+              description=""
+            />
           ) : (
             <>
               <table className="w-full text-sm">
@@ -1213,23 +1152,16 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">
-                            {getPlatformIcon(device.platform)}
-                          </span>
+                          {getPlatformIcon(device.platform)}
                           <span className="capitalize">
                             {getPlatformLabel(device.platform)}
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={clsx(
-                            "text-xs px-2 py-0.5 rounded-full",
-                            getProviderBadge(device.provider),
-                          )}
-                        >
+                        <Badge variant={getProviderBadgeVariant(device.provider)}>
                           {getProviderLabel(device.provider)}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="px-4 py-3">
                         {device.user && (
@@ -1249,15 +1181,9 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {device.isActive ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                            {getStatusLabel(true)}
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            {getStatusLabel(false)}
-                          </span>
-                        )}
+                        <Badge variant={device.isActive ? "success" : "default"} dot>
+                          {getStatusLabel(device.isActive)}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
                         {formatDate(device.lastSeenAt)}
@@ -1332,7 +1258,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
               )}
             </>
           )}
-        </div>
+        </Card>
       )}
       {/* Import Audience */}
       {activeTab === "import" && (

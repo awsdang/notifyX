@@ -94,7 +94,7 @@ NotifyX.registerDevice(
     };
 
     return (
-        <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 flex max-w-5xl mx-auto h-[600px]">
+        <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500 flex max-w-5xl mx-auto min-h-[400px]">
             {/* Sidebar */}
             <div className="w-64 bg-gray-50/50 border-e border-gray-100 p-6 flex flex-col">
                 <div className="mb-8">

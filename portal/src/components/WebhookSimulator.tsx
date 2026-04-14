@@ -8,8 +8,13 @@ import {
   ChevronRight,
   Loader2,
   Bug,
+  Clock,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { Card, CardHeader, CardTitle } from "./ui/Card";
+
+import { Badge } from "./ui/Badge";
+import { EmptyState } from "./ui/EmptyState";
 import { clsx } from "clsx";
 
 const EVENT_TEMPLATES = [
@@ -48,6 +53,14 @@ const EVENT_TEMPLATES = [
   },
 ];
 
+interface SimulationRun {
+  id: string;
+  timestamp: Date;
+  status: number;
+  url: string;
+  event: string;
+}
+
 export function WebhookSimulator() {
   const [targetUrl, setTargetUrl] = useState(
     "https://api.yourdomain.com/webhooks/notifyx",
@@ -59,6 +72,7 @@ export function WebhookSimulator() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [lastResponse, setLastResponse] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [runs, setRuns] = useState<SimulationRun[]>([]);
 
   const handleTemplateChange = (id: string) => {
     const template = EVENT_TEMPLATES.find((t) => t.id === id)!;
@@ -113,6 +127,17 @@ export function WebhookSimulator() {
         headers,
         body,
       });
+
+      setRuns((prev) => [
+        {
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          status: response.status,
+          url: targetUrl,
+          event: selectedTemplate.id,
+        },
+        ...prev.slice(0, 9),
+      ]);
     } catch (error: any) {
       setLastResponse({
         status: 0,
@@ -125,6 +150,17 @@ export function WebhookSimulator() {
           error: error?.message || "Failed to send webhook request",
         },
       });
+
+      setRuns((prev) => [
+        {
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          status: 0,
+          url: targetUrl,
+          event: selectedTemplate.id,
+        },
+        ...prev.slice(0, 9),
+      ]);
     } finally {
       setIsSimulating(false);
     }
@@ -137,36 +173,33 @@ export function WebhookSimulator() {
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-700">
-      <div className="p-8 border-b border-gray-50 flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Bug className="w-5 h-5 text-indigo-600" />
-            Webhook Simulator
-          </h3>
-          <p className="text-sm text-gray-400 mt-1">
-            Test your receiver logic by sending mock event payloads.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-full">
-          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">
+    <Card padding="lg" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <CardHeader>
+        <CardTitle icon={<Bug className="h-5 w-5 text-indigo-600" />}>
+          Webhook Simulator
+        </CardTitle>
+        <div className="flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5">
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-700">
             Sandbox Mode
           </span>
         </div>
-      </div>
+      </CardHeader>
+      <p className="-mt-2 mb-6 text-sm text-slate-500">
+        Test your receiver logic by sending mock event payloads.
+      </p>
 
-      <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         {/* Configuration side */}
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ms-1">
+            <label className="ms-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Target Endpoint
             </label>
-            <div className="relative group">
-              <Terminal className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-indigo-600 transition-colors" />
+            <div className="group relative">
+              <Terminal className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
               <input
-                className="w-full ps-11 pe-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-mono focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pe-4 ps-11 font-mono text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 value={targetUrl}
                 onChange={(e) => setTargetUrl(e.target.value)}
               />
@@ -175,7 +208,7 @@ export function WebhookSimulator() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ms-1">
+              <label className="ms-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 Mock Event Payload
               </label>
               <div className="flex gap-2">
@@ -184,10 +217,10 @@ export function WebhookSimulator() {
                     key={t.id}
                     onClick={() => handleTemplateChange(t.id)}
                     className={clsx(
-                      "px-3 py-1 rounded-lg text-[10px] font-bold transition-all",
+                      "rounded-xl px-3 py-1 text-[10px] font-bold transition-all",
                       selectedTemplate.id === t.id
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                        : "bg-slate-100 text-gray-500 hover:bg-slate-200",
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200",
                     )}
                   >
                     {t.label}
@@ -198,13 +231,13 @@ export function WebhookSimulator() {
 
             <div className="relative">
               <textarea
-                className="w-full h-80 p-6 bg-slate-900 text-indigo-300 font-mono text-xs rounded-3xl border border-slate-800 shadow-inner resize-none focus:ring-4 focus:ring-indigo-500/5 outline-none"
+                className="h-80 w-full resize-none rounded-xl border border-slate-800 bg-slate-900 p-6 font-mono text-xs text-indigo-300 shadow-inner outline-none focus:ring-2 focus:ring-indigo-500/20"
                 value={payload}
                 onChange={(e) => setPayload(e.target.value)}
               />
               <button
                 onClick={copyToClipboard}
-                className="absolute end-4 top-4 p-2 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors"
+                className="absolute end-4 top-4 rounded-xl bg-slate-800 p-2 text-slate-400 transition-colors hover:text-white"
               >
                 {copied ? (
                   <CheckCircle2 size={16} className="text-emerald-400" />
@@ -216,15 +249,15 @@ export function WebhookSimulator() {
           </div>
 
           <Button
-            className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 rounded-[1.25rem] text-lg font-bold shadow-xl shadow-indigo-500/20 group"
+            className="h-14 w-full rounded-xl bg-indigo-600 text-lg font-bold shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 group"
             onClick={runSimulation}
             disabled={isSimulating}
           >
             {isSimulating ? (
-              <Loader2 className="animate-spin me-2" />
+              <Loader2 className="me-2 animate-spin" />
             ) : (
               <Send
-                className="me-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"
+                className="me-2 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"
                 size={20}
               />
             )}
@@ -234,35 +267,28 @@ export function WebhookSimulator() {
 
         {/* Response side */}
         <div className="flex flex-col">
-          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ms-1 mb-4">
+          <label className="mb-4 ms-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             Verification Feed
           </label>
-          <div className="flex-1 bg-slate-50 border border-slate-200 border-dashed rounded-[2.5rem] flex flex-col items-center justify-center p-8 overflow-hidden relative">
+          <div className="flex flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8">
             {!lastResponse && !isSimulating && (
-              <div className="text-center space-y-4 max-w-xs">
-                <div className="w-16 h-16 bg-white rounded-3xl shadow-sm border border-slate-100 flex items-center justify-center mx-auto">
-                  <Code2 className="w-8 h-8 text-slate-300" />
-                </div>
-                <h4 className="font-bold text-slate-400">
-                  Ready for Simulation
-                </h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Trigger a test event to see how your server handles the
-                  NotifyX payload.
-                </p>
-              </div>
+              <EmptyState
+                icon={<Code2 className="h-6 w-6" />}
+                title="Ready for Simulation"
+                description="Trigger a test event to see how your server handles the NotifyX payload."
+              />
             )}
 
             {isSimulating && (
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto">
-                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-100 bg-white shadow-md">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="font-bold text-indigo-600">
                     Simulating Event...
                   </p>
-                  <p className="text-[10px] text-indigo-400 font-mono">
+                  <p className="font-mono text-[10px] text-indigo-400">
                     POST {targetUrl.slice(0, 30)}...
                   </p>
                 </div>
@@ -270,46 +296,46 @@ export function WebhookSimulator() {
             )}
 
             {lastResponse && !isSimulating && (
-              <div className="w-full h-full flex flex-col items-stretch animate-in zoom-in-95 duration-500">
-                <div className="flex items-center gap-4 mb-6">
+              <div className="flex h-full w-full animate-in zoom-in-95 duration-500 flex-col items-stretch">
+                <div className="mb-6 flex items-center gap-4">
                   <div
                     className={clsx(
-                      "px-4 py-2 rounded-2xl text-lg font-black tracking-tight flex items-center gap-2 shadow-sm",
-                      lastResponse.status === 200
+                      "flex items-center gap-2 rounded-xl px-4 py-2 text-lg font-black tracking-tight shadow-sm",
+                      lastResponse.status >= 200 && lastResponse.status < 300
                         ? "bg-emerald-50 text-emerald-600"
-                        : "bg-red-50 text-red-600",
+                        : "bg-rose-50 text-rose-600",
                     )}
                   >
                     <div
                       className={clsx(
-                        "w-3 h-3 rounded-full",
-                        lastResponse.status === 200
+                        "h-3 w-3 rounded-full",
+                        lastResponse.status >= 200 && lastResponse.status < 300
                           ? "bg-emerald-500"
-                          : "bg-red-500",
+                          : "bg-rose-500",
                       )}
                     />
                     {lastResponse.status} {lastResponse.statusText}
                   </div>
-                  <div className="flex-1 h-px bg-slate-200" />
+                  <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
                 <div className="space-y-6 overflow-y-auto pe-2">
                   <div>
-                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <h5 className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       <ChevronRight size={10} className="text-indigo-400" />{" "}
                       Response Headers
                     </h5>
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
+                    <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
                       {Object.entries(lastResponse.headers).map(
                         ([k, v]: [any, any]) => (
                           <div
                             key={k}
                             className="flex items-center justify-between text-[11px]"
                           >
-                            <span className="text-slate-500 font-mono">
+                            <span className="font-mono text-slate-500">
                               {k}
                             </span>
-                            <span className="text-slate-900 font-bold">
+                            <span className="font-bold text-slate-900">
                               {v}
                             </span>
                           </div>
@@ -319,11 +345,11 @@ export function WebhookSimulator() {
                   </div>
 
                   <div>
-                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <h5 className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       <ChevronRight size={10} className="text-indigo-400" />{" "}
                       Response Body
                     </h5>
-                    <pre className="p-4 bg-white rounded-2xl border border-slate-200 text-[11px] font-mono whitespace-pre-wrap overflow-x-auto text-slate-700 shadow-sm leading-relaxed">
+                    <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-4 font-mono text-[11px] leading-relaxed text-slate-700 shadow-sm">
                       {JSON.stringify(lastResponse.body, null, 2)}
                     </pre>
                   </div>
@@ -331,8 +357,40 @@ export function WebhookSimulator() {
               </div>
             )}
           </div>
+
+          {/* Run History */}
+          {runs.length > 0 && (
+            <div className="mt-4 space-y-1">
+              <p className="ms-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                <Clock className="h-3 w-3" />
+                Recent Runs
+              </p>
+              {runs.map((run) => (
+                <div
+                  key={run.id}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs"
+                >
+                  <Badge
+                    variant={
+                      run.status >= 200 && run.status < 300
+                        ? "success"
+                        : "error"
+                    }
+                  >
+                    {run.status || "ERR"}
+                  </Badge>
+                  <span className="font-mono text-[11px] text-slate-500">
+                    {run.timestamp.toLocaleTimeString()}
+                  </span>
+                  <span className="truncate font-mono text-[11px] text-slate-400">
+                    {run.event}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
