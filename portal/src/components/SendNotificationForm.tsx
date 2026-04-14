@@ -628,7 +628,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       ];
 
       for (const cta of ctaCandidates) {
-        if (cta.type === "none") continue;
+        if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
 
         if (!cta.label || !cta.value) {
           throw new Error(

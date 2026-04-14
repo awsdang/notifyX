@@ -842,7 +842,7 @@ function CampaignEditorPage({
 
     const ctaData: Record<string, string> = {};
     for (const cta of ctaCandidates) {
-      if (cta.type === "none") continue;
+      if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
       if (!cta.label || !cta.value) {
         setStatus({
           type: "error",
