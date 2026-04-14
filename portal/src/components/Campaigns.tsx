@@ -767,7 +767,11 @@ function CampaignEditorPage({
       setStatus({ type: "error", message: tt("Title and body are required.") });
       return false;
     }
-    if (!formData.actionUrl.trim()) {
+    if (
+      formData.ctaType !== "open_app" &&
+      formData.ctaType !== "dismiss" &&
+      !formData.actionUrl.trim()
+    ) {
       setStatus({
         type: "error",
         message: tt("Default open-link URL is required."),

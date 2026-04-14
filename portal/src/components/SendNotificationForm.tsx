@@ -448,7 +448,11 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     if (formData.platforms.length === 0) {
       errors.push(tt("Select at least one platform."));
     }
-    if (!formData.actionUrl.trim()) {
+    if (
+      formData.ctaType !== "open_app" &&
+      formData.ctaType !== "dismiss" &&
+      !formData.actionUrl.trim()
+    ) {
       errors.push(tt("Default open-link URL is required."));
     }
     if (step === "test" && formData.testUserIds.length === 0) {
