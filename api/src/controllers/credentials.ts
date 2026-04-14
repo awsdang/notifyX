@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import crypto from "crypto";
+import webpush from "web-push";
 import { prisma } from "../services/database";
 import { AppError, sendSuccess } from "../utils/response";
 import { encrypt, decrypt } from "../utils/crypto";
@@ -552,20 +552,8 @@ export const generateVapidKeys = async (
 ) => {
   try {
     const adminUser = req.adminUser;
-
-    // Generate ECDSA P-256 key pair
-    const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", {
-      namedCurve: "prime256v1",
-    });
-
-    // Export public key as uncompressed point (65 bytes) in base64url
-    const publicKeyDer = publicKey.export({ type: "spki", format: "der" });
-    const publicKeyRaw = publicKeyDer.subarray(-65); // Last 65 bytes = uncompressed point
-    const vapidPublicKey = Buffer.from(publicKeyRaw).toString("base64url");
-
-    // Export private key as PKCS8 DER in base64url
-    const privateKeyDer = privateKey.export({ type: "pkcs8", format: "der" });
-    const vapidPrivateKey = Buffer.from(privateKeyDer).toString("base64url");
+    const { publicKey: vapidPublicKey, privateKey: vapidPrivateKey } =
+      webpush.generateVAPIDKeys();
 
     // Auto-generate subject from admin user email
     const subject = adminUser?.email
