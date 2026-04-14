@@ -357,6 +357,10 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
     }
 
     if (!result.shouldRetry || job.attemptsMade >= (job.opts.attempts || 3)) {
+      console.error(
+        `[Worker-Delivery-Failed] notif=${notificationId} delivery=${delivery.id} device=${device.id} provider=${device.provider} attempts=${job.attemptsMade + 1} errorCode=${result.errorCode || "UNKNOWN"} invalidToken=${result.invalidToken} error=${result.error || "unknown"}`,
+      );
+
       // Terminal failure — increment failed counter
       await redis.incr(`notif:${notificationId}:failed`);
       await addToDeadLetterQueue({
@@ -371,7 +375,7 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
         },
         errorMessage: result.error || "Max retries",
         errorCode: result.errorCode,
-        attempts: job.attemptsMade,
+        attempts: job.attemptsMade + 1,
       });
     } else {
       throw new Error(result.error || "Retry requested by provider");
