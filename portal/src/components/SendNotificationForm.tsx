@@ -67,25 +67,17 @@ const NOTIFICATION_TYPES = [
   "campaign",
 ] as const;
 
-const CTA_TYPE_OPTIONS = [
-  { value: "none", label: "No CTA", needsValue: false },
-  { value: "open_url", label: "Open URL", needsValue: true },
-] as const;
+import {
+  CTA_TYPE_OPTIONS,
+  type CtaType,
+  DEFAULT_CTA_TYPE,
+  getCtaValuePlaceholder,
+} from "../constants/cta";
 
 type SendPlatform = (typeof SEND_PLATFORMS)[number];
 type NotifyType = (typeof NOTIFICATION_TYPES)[number];
 type SendStep = "test" | "live";
 type DeliveryMode = "now" | "scheduled";
-type CtaType = (typeof CTA_TYPE_OPTIONS)[number]["value"];
-
-const getCtaValuePlaceholder = (ctaType: CtaType) => {
-  switch (ctaType) {
-    case "open_url":
-      return "https://...";
-    default:
-      return "Not required";
-  }
-};
 
 export function SendNotificationForm({ apps }: SendNotificationFormProps) {
   const { token } = useAuth();
@@ -104,7 +96,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     subtitle: "",
     body: "",
     actionUrl: "",
-    ctaType: "none" as CtaType,
+    ctaType: DEFAULT_CTA_TYPE as CtaType,
     ctaLabel: "",
     ctaValue: "",
     ctaTypeSecondary: "none" as CtaType,
@@ -175,11 +167,8 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
   };
 
   const getCtaTypeLabel = (value: CtaType) => {
-    const defaults: Record<CtaType, string> = {
-      none: "No CTA",
-      open_url: "Open URL",
-    };
-    return tt(`ctaType_${value}`, undefined, defaults[value]);
+    const opt = CTA_TYPE_OPTIONS.find((o) => o.value === value);
+    return tt(`ctaType_${value}`, undefined, opt?.label || value);
   };
 
   const getPlatformLabel = (platform: SendPlatform) => {

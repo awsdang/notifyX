@@ -50,7 +50,12 @@ type CampaignStatus =
   | "SENT";
 type TargetingMode = "ALL" | "USER_LIST";
 type SendPlatform = "ios" | "android" | "huawei" | "web";
-type CtaType = "none" | "open_url";
+
+import {
+  CTA_TYPE_OPTIONS,
+  type CtaType,
+  getCtaValuePlaceholder,
+} from "../constants/cta";
 
 const SEND_PLATFORMS: SendPlatform[] = ["ios", "android", "huawei", "web"];
 const MOBILE_PLATFORMS: Array<"ios" | "android" | "huawei"> = [
@@ -58,10 +63,6 @@ const MOBILE_PLATFORMS: Array<"ios" | "android" | "huawei"> = [
   "android",
   "huawei",
 ];
-const CTA_TYPE_OPTIONS = [
-  { value: "none", label: "No CTA", needsValue: false },
-  { value: "open_url", label: "Open URL", needsValue: true },
-] as const;
 
 const getApiBaseUrl = () => {
   const configured = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -69,18 +70,8 @@ const getApiBaseUrl = () => {
     ? configured
     : `${configured.replace(/\/$/, "")}/api/v1`;
 };
-
 const API_URL = getApiBaseUrl();
 const API_KEY = import.meta.env.VITE_API_KEY || "";
-
-const getCtaValuePlaceholder = (ctaType: CtaType) => {
-  switch (ctaType) {
-    case "open_url":
-      return "https://...";
-    default:
-      return "Not required";
-  }
-};
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";

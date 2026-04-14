@@ -1,18 +1,29 @@
-import { useStatsManager } from '../hooks/useStatsManager';
-import { Dashboard } from '../components/Dashboard';
+import { useNavigate } from "react-router-dom";
+import { useStatsManager } from "../hooks/useStatsManager";
+import { Dashboard } from "../components/Dashboard";
 
-interface DashboardPageProps {
-    setActiveTab: (tab: string) => void;
-}
+export function DashboardPageWrapper() {
+  const { stats, isLoading } = useStatsManager();
+  const navigate = useNavigate();
 
-export function DashboardPage({ setActiveTab }: DashboardPageProps) {
-    const { stats, isLoading } = useStatsManager();
+  const handleNavigate = (tab: string) => {
+    const routeMap: Record<string, string> = {
+      automation: "/automation",
+      credentials: "/credentials",
+      send: "/send",
+      campaigns: "/campaigns",
+      templates: "/templates",
+      users: "/users",
+      apps: "/apps",
+    };
+    navigate(routeMap[tab] || `/${tab}`);
+  };
 
-    return (
-        <Dashboard
-            stats={stats}
-            isLoading={isLoading}
-            setActiveTab={setActiveTab}
-        />
-    );
+  return (
+    <Dashboard
+      stats={stats}
+      isLoading={isLoading}
+      setActiveTab={handleNavigate}
+    />
+  );
 }
