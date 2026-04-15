@@ -15,6 +15,8 @@ import { AppDetailPageWrapper } from "./pages/AppDetailPageWrapper";
 import { CredentialsListPage } from "./pages/CredentialsListPage";
 import { CredentialsDetailPage } from "./pages/CredentialsDetailPage";
 import { AutomationPage } from "./pages/AutomationPage";
+import { AppWorkflowsPage } from "./pages/AppWorkflowsPage";
+import { AppTriggersPage } from "./pages/AppTriggersPage";
 import { DevXPage } from "./pages/DevXPage";
 import { SimulatorPage } from "./pages/SimulatorPage";
 import { AdminAccessPage } from "./pages/AdminAccessPage";
@@ -56,6 +58,8 @@ export const router = createBrowserRouter([
           { path: "users", element: <UsersPage /> },
           { path: "apps", element: <AppsPage /> },
           { path: "apps/:appId", element: <AppDetailPageWrapper /> },
+          { path: "apps/:appId/workflows", element: <AppWorkflowsPage /> },
+          { path: "apps/:appId/triggers", element: <AppTriggersPage /> },
           { path: "credentials", element: <CredentialsListPage /> },
           { path: "credentials/:appId", element: <CredentialsDetailPage /> },
           { path: "automation", element: <AutomationPage /> },

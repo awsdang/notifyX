@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -793,7 +794,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
             <label className="block text-sm font-semibold mb-2">
               {tt("App")}
             </label>
-            <select
+            <Select
               className={inputClass}
               value={formData.appId}
               onChange={(e) => {
@@ -814,7 +815,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   {app.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
@@ -862,7 +863,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 {tt("Category")}
               </label>
-              <select
+              <Select
                 className={inputClass}
                 value={formData.type}
                 onChange={(e) =>
@@ -877,7 +878,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     {getNotificationTypeLabel(value)}
                   </option>
                 ))}
-              </select>
+              </Select>
               <p className="mt-1 text-[11px] text-slate-400">
                 {formData.type === "transactional" && tt("Triggered by user action (order, password reset)")}
                 {formData.type === "marketing" && tt("Promotional content, offers, announcements")}
@@ -890,7 +891,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 {tt("Priority")}
               </label>
-              <select
+              <Select
                 className={inputClass}
                 value={formData.priority}
                 onChange={(e) =>
@@ -903,7 +904,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                 <option value="LOW">{tt("Low")} - {tt("batch delivery, non-urgent")}</option>
                 <option value="NORMAL">{tt("Normal")} - {tt("standard delivery")}</option>
                 <option value="HIGH">{tt("High")} - {tt("immediate, may wake device")}</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -932,7 +933,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                 <label className="block text-xs font-semibold mb-2 text-slate-600">
                   {tt("Template")}
                 </label>
-                <select
+                <Select
                   className={inputClass}
                   value={selectedTemplateKey}
                   onChange={(e) => {
@@ -957,14 +958,14 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                       {template.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-2 text-slate-600">
                   {tt("Language")}
                 </label>
-                <select
+                <Select
                   className={inputClass}
                   value={selectedTemplateLanguage}
                   onChange={(e) => setSelectedTemplateLanguage(e.target.value)}
@@ -978,7 +979,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                       {language.toUpperCase()}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -1035,7 +1036,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     className={clsx(
                       "px-3 py-1.5 text-sm font-semibold rounded-lg border",
                       isActive
-                        ? "bg-slate-900 text-white border-slate-900"
+                        ? "bg-indigo-600 text-white border-indigo-600"
                         : "bg-white text-slate-600 border-slate-200",
                     )}
                   >
@@ -1131,7 +1132,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   <label className="mb-1.5 block text-xs font-medium text-slate-600">
                     {tt("Action")}
                   </label>
-                  <select
+                  <Select
                     className={inputClass}
                     value={formData.ctaType}
                     onChange={(e) => {
@@ -1157,7 +1158,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                         {getCtaTypeLabel(option.value)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 {formData.ctaType === "open_url" || formData.ctaType === "deep_link" ? (
                   <div>
@@ -1269,7 +1270,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                         <label className="block text-xs font-semibold mb-2">
                           {tt("CTA Type")}
                         </label>
-                        <select
+                        <Select
                           className={inputClass}
                           value={formData.ctaTypeSecondary}
                           onChange={(e) =>
@@ -1287,7 +1288,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                               {getCtaTypeLabel(option.value)}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-2">

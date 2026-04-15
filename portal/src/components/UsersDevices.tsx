@@ -767,7 +767,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
             className={clsx(
               "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
               activeTab === tab.key
-                ? "bg-slate-900 text-white shadow-sm"
+                ? "bg-indigo-600 text-white shadow-sm"
                 : "text-slate-600 hover:text-slate-900",
             )}
           >
@@ -1276,7 +1276,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                 </p>
               </div>
               <div className="flex justify-center pt-2">
-                <select
+                <Select
                   value={filterAppId}
                   onChange={(e) => setFilterAppId(e.target.value)}
                   className="px-4 py-2 border rounded-xl text-sm bg-white min-w-50 shadow-sm"
@@ -1287,7 +1287,7 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                       {app.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
           ) : (
