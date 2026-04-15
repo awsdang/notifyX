@@ -16,6 +16,9 @@ import {
   Globe,
   Apple,
   History,
+  Zap,
+  Filter,
+  ChevronRight,
 } from "lucide-react";
 import {
   appService,
@@ -728,6 +731,73 @@ export function AppDetailPage({
               )}
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Automation: triggers + workflows, per-app */}
+      <Card>
+        <CardHeader>
+          <CardTitle icon={<Zap className="h-5 w-5 text-blue-600" />}>
+            {tp("automation", "Automation")}
+          </CardTitle>
+        </CardHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate(`/apps/${app.id}/triggers`)}
+            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-200 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <Filter className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700">
+                  {tp("manageTriggers", "Manage Triggers")}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {tp(
+                    "manageTriggersDescription",
+                    "Define the events this app can emit.",
+                  )}
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className={clsx(
+                "h-5 w-5 text-slate-400 transition-colors group-hover:text-blue-600",
+                direction === "rtl" && "-scale-x-100",
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/apps/${app.id}/workflows`)}
+            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-200 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Zap className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700">
+                  {tp("manageWorkflows", "Manage Workflows")}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {tp(
+                    "manageWorkflowsDescription",
+                    "Build notification pipelines on top of triggers.",
+                  )}
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className={clsx(
+                "h-5 w-5 text-slate-400 transition-colors group-hover:text-blue-600",
+                direction === "rtl" && "-scale-x-100",
+              )}
+            />
+          </button>
         </div>
       </Card>
 

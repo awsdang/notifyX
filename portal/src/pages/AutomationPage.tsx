@@ -1,5 +1,5 @@
+import { Navigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { AutomationList } from "../components/AutomationList";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Settings, Zap } from "lucide-react";
 
@@ -26,7 +26,5 @@ export function AutomationPage() {
     );
   }
 
-  return (
-    <AutomationList appId={selectedApp.id} appName={selectedApp.name} />
-  );
+  return <Navigate to={`/apps/${selectedApp.id}/workflows`} replace />;
 }

@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
@@ -1174,7 +1175,7 @@ function ABTestEditorPage({
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-semibold mb-2">{tt("App")} *</label>
-            <select
+            <Select
               className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
               value={formData.appId}
               onChange={(event) =>
@@ -1193,7 +1194,7 @@ function ABTestEditorPage({
                   {app.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -1229,7 +1230,7 @@ function ABTestEditorPage({
 
           <div>
             <label className="block text-sm font-semibold mb-2">{tt("Targeting")}</label>
-            <select
+            <Select
               className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
               value={formData.targetingMode}
               onChange={(event) =>
@@ -1242,7 +1243,7 @@ function ABTestEditorPage({
             >
               <option value="ALL">{tt("All Users")}</option>
               <option value="USER_LIST">{tt("Specific Users")}</option>
-            </select>
+            </Select>
           </div>
 
           {formData.targetingMode === "USER_LIST" && (

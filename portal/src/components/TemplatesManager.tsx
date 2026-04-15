@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText,
@@ -648,7 +649,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                   <label className="text-sm font-bold text-gray-700 ms-1">
                     {tt("Default Language")}
                   </label>
-                  <select
+                  <Select
                     value={createForm.language}
                     onChange={(e) =>
                       setCreateForm((prev) => ({
@@ -664,7 +665,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                         {tt(`language_${language.code}`, undefined, language.name)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
               {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -672,7 +673,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                   <label className="text-sm font-bold text-gray-700 ms-1">
                     Type
                   </label>
-                  <select
+                  <Select
                     value={createForm.type}
                     onChange={(e) =>
                       setCreateForm((prev) => ({
@@ -687,7 +688,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                         {typeOption.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                
@@ -1097,7 +1098,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
 
                 {addableLanguages.length > 0 && (
                   <div className="flex items-center gap-2 shrink-0">
-                    <select
+                    <Select
                       value={languageToAdd}
                       onChange={(e) => setLanguageToAdd(e.target.value)}
                       className="h-11 px-4 bg-white border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500/20 outline-none"
@@ -1107,7 +1108,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                           {language.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1268,7 +1269,7 @@ export function TemplatesManager({ appId }: TemplatesManagerProps) {
                       className={clsx(
                         "px-3 py-1.5 text-xs font-bold rounded-xl transition-all",
                         previewPlatform === platformOption.value
-                          ? "bg-slate-900 text-white shadow-sm"
+                          ? "bg-indigo-600 text-white shadow-sm"
                           : "text-slate-500 hover:text-slate-700",
                       )}
                     >

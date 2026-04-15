@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useState, useRef } from "react";
 import {
   Users,
@@ -213,7 +214,7 @@ export function AudienceManager({ appId }: AudienceManagerProps) {
                     <label className="text-xs font-bold text-gray-700 ms-1 capitalize">
                       {field.replace("userId", "User ID")}
                     </label>
-                    <select
+                    <Select
                       value={mapping[field] || ""}
                       onChange={(e) =>
                         setMapping({ ...mapping, [field]: e.target.value })
@@ -226,7 +227,7 @@ export function AudienceManager({ appId }: AudienceManagerProps) {
                           {h}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 ))}
               </section>

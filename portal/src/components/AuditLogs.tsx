@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useState } from 'react';
 import {
     ScrollText,
@@ -112,7 +113,7 @@ export function AuditLogs() {
 
                     <div className="flex items-center gap-2">
                         <Filter className="w-4 h-4 text-gray-400" />
-                        <select
+                        <Select
                             className="bg-transparent border-none text-sm font-bold text-gray-600 focus:ring-0 outline-none"
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
@@ -122,7 +123,7 @@ export function AuditLogs() {
                             <option value="operation">Operations</option>
                             <option value="automation">Automation</option>
                             <option value="template">Templates</option>
-                        </select>
+                        </Select>
                     </div>
                 </div>
 

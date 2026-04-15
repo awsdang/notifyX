@@ -22,7 +22,7 @@ export function LanguageSelector({ className }: { className?: string }) {
         className={cn(
           "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
           language === "en"
-            ? "bg-slate-900 text-white"
+            ? "bg-indigo-600 text-white"
             : "text-slate-600 hover:bg-slate-100",
         )}
       >
@@ -34,7 +34,7 @@ export function LanguageSelector({ className }: { className?: string }) {
         className={cn(
           "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
           language === "ar"
-            ? "bg-slate-900 text-white"
+            ? "bg-indigo-600 text-white"
             : "text-slate-600 hover:bg-slate-100",
         )}
       >

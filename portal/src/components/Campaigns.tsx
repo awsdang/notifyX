@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
@@ -1127,7 +1128,7 @@ function CampaignEditorPage({
             <label className="block text-sm font-semibold mb-2">
               {tt("App")} *
             </label>
-            <select
+            <Select
               className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
               value={formData.appId}
               onChange={(event) => {
@@ -1149,7 +1150,7 @@ function CampaignEditorPage({
                   {app.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -1188,7 +1189,7 @@ function CampaignEditorPage({
               <label className="block text-sm font-semibold mb-2">
                 {tt("Targeting")}
               </label>
-              <select
+              <Select
                 className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
                 value={formData.targetingMode}
                 onChange={(event) =>
@@ -1201,13 +1202,13 @@ function CampaignEditorPage({
               >
                 <option value="ALL">{tt("All Users")}</option>
                 <option value="USER_LIST">{tt("Specific Users")}</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2">
                 {tt("Priority")}
               </label>
-              <select
+              <Select
                 className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
                 value={formData.priority}
                 onChange={(event) =>
@@ -1220,7 +1221,7 @@ function CampaignEditorPage({
                 <option value="LOW">{tt("Low")} - {tt("batch, non-urgent")}</option>
                 <option value="NORMAL">{tt("Normal")} - {tt("standard delivery")}</option>
                 <option value="HIGH">{tt("High")} - {tt("immediate, may wake device")}</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -1333,7 +1334,7 @@ function CampaignEditorPage({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select
+                <Select
                   className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
                   value={selectedTemplateKey}
                   onChange={(event) => {
@@ -1358,9 +1359,9 @@ function CampaignEditorPage({
                       {template.name}
                     </option>
                   ))}
-                </select>
+                </Select>
 
-                <select
+                <Select
                   className="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm bg-white"
                   value={selectedTemplateLanguage}
                   onChange={(event) => setSelectedTemplateLanguage(event.target.value)}
@@ -1374,7 +1375,7 @@ function CampaignEditorPage({
                       {language.toUpperCase()}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {selectedTemplateVariant && templateVariableKeys.length > 0 && (
@@ -1423,7 +1424,7 @@ function CampaignEditorPage({
                   className={clsx(
                     "px-3 py-1.5 text-sm font-semibold rounded-lg border",
                     formData.platforms.includes(platform)
-                      ? "bg-slate-900 text-white border-slate-900"
+                      ? "bg-indigo-600 text-white border-indigo-600"
                       : "bg-white text-slate-600 border-slate-200",
                   )}
                 >
@@ -1504,7 +1505,7 @@ function CampaignEditorPage({
                   <label className="mb-1.5 block text-xs font-medium text-slate-600">
                     {tt("Action")}
                   </label>
-                  <select
+                  <Select
                     className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm bg-white"
                     value={formData.ctaType}
                     onChange={(event) => {
@@ -1529,7 +1530,7 @@ function CampaignEditorPage({
                         {tt(option.label)}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
                   <div>
@@ -1692,74 +1693,83 @@ function CampaignEditorPage({
         </div>
 
         <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 self-start xl:sticky xl:top-6">
-          <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                {tt("Test + Live Preview")}
+          <div className="mb-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                  {tt("Test + Live Preview")}
+                </div>
+                <h4 className="text-xl font-semibold text-slate-900">
+                  {tt("Campaign Preview")}
+                </h4>
               </div>
-              <h4 className="text-xl font-semibold text-slate-900">
-                {tt("Campaign Preview")}
-              </h4>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                onClick={() => void handleSaveCampaign()}
+                disabled={isAnyActionRunning}
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 me-2" />
+                )}
+                {tt("Save Draft")}
+              </Button>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleSendTest()}
-                  disabled={isAnyActionRunning}
-                >
-                  {isSendingTest ? (
-                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4 me-2" />
-                  )}
-                  {tt("Send Test")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleSaveCampaign()}
-                  disabled={isAnyActionRunning}
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  ) : null}
-                  {tt("Save")}
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[180px]">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <input
                   type="datetime-local"
                   value={scheduleAtLocal}
                   onChange={(event) => setScheduleAtLocal(event.target.value)}
-                  className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700"
+                  className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleScheduleCampaign()}
-                  disabled={isAnyActionRunning}
-                >
-                  {isSchedulingLive ? (
-                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  ) : (
-                    <Calendar className="w-4 h-4 me-2" />
-                  )}
-                  {tt("Schedule")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleSendNowCampaign()}
-                  disabled={isAnyActionRunning}
-                >
-                  {isSendingNow ? (
-                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  ) : (
-                    <Play className="w-4 h-4 me-2" />
-                  )}
-                  {tt("Send Now")}
-                </Button>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                onClick={() => void handleScheduleCampaign()}
+                disabled={isAnyActionRunning}
+              >
+                {isSchedulingLive ? (
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                ) : (
+                  <Clock3 className="w-4 h-4 me-2" />
+                )}
+                {tt("Schedule")}
+              </Button>
+              <div className="w-px h-6 bg-slate-300 mx-1 hidden sm:block" />
+              <Button
+                type="button"
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                onClick={() => void handleSendTest()}
+                disabled={isAnyActionRunning}
+              >
+                {isSendingTest ? (
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 me-2" />
+                )}
+                {tt("Send Test")}
+              </Button>
+              <Button
+                type="button"
+                className="bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                onClick={() => void handleSendNowCampaign()}
+                disabled={isAnyActionRunning}
+              >
+                {isSendingNow ? (
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 me-2" />
+                )}
+                {tt("Send Now")}
+              </Button>
             </div>
           </div>
 
