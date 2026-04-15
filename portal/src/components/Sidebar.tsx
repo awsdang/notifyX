@@ -24,7 +24,7 @@ import { useOnboarding } from "../hooks/useOnboarding";
 import { useAppContext } from "../context/AppContext";
 import { useScopedTranslation } from "../context/I18nContext";
 import { clsx } from "clsx";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode } from "react";
 
 interface SidebarProps {
   collapsed?: boolean;
