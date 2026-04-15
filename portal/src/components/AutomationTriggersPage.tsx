@@ -946,7 +946,7 @@ export function AutomationTriggersPage({
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                  {schemaFields.map((field, index) => {
+                  {schemaFields.map((field, _) => {
                     const FieldIcon = FIELD_TYPE_ICONS[field.type];
                     return (
                       <div key={field.id} className="px-4 py-3">

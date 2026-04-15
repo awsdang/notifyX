@@ -5,7 +5,6 @@ import {
   CheckCircle,
   CheckCircle2,
   Clock,
-  Copy,
   Globe,
   Loader2,
   Pencil,
