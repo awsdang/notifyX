@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -722,7 +723,7 @@ export function AutomationWorkflow({
                 <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                   Mode
                 </span>
-                <select
+                <Select
                   value={simulationMode}
                   onChange={(event) =>
                     setSimulationMode(event.target.value as "draft" | "published")
@@ -733,7 +734,7 @@ export function AutomationWorkflow({
                   <option value="published" disabled={publishedVersion === null}>
                     Published {publishedVersion ? `(v${publishedVersion})` : ""}
                   </option>
-                </select>
+                </Select>
               </label>
               <label className="space-y-2 lg:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">

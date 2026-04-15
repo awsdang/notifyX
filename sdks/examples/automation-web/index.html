@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NotifyX — Automation Triggers Demo</title>
+  <link rel="icon" type="image/svg+xml" href="../web/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .card h2 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.625rem 0.75rem;
+      color: var(--text);
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; resize: vertical; min-height: 140px; }
+    .templates { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .template-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .template-btn:hover, .template-btn.active { border-color: var(--accent); color: var(--accent); }
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+    .log { max-height: 400px; overflow-y: auto; }
+    .log-entry {
+      padding: 0.75rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      font-family: 'SF Mono', monospace;
+      word-break: break-all;
+    }
+    .log-entry.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); }
+    .log-entry.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); }
+    .log-entry .time { color: var(--muted); font-size: 0.7rem; }
+    .log-entry .status { font-weight: 700; }
+    .log-entry .status.ok { color: var(--success); }
+    .log-entry .status.fail { color: var(--error); }
+    .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; font-size: 0.875rem; }
+    .row { display: flex; gap: 0.75rem; }
+    .row > * { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><span>NotifyX</span> Automation Triggers Demo</h1>
+    <p class="subtitle">Fire automation events via the API and see matched workflows in real time.</p>
+
+    <div class="grid">
+      <!-- Config + Fire -->
+      <div>
+        <div class="card" style="margin-bottom:1.5rem">
+          <h2>Configuration</h2>
+          <label>API Base URL</label>
+          <input id="apiUrl" value="http://localhost:3000/api/v1" />
+          <label>API Key</label>
+          <input id="apiKey" type="password" placeholder="Your NotifyX API key" />
+          <div class="row">
+            <div><label>App ID</label><input id="appId" placeholder="app_xxx" /></div>
+            <div><label>User ID</label><input id="userId" value="demo-user-123" /></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Fire Event</h2>
+          <label>Event Templates</label>
+          <div class="templates">
+            <button class="template-btn active" onclick="loadTemplate('order_paid')">order_paid</button>
+            <button class="template-btn" onclick="loadTemplate('user_signup')">user_signup</button>
+            <button class="template-btn" onclick="loadTemplate('cart_abandoned')">cart_abandoned</button>
+          </div>
+          <label>Event Name</label>
+          <input id="eventName" value="order_paid" />
+          <label>Priority</label>
+          <select id="priority">
+            <option value="NORMAL">Normal</option>
+            <option value="LOW">Low</option>
+            <option value="HIGH">High</option>
+          </select>
+          <label>Payload (JSON)</label>
+          <textarea id="payload">{
+  "orderId": "ORD-9210",
+  "total": 49.99,
+  "currency": "USD"
+}</textarea>
+          <div class="row">
+            <button class="btn" onclick="fireEvent()">Fire Event</button>
+            <button class="btn btn-outline" onclick="listTriggers()">List Triggers</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Log -->
+      <div class="card">
+        <h2>Response Log</h2>
+        <div id="log" class="log">
+          <div class="empty">Fire an event to see responses here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TEMPLATES = {
+      order_paid: { orderId: "ORD-9210", total: 49.99, currency: "USD" },
+      user_signup: { email: "jane@example.com", plan: "pro", source: "web" },
+      cart_abandoned: { cartId: "CART-431", items: 3, value: 89.50 },
+    };
+
+    function loadTemplate(name) {
+      document.getElementById("eventName").value = name;
+      document.getElementById("payload").value = JSON.stringify(TEMPLATES[name], null, 2);
+      document.querySelectorAll(".template-btn").forEach(b => b.classList.remove("active"));
+      event.target.classList.add("active");
+    }
+
+    function addLog(entry) {
+      const log = document.getElementById("log");
+      const empty = log.querySelector(".empty");
+      if (empty) empty.remove();
+
+      const div = document.createElement("div");
+      div.className = `log-entry ${entry.ok ? "success" : "error"}`;
+      div.innerHTML = `
+        <div class="time">${new Date().toLocaleTimeString()}</div>
+        <div><span class="status ${entry.ok ? "ok" : "fail"}">${entry.status}</span> ${entry.label}</div>
+        <pre style="margin-top:0.5rem;white-space:pre-wrap;font-size:0.75rem;color:var(--muted)">${entry.body}</pre>
+      `;
+      log.prepend(div);
+    }
+
+    async function fireEvent() {
+      const apiUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
+      const apiKey = document.getElementById("apiKey").value;
+      const appId = document.getElementById("appId").value;
+      const userId = document.getElementById("userId").value;
+      const eventName = document.getElementById("eventName").value;
+      const priority = document.getElementById("priority").value;
+
+      let payload;
+      try {
+        payload = JSON.parse(document.getElementById("payload").value);
+      } catch (e) {
+        addLog({ ok: false, status: "ERROR", label: "Invalid JSON payload", body: e.message });
+        return;
+      }
+
+      try {
+        const res = await fetch(`${apiUrl}/events/${eventName}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+          body: JSON.stringify({ appId, externalUserId: userId, payload, priority }),
+        });
+        const data = await res.text();
+        let pretty = data;
+        try { pretty = JSON.stringify(JSON.parse(data), null, 2); } catch {}
+        addLog({
+          ok: res.ok,
+          status: `${res.status} ${res.statusText}`,
+          label: `POST /events/${eventName}`,
+          body: pretty,
+        });
+      } catch (e) {
+        addLog({ ok: false, status: "NETWORK ERROR", label: `POST /events/${eventName}`, body: e.message });
+      }
+    }
+
+    async function listTriggers() {
+      const apiUrl = document.getElementById("apiUrl").value.replace(/\/$/, "");
+      const apiKey = document.getElementById("apiKey").value;
+      const appId = document.getElementById("appId").value;
+
+      try {
+        const res = await fetch(`${apiUrl}/apps/${appId}/automation-triggers`, {
+          headers: { "X-API-Key": apiKey },
+        });
+        const data = await res.text();
+        let pretty = data;
+        try { pretty = JSON.stringify(JSON.parse(data), null, 2); } catch {}
+        addLog({
+          ok: res.ok,
+          status: `${res.status} ${res.statusText}`,
+          label: `GET /apps/${appId}/automation-triggers`,
+          body: pretty,
+        });
+      } catch (e) {
+        addLog({ ok: false, status: "NETWORK ERROR", label: "GET triggers", body: e.message });
+      }
+    }
+  </script>
+</body>
+</html>

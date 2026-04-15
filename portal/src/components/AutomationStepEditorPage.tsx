@@ -1,3 +1,4 @@
+import { Select } from "./ui/Input";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -160,7 +161,7 @@ export function AutomationTriggerEditorPage({
         <div className="space-y-6 lg:col-span-3">
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Trigger</label>
-            <select
+            <Select
               value={trigger}
               onChange={(event) => setTrigger(event.target.value)}
               className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm focus:border-blue-300 focus:outline-none"
@@ -171,7 +172,7 @@ export function AutomationTriggerEditorPage({
                   {option.name} ({option.eventName})
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="text-xs text-slate-500">
               Start triggers come from the Triggers page only.
             </p>
@@ -823,7 +824,7 @@ export function AutomationStepEditorPage({
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     Trigger
                   </label>
-                  <select
+                  <Select
                     value={conditionTriggerEvent}
                     onChange={(event) => {
                       const nextTriggerEvent = event.target.value;
@@ -858,13 +859,13 @@ export function AutomationStepEditorPage({
                         {triggerOption.name} ({triggerOption.eventName})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     Field
                   </label>
-                  <select
+                  <Select
                     value={conditionField}
                     onChange={(event) => {
                       const nextFieldKey = event.target.value;
@@ -903,7 +904,7 @@ export function AutomationStepEditorPage({
                         {fieldOption.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -912,7 +913,7 @@ export function AutomationStepEditorPage({
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     Operator
                   </label>
-                  <select
+                  <Select
                     value={conditionOperator}
                     onChange={(event) =>
                       setConditionOperator(
@@ -926,7 +927,7 @@ export function AutomationStepEditorPage({
                         {CONDITION_OPERATOR_LABELS[operator]}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
@@ -940,17 +941,17 @@ export function AutomationStepEditorPage({
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm disabled:bg-slate-100"
                     />
                   ) : selectedConditionField?.type === "boolean" ? (
-                    <select
+                    <Select
                       value={conditionValue || "true"}
                       onChange={(event) => setConditionValue(event.target.value)}
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm"
                     >
                       <option value="true">True</option>
                       <option value="false">False</option>
-                    </select>
+                    </Select>
                   ) : selectedConditionField?.type === "enum" &&
                     selectedConditionField.enumValues?.length ? (
-                    <select
+                    <Select
                       value={conditionValue}
                       onChange={(event) => setConditionValue(event.target.value)}
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm"
@@ -960,7 +961,7 @@ export function AutomationStepEditorPage({
                           {enumValue}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
                     <input
                       value={conditionValue}
@@ -978,7 +979,7 @@ export function AutomationStepEditorPage({
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     If True
                   </label>
-                  <select
+                  <Select
                     value={conditionOnTrue}
                     onChange={(event) => setConditionOnTrue(event.target.value)}
                     className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm"
@@ -990,13 +991,13 @@ export function AutomationStepEditorPage({
                         Jump to {stepTarget.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-widest text-slate-600">
                     If False
                   </label>
-                  <select
+                  <Select
                     value={conditionOnFalse}
                     onChange={(event) => setConditionOnFalse(event.target.value)}
                     className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm"
@@ -1008,7 +1009,7 @@ export function AutomationStepEditorPage({
                         Jump to {stepTarget.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -1023,7 +1024,7 @@ export function AutomationStepEditorPage({
                 <label className="text-xs font-semibold uppercase tracking-widest text-purple-700">
                   Template
                 </label>
-                <select
+                <Select
                   value={templateId}
                   onChange={(event) => setTemplateId(event.target.value)}
                   className="h-11 w-full rounded-xl border border-purple-200 px-4 text-sm focus:border-purple-300 focus:outline-none"
@@ -1034,7 +1035,7 @@ export function AutomationStepEditorPage({
                       {templateOption.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1102,7 +1103,7 @@ export function AutomationStepEditorPage({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-600">CTA Type</label>
-                    <select
+                    <Select
                       value={ctaType}
                       onChange={(event) => setCtaType(event.target.value as CtaType)}
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm"
@@ -1112,7 +1113,7 @@ export function AutomationStepEditorPage({
                           {option.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-600">CTA Label</label>
@@ -1155,7 +1156,7 @@ export function AutomationStepEditorPage({
                       </button>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                      <select
+                      <Select
                         value={ctaTypeSecondary}
                         onChange={(event) =>
                           setCtaTypeSecondary(event.target.value as CtaType)
@@ -1167,7 +1168,7 @@ export function AutomationStepEditorPage({
                             {option.label}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                       <input
                         value={ctaLabelSecondary}
                         onChange={(event) => setCtaLabelSecondary(event.target.value)}

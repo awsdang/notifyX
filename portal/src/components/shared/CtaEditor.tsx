@@ -1,3 +1,4 @@
+import { Select } from "../ui/Input";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import {
@@ -57,7 +58,7 @@ export function CtaEditor({ data, onChange, inputClass = "" }: CtaEditorProps) {
             <label className="mb-2 block text-sm font-semibold">
               Action Type
             </label>
-            <select
+            <Select
               className={defaultInput}
               value={data.ctaType}
               onChange={(e) =>
@@ -69,7 +70,7 @@ export function CtaEditor({ data, onChange, inputClass = "" }: CtaEditorProps) {
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           {ctaNeedsValue(data.ctaType) && (
             <>
@@ -141,7 +142,7 @@ export function CtaEditor({ data, onChange, inputClass = "" }: CtaEditorProps) {
               <label className="mb-2 block text-xs font-semibold">
                 Action Type
               </label>
-              <select
+              <Select
                 className={defaultInput}
                 value={data.ctaTypeSecondary}
                 onChange={(e) =>
@@ -155,7 +156,7 @@ export function CtaEditor({ data, onChange, inputClass = "" }: CtaEditorProps) {
                     {opt.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             {ctaNeedsValue(data.ctaTypeSecondary) && (
               <>
