@@ -188,6 +188,13 @@ class NotifyX {
             if (parsedActionId == actionId && parsedActionUrl != null) {
               return parsedActionUrl;
             }
+            if (
+              parsedActionId == actionId &&
+              parsedActionUrl == null &&
+              ['dismiss', 'mark_read', 'snooze'].contains(actionId)
+            ) {
+              return null;
+            }
           }
 
           final firstUrl = _toOptionalTrimmedString(action['url']);

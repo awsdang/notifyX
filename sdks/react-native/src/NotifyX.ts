@@ -125,6 +125,13 @@ export class NotifyX {
             const parsedActionUrl = this.toOptionalTrimmedString(action.url);
             if (parsedActionId === actionId && parsedActionUrl)
               return parsedActionUrl;
+            if (
+              parsedActionId === actionId &&
+              !parsedActionUrl &&
+              ["dismiss", "mark_read", "snooze"].includes(actionId)
+            ) {
+              return undefined;
+            }
           }
 
           const firstUrl = this.toOptionalTrimmedString(action.url);

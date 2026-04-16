@@ -30,6 +30,10 @@ export const createNotificationSchema = z
       .string()
       .optional()
       .meta({ example: "https://example.com/action" }),
+    tapActionType: z
+      .enum(["open_app", "open_url", "deep_link", "dismiss", "none"])
+      .optional()
+      .meta({ example: "open_app" }),
     data: z
       .record(z.string(), z.string())
       .optional()
@@ -93,6 +97,10 @@ export const testNotificationSchema = z
       .string()
       .optional()
       .meta({ example: "https://example.com/action" }),
+    tapActionType: z
+      .enum(["open_app", "open_url", "deep_link", "dismiss", "none"])
+      .optional()
+      .meta({ example: "open_app" }),
     data: z
       .record(z.string(), z.string())
       .optional()

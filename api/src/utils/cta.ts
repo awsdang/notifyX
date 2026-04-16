@@ -7,6 +7,13 @@ export type CtaActionType =
   | "deep_link"
   | "dismiss";
 
+export type TapActionType =
+  | "open_app"
+  | "open_url"
+  | "deep_link"
+  | "dismiss"
+  | "none";
+
 export interface CtaAction {
   action: CtaActionType;
   title: string;
@@ -20,6 +27,9 @@ interface NormalizeCtaInput {
   actionUrl?: string | null;
   actions?: unknown[] | null;
   data?: Record<string, string> | null;
+  tapActionType?: string | null;
+  defaultTapActionType?: string | null;
+  defaultTapActionValue?: string | null;
   requireActionUrl?: boolean;
   maxActions?: number;
 }
@@ -28,6 +38,7 @@ interface NormalizeCtaResult {
   actionUrl?: string;
   actions?: CtaAction[];
   data: Record<string, string>;
+  tapActionType: TapActionType;
 }
 
 const OPEN_LINK_ACTION_ALIASES = new Set([
@@ -35,6 +46,13 @@ const OPEN_LINK_ACTION_ALIASES = new Set([
   "open_link",
   "open_link_primary",
   "open_link_secondary",
+]);
+const TAP_ACTION_TYPES = new Set([
+  "open_app",
+  "open_url",
+  "deep_link",
+  "dismiss",
+  "none",
 ]);
 
 const NO_URL_ACTIONS = new Set(["open_app", "dismiss"]);
@@ -73,11 +91,86 @@ function assertUri(value: string, fieldName: string): void {
   }
 }
 
+function inferTapActionType(actionUrl: string): TapActionType {
+  try {
+    const parsed = new URL(actionUrl);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return "open_url";
+    }
+    return "deep_link";
+  } catch {
+    return actionUrl.startsWith("/") ? "deep_link" : "open_url";
+  }
+}
+
+function normalizeTapAction(
+  input: NormalizeCtaInput,
+): Pick<NormalizeCtaResult, "actionUrl" | "tapActionType"> {
+  const explicitActionUrl = trimToOptional(input.actionUrl);
+  const explicitTapActionType = trimToOptional(input.tapActionType);
+  const defaultTapActionType = trimToOptional(input.defaultTapActionType);
+  const defaultTapActionValue = trimToOptional(input.defaultTapActionValue);
+
+  const requestedTapActionType =
+    explicitTapActionType && TAP_ACTION_TYPES.has(explicitTapActionType)
+      ? (explicitTapActionType as TapActionType)
+      : explicitActionUrl
+        ? inferTapActionType(explicitActionUrl)
+        : "open_app";
+
+  const effectiveTapActionType =
+    requestedTapActionType === "open_app"
+      ? defaultTapActionType && TAP_ACTION_TYPES.has(defaultTapActionType)
+        ? (defaultTapActionType as TapActionType)
+        : "none"
+      : requestedTapActionType;
+
+  if (effectiveTapActionType === "open_url") {
+    const resolvedActionUrl =
+      requestedTapActionType === "open_app"
+        ? defaultTapActionValue
+        : explicitActionUrl;
+
+    if (!resolvedActionUrl) {
+      throw new AppError(400, "Tap action URL is required", "INVALID_CTA");
+    }
+
+    assertHttpUrl(resolvedActionUrl, "Tap action URL");
+
+    return {
+      actionUrl: resolvedActionUrl,
+      tapActionType: effectiveTapActionType,
+    };
+  }
+
+  if (effectiveTapActionType === "deep_link") {
+    const resolvedActionUrl =
+      requestedTapActionType === "open_app"
+        ? defaultTapActionValue
+        : explicitActionUrl;
+
+    if (!resolvedActionUrl) {
+      throw new AppError(400, "Tap action URI is required", "INVALID_CTA");
+    }
+
+    assertUri(resolvedActionUrl, "Tap action URI");
+
+    return {
+      actionUrl: resolvedActionUrl,
+      tapActionType: effectiveTapActionType,
+    };
+  }
+
+  return {
+    actionUrl: undefined,
+    tapActionType: effectiveTapActionType,
+  };
+}
+
 export function normalizeOpenLinkCta(
   input: NormalizeCtaInput,
 ): NormalizeCtaResult {
   const maxActions = input.maxActions ?? 2;
-  const requireActionUrl = input.requireActionUrl ?? true;
   const rawActions = Array.isArray(input.actions) ? input.actions : [];
 
   if (rawActions.length > maxActions) {
@@ -154,32 +247,16 @@ export function normalizeOpenLinkCta(
     });
   }
 
-  const explicitActionUrl = trimToOptional(input.actionUrl);
-  const firstLinkAction = normalizedActions.find((a) => a.url && OPEN_LINK_ACTION_ALIASES.has(a.action));
-  const resolvedActionUrl = explicitActionUrl || firstLinkAction?.url;
-
-  // Only require actionUrl if there are no open_app/dismiss/deep_link actions
-  const hasNonLinkAction = normalizedActions.some(
-    (a) => NO_URL_ACTIONS.has(a.action) || DEEP_LINK_ACTIONS.has(a.action),
-  );
-  if (requireActionUrl && !resolvedActionUrl && !hasNonLinkAction) {
-    throw new AppError(
-      400,
-      "Default action URL is required",
-      "INVALID_CTA",
-    );
-  }
-
-  if (resolvedActionUrl) {
-    assertHttpUrl(resolvedActionUrl, "Default action URL");
-  }
+  const normalizedTapAction = normalizeTapAction(input);
 
   const normalizedData: Record<string, string> = {
     ...(input.data || {}),
   };
 
-  if (resolvedActionUrl) {
-    normalizedData.actionUrl = resolvedActionUrl;
+  normalizedData.tapActionType = normalizedTapAction.tapActionType;
+
+  if (normalizedTapAction.actionUrl) {
+    normalizedData.actionUrl = normalizedTapAction.actionUrl;
   }
 
   if (normalizedActions.length > 0) {
@@ -193,8 +270,9 @@ export function normalizeOpenLinkCta(
   }
 
   return {
-    actionUrl: resolvedActionUrl,
+    actionUrl: normalizedTapAction.actionUrl,
     actions: normalizedActions.length > 0 ? normalizedActions : undefined,
     data: normalizedData,
+    tapActionType: normalizedTapAction.tapActionType,
   };
 }

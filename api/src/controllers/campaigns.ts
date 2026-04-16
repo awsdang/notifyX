@@ -90,7 +90,9 @@ export const createCampaign = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -234,11 +236,26 @@ export const updateCampaign = async (
     const mergedActionUrl = data.actionUrl ?? existingTargeting.actionUrl;
     const mergedData = data.data ?? existingTargeting.data;
     const mergedActions = data.actions ?? existingTargeting.actions;
+    const app = await prisma.app.findUnique({
+      where: { id: existing.appId },
+      select: {
+        id: true,
+        defaultTapActionType: true,
+        defaultTapActionValue: true,
+      },
+    });
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
+
     const normalizedCta = normalizeOpenLinkCta({
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
-      requireActionUrl: true,
+      tapActionType: data.tapActionType ?? existingTargeting.data?.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -855,11 +872,26 @@ export const saveCampaignDraft = async (
     const mergedActionUrl = data.actionUrl ?? existingTargeting.actionUrl;
     const mergedData = data.data ?? existingTargeting.data;
     const mergedActions = data.actions ?? existingTargeting.actions;
+    const app = await prisma.app.findUnique({
+      where: { id: existing.appId },
+      select: {
+        id: true,
+        defaultTapActionType: true,
+        defaultTapActionValue: true,
+      },
+    });
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
+
     const normalizedCta = normalizeOpenLinkCta({
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
-      requireActionUrl: true,
+      tapActionType: data.tapActionType ?? existingTargeting.data?.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 

@@ -305,18 +305,32 @@ export const createNotification = async (
     const isImmediate = sendAt <= now;
     const status = isImmediate ? "QUEUED" : "SCHEDULED";
 
-    const template = data.templateId
-      ? await prisma.notificationTemplate.findFirst({
-          where: { id: data.templateId, appId: data.appId },
-          select: {
-            id: true,
-            title: true,
-            subtitle: true,
-            body: true,
-            image: true,
-          },
-        })
-      : null;
+    const [app, template] = await Promise.all([
+      prisma.app.findUnique({
+        where: { id: data.appId },
+        select: {
+          id: true,
+          defaultTapActionType: true,
+          defaultTapActionValue: true,
+        },
+      }),
+      data.templateId
+        ? prisma.notificationTemplate.findFirst({
+            where: { id: data.templateId, appId: data.appId },
+            select: {
+              id: true,
+              title: true,
+              subtitle: true,
+              body: true,
+              image: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
 
     if (data.templateId && !template) {
       throw new AppError(404, "Template not found", "TEMPLATE_NOT_FOUND");
@@ -330,7 +344,9 @@ export const createNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -834,7 +850,9 @@ export const sendTestNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
     const messageIcons = resolvePushMessageIcons(app, data.icon);
