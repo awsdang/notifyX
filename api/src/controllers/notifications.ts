@@ -330,7 +330,6 @@ export const createNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
       maxActions: 2,
     });
 
@@ -834,7 +833,6 @@ export const sendTestNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
       maxActions: 2,
     });
     const messageIcons = resolvePushMessageIcons(app, data.icon);

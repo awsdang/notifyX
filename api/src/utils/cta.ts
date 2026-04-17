@@ -20,7 +20,6 @@ interface NormalizeCtaInput {
   actionUrl?: string | null;
   actions?: unknown[] | null;
   data?: Record<string, string> | null;
-  requireActionUrl?: boolean;
   maxActions?: number;
 }
 
@@ -77,7 +76,6 @@ export function normalizeOpenLinkCta(
   input: NormalizeCtaInput,
 ): NormalizeCtaResult {
   const maxActions = input.maxActions ?? 2;
-  const requireActionUrl = input.requireActionUrl ?? true;
   const rawActions = Array.isArray(input.actions) ? input.actions : [];
 
   if (rawActions.length > maxActions) {
@@ -157,18 +155,6 @@ export function normalizeOpenLinkCta(
   const explicitActionUrl = trimToOptional(input.actionUrl);
   const firstLinkAction = normalizedActions.find((a) => a.url && OPEN_LINK_ACTION_ALIASES.has(a.action));
   const resolvedActionUrl = explicitActionUrl || firstLinkAction?.url;
-
-  // Only require actionUrl if there are no open_app/dismiss/deep_link actions
-  const hasNonLinkAction = normalizedActions.some(
-    (a) => NO_URL_ACTIONS.has(a.action) || DEEP_LINK_ACTIONS.has(a.action),
-  );
-  if (requireActionUrl && !resolvedActionUrl && !hasNonLinkAction) {
-    throw new AppError(
-      400,
-      "Default action URL is required",
-      "INVALID_CTA",
-    );
-  }
 
   if (resolvedActionUrl) {
     assertHttpUrl(resolvedActionUrl, "Default action URL");
