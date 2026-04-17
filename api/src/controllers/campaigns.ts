@@ -90,7 +90,6 @@ export const createCampaign = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
-      requireActionUrl: true,
       maxActions: 2,
     });
 
@@ -238,7 +237,6 @@ export const updateCampaign = async (
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
-      requireActionUrl: true,
       maxActions: 2,
     });
 
@@ -859,7 +857,6 @@ export const saveCampaignDraft = async (
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
-      requireActionUrl: true,
       maxActions: 2,
     });
 

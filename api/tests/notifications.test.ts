@@ -81,6 +81,22 @@ describe("Notifications API - Single Requests", () => {
     expect(res.data.data.priority).toBe("HIGH");
   });
 
+  test("should create notification without default action URL", async () => {
+    const res = await http.post<{
+      success: boolean;
+      data: { id: string; type: string };
+    }>("/notifications", {
+      body: factory.notification(testAppId, {
+        title: "No CTA URL",
+        body: "Notification without actionUrl should be accepted",
+        actionUrl: "",
+      }),
+    });
+
+    expectSuccess(res);
+    expect(res.data.data.type).toBe("transactional");
+  });
+
   test("should create notification with LOW priority", async () => {
     const res = await http.post<{
       success: boolean;
