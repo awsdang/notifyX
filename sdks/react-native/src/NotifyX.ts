@@ -158,6 +158,7 @@ export class NotifyX {
 
   public async init(params: {
     externalUserId: string;
+    nickname?: string;
     language?: string;
     timezone?: string;
     pushToken?: string;
@@ -168,6 +169,7 @@ export class NotifyX {
 
     const user = await this.registerUser({
       externalUserId: params.externalUserId,
+      nickname: params.nickname,
       language: params.language,
       timezone: params.timezone,
     });
@@ -208,6 +210,7 @@ export class NotifyX {
       body: {
         appId: this.appId,
         externalUserId: data.externalUserId,
+        ...(data.nickname !== undefined && { nickname: data.nickname }),
         language: data.language || "en",
         timezone: data.timezone || "UTC",
       },

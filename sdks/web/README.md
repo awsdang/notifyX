@@ -28,10 +28,15 @@ it at `/notifyx-sw.js` on your site, or pass a matching `serviceWorkerPath`.
     debug: true,
   });
 
-  await notifyX.init({ externalUserId: "web-user-123" });
+  await notifyX.init({
+    externalUserId: "web-user-123",
+    nickname: "Jane Doe",
+  });
   await notifyX.sendTestNotification({ title: "Hello", body: "Works" });
 </script>
 ```
+
+`externalUserId` stays the stable identifier. `nickname` is an optional per-user display alias you can change without changing that identifier.
 
 ## Security note
 

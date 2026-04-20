@@ -223,6 +223,7 @@ class NotifyX {
   /// If [pushToken] is null, this will still register the user but not the device.
   Future<Map<String, dynamic>> init({
     required String externalUserId,
+    String? nickname,
     String? language,
     String? timezone,
     String? pushToken,
@@ -233,6 +234,7 @@ class NotifyX {
 
     final user = await registerUser(
       externalUserId: externalUserId,
+      nickname: nickname,
       language: language,
       timezone: timezone,
     );
@@ -265,6 +267,7 @@ class NotifyX {
   /// Registers a user.
   Future<NotifyXUser> registerUser({
     required String externalUserId,
+    String? nickname,
     String? language,
     String? timezone,
   }) async {
@@ -274,6 +277,7 @@ class NotifyX {
       body: {
         'appId': appId,
         'externalUserId': externalUserId,
+        if (nickname != null) 'nickname': nickname,
         'language': language ?? 'en',
         'timezone': timezone ?? 'UTC',
       },

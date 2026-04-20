@@ -28,11 +28,14 @@ final notifyX = NotifyX(
 ```dart
 await notifyX.init(
   externalUserId: 'user-12345',
+  nickname: 'Jane Doe',
   pushToken: '<push-token>',
   platform: 'ios',   // ios | android | huawei
   provider: 'fcm',   // fcm | apns | hms
 );
 ```
+
+`externalUserId` remains the durable user key. `nickname` is an optional per-user display alias.
 
 ## Send Test Notification
 

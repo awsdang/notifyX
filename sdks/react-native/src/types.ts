@@ -7,6 +7,7 @@ export interface NotifyXOptions {
 
 export interface UserRegistrationData {
     externalUserId: string;
+    nickname?: string;
     language?: string;
     timezone?: string;
 }
@@ -23,6 +24,7 @@ export interface DeviceRegistrationData {
 export interface NotifyXUser {
     id: string;
     externalUserId: string;
+    nickname?: string | null;
     appId: string;
     language: string;
     timezone: string;

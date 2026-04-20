@@ -1,6 +1,7 @@
 class NotifyXUser {
   final String id;
   final String externalUserId;
+  final String? nickname;
   final String appId;
   final String language;
   final String timezone;
@@ -10,6 +11,7 @@ class NotifyXUser {
   NotifyXUser({
     required this.id,
     required this.externalUserId,
+    this.nickname,
     required this.appId,
     required this.language,
     required this.timezone,
@@ -21,6 +23,7 @@ class NotifyXUser {
     return NotifyXUser(
       id: json['id']?.toString() ?? '',
       externalUserId: json['externalUserId']?.toString() ?? '',
+      nickname: json['nickname']?.toString(),
       appId: json['appId']?.toString() ?? '',
       language: json['language']?.toString() ?? 'en',
       timezone: json['timezone']?.toString() ?? 'UTC',
@@ -32,6 +35,7 @@ class NotifyXUser {
   Map<String, dynamic> toJson() => {
         'id': id,
         'externalUserId': externalUserId,
+      'nickname': nickname,
         'appId': appId,
         'language': language,
         'timezone': timezone,

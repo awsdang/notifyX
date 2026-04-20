@@ -20,6 +20,7 @@ import {
   createNotificationSchema,
   sendEventSchema,
   notificationResponseSchema,
+  notificationHistoryResponseSchema,
   sendEventResponseSchema,
   testNotificationResponseSchema,
 } from "../schemas/notifications";
@@ -254,6 +255,54 @@ pathRegistry.registerPath({
 });
 
 // --- Notifications ---
+pathRegistry.registerPath({
+  method: "get",
+  path: "/notifications/history",
+  description:
+    "List notification history for a user or device within an app, with pagination, sorting, and filtering.",
+  tags: ["Notifications"],
+  security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
+  request: {
+    query: z.object({
+      appId: z.string(),
+      userId: z.string().optional(),
+      deviceId: z.string().optional(),
+      type: z.string().optional(),
+      provider: z.string().optional(),
+      status: z.string().optional(),
+      deliveryStatus: z.string().optional(),
+      notificationStatus: z.string().optional(),
+      page: z.string().optional(),
+      limit: z.string().optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      sortBy: z
+        .enum([
+          "createdAt",
+          "deliveryStatus",
+          "notificationStatus",
+          "provider",
+          "sendAt",
+          "sentAt",
+          "status",
+          "type",
+        ])
+        .optional(),
+      sortOrder: z.enum(["asc", "desc"]).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Notification history",
+      content: {
+        "application/json": {
+          schema: notificationHistoryResponseSchema,
+        },
+      },
+    },
+  },
+});
+
 pathRegistry.registerPath({
   method: "post",
   path: "/notifications",

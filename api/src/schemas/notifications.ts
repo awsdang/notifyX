@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { registry } from "../docs/registry";
-import { responseSchema } from "./common";
+import { paginatedResponseSchema, responseSchema } from "./common";
 
 export const createNotificationSchema = z
   .object({
@@ -146,3 +146,56 @@ export const testNotificationResponseSchema = responseSchema(
     provider: z.string().meta({ example: "fcm" }),
   }),
 ).register(registry, { id: "TestNotificationResponse" });
+
+export const notificationHistoryItemSchema = z
+  .object({
+    deliveryId: z.uuid().meta({ example: "delivery-xyz" }),
+    id: z.uuid().meta({ example: "notification-xyz" }),
+    appId: z.uuid().meta({ example: "app-xyz" }),
+    userId: z.uuid().meta({ example: "user-xyz" }),
+    externalUserId: z.string().meta({ example: "external-user-123" }),
+    deviceId: z.uuid().meta({ example: "device-xyz" }),
+    platform: z.string().meta({ example: "android" }),
+    provider: z.string().meta({ example: "fcm" }),
+    type: z.string().meta({ example: "transactional" }),
+    notificationStatus: z.string().meta({ example: "QUEUED" }),
+    deliveryStatus: z.string().meta({ example: "DELIVERED" }),
+    title: z.string().meta({ example: "Order confirmed" }),
+    body: z.string().meta({ example: "Your order #12345 is confirmed." }),
+    image: z
+      .url()
+      .nullable()
+      .meta({ example: "https://example.com/image.png" }),
+    cta: z
+      .object({
+        actionUrl: z
+          .string()
+          .optional()
+          .meta({ example: "https://example.com/orders/12345" }),
+        actions: z
+          .array(
+            z.object({
+              action: z.string().meta({ example: "open_link_primary" }),
+              title: z.string().meta({ example: "View order" }),
+              url: z
+                .string()
+                .optional()
+                .meta({ example: "https://example.com/orders/12345" }),
+            }),
+          )
+          .optional(),
+      })
+      .nullable(),
+    sentAt: z.iso.datetime().nullable().meta({ example: "2024-01-01T12:00:00Z" }),
+    sendAt: z.iso.datetime().meta({ example: "2024-01-01T12:00:00Z" }),
+    createdAt: z.iso.datetime().meta({ example: "2024-01-01T12:00:00Z" }),
+    notificationCreatedAt: z
+      .iso
+      .datetime()
+      .meta({ example: "2024-01-01T12:00:00Z" }),
+  })
+  .register(registry, { id: "NotificationHistoryItem" });
+
+export const notificationHistoryResponseSchema = paginatedResponseSchema(
+  notificationHistoryItemSchema,
+).register(registry, { id: "NotificationHistoryResponse" });
