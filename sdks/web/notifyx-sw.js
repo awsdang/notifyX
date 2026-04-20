@@ -30,6 +30,7 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const data = event.notification?.data || {};
+  const tapActionType = data.tapActionType || "open_url";
   let targetUrl = data.actionUrl || "/";
 
   if (event.action) {
@@ -46,6 +47,8 @@ self.addEventListener("notificationclick", (event) => {
           break;
       }
     }
+  } else if (!data.actionUrl && (tapActionType === "dismiss" || tapActionType === "none")) {
+    return;
   }
 
   event.waitUntil(

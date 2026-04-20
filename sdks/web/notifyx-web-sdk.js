@@ -74,6 +74,7 @@
       this.log("Step 4/4: Registering user & device with API…");
       const user = await this.registerUser({
         externalUserId: settings.externalUserId,
+        nickname: settings.nickname,
         language: settings.language || navigator.language || "en",
         timezone: settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
@@ -153,6 +154,7 @@
         body: {
           appId: this.appId,
           externalUserId: data.externalUserId,
+          nickname: data.nickname,
           language: data.language,
           timezone: data.timezone,
         },
