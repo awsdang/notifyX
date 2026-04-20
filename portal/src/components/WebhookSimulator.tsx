@@ -5,7 +5,6 @@ import {
   Code2,
   Copy,
   CheckCircle2,
-  ChevronRight,
   Loader2,
   Clock,
   Smartphone,

@@ -86,7 +86,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       disabled,
       required,
       placeholder,
-      ...rest
     },
     ref,
   ) => {
@@ -224,7 +223,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             {required && <span className="ml-0.5 text-rose-500">*</span>}
           </label>
         )}
-        <div ref={rootRef} className="relative" {...rest}>
+        <div ref={rootRef} className="relative">
           <button
             type="button"
             id={selectId}
