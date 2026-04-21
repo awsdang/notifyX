@@ -81,16 +81,24 @@
       this.log("User registered", { id: user.id, externalUserId: settings.externalUserId });
 
       const existingState = this.getState();
+      const externalDeviceId = settings.externalDeviceId || existingState?.externalDeviceId;
       const device = await this.registerDevice({
         userId: user.id,
         pushToken: JSON.stringify(subscription.toJSON()),
-        deviceId: existingState?.deviceId,
+        ...(externalDeviceId
+          ? { externalDeviceId }
+          : { deviceId: existingState?.deviceId }),
       });
       this.log("Device registered", { id: device.id, provider: device.provider });
 
       const state = {
         userId: user.id,
         deviceId: device.id,
+        ...(device.externalDeviceId
+          ? { externalDeviceId: device.externalDeviceId }
+          : externalDeviceId
+            ? { externalDeviceId }
+            : {}),
         externalUserId: settings.externalUserId,
         subscribedAt: new Date().toISOString(),
       };
@@ -169,6 +177,7 @@
         provider: "web",
         pushToken: data.pushToken,
       };
+      if (data.externalDeviceId) body.externalDeviceId = data.externalDeviceId;
       if (data.deviceId) body.deviceId = data.deviceId;
 
       const response = await this.request("/api/v1/users/device", {

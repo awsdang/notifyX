@@ -17,6 +17,8 @@ export interface DeviceRegistrationData {
     platform: 'android' | 'ios' | 'web' | 'huawei';
     provider: 'fcm' | 'apns' | 'hms' | 'web';
     pushToken: string;
+    /** Client-managed device identifier used to keep the same device record across subscriptions. */
+    externalDeviceId?: string;
     /** Existing device ID to update (e.g. on token refresh) to prevent duplicates. */
     deviceId?: string;
 }
@@ -34,6 +36,7 @@ export interface NotifyXUser {
 
 export interface NotifyXDevice {
     id: string;
+    externalDeviceId?: string | null;
     userId: string;
     platform: string;
     pushToken: string;

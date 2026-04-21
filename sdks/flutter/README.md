@@ -29,6 +29,7 @@ final notifyX = NotifyX(
 await notifyX.init(
   externalUserId: 'user-12345',
   nickname: 'Jane Doe',
+  externalDeviceId: 'ios-vendor-123',
   pushToken: '<push-token>',
   platform: 'ios',   // ios | android | huawei
   provider: 'fcm',   // fcm | apns | hms
@@ -36,6 +37,7 @@ await notifyX.init(
 ```
 
 `externalUserId` remains the durable user key. `nickname` is an optional per-user display alias.
+`externalDeviceId` is the client-managed device key the SDK reuses on later subscriptions so NotifyX updates the same device record instead of creating duplicates.
 
 ## Send Test Notification
 

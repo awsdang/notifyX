@@ -334,6 +334,7 @@ describe("Notifications API - History", () => {
   let historyUserId: string;
   let historyExternalUserId: string;
   let historyDeviceId: string;
+  let historyExternalDeviceId: string;
 
   beforeAll(async () => {
     const externalUserId = `history_user_${Date.now()}`;
@@ -349,10 +350,15 @@ describe("Notifications API - History", () => {
     historyUserId = userRes.data.data.id;
     cleanup.trackUser(historyUserId);
 
+    historyExternalDeviceId = `history-device-${Date.now()}`;
+
     const deviceRes = await http.post<{ success: boolean; data: { id: string } }>(
       "/users/device",
       {
-        body: factory.device(historyUserId, testAppId, { platform: "android" }),
+        body: factory.device(historyUserId, testAppId, {
+          platform: "android",
+          externalDeviceId: historyExternalDeviceId,
+        }),
       },
     );
     expectSuccess(deviceRes);
@@ -429,6 +435,7 @@ describe("Notifications API - History", () => {
       error: boolean;
       data: Array<{
         id: string;
+        deviceId: string;
         title: string;
         body: string;
         image: string | null;
@@ -437,13 +444,14 @@ describe("Notifications API - History", () => {
       }>;
       totalCount: number;
     }>(
-      `/notifications/history?appId=${testAppId}&deviceId=${historyDeviceId}&sortBy=sentAt&sortOrder=desc`,
+      `/notifications/history?appId=${testAppId}&deviceId=${historyExternalDeviceId}&sortBy=sentAt&sortOrder=desc`,
       { token: adminToken, apiKey: "" },
     );
 
     expectSuccess(res);
     expect(res.data.totalCount).toBe(2);
     expect(res.data.data).toHaveLength(2);
+    expect(res.data.data[0]?.deviceId).toBe(historyExternalDeviceId);
     expect(res.data.data[0]?.deliveryStatus).toBe("PENDING");
     expect(res.data.data[1]?.title).toBe("Hi Taylor");
     expect(res.data.data[1]?.body).toBe("Order #1001 is ready");

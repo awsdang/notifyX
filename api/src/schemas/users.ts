@@ -37,6 +37,17 @@ export const registerDeviceSchema = z
         description:
           "Existing device ID to update (e.g. on token refresh). When provided, the existing device record is updated in-place instead of creating a duplicate.",
       }),
+    externalDeviceId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .optional()
+      .meta({
+        example: "ios-vendor-123",
+        description:
+          "Client-managed device identifier used to update the same physical device across subscription refreshes.",
+      }),
   })
   .register(registry, { id: "RegisterDeviceRequest" });
 
@@ -58,6 +69,7 @@ export const userSchema = z.object({
 
 export const deviceSchema = z.object({
   id: z.uuid().meta({ example: "device-123" }),
+  externalDeviceId: z.string().nullable().meta({ example: "ios-vendor-123" }),
   userId: z.uuid().meta({ example: "user-123" }),
   platform: z
     .enum(["android", "ios", "web", "huawei"])

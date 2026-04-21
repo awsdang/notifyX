@@ -46,6 +46,7 @@ class NotifyXUser {
 
 class NotifyXDevice {
   final String id;
+  final String? externalDeviceId;
   final String userId;
   final String platform;
   final String pushToken;
@@ -56,6 +57,7 @@ class NotifyXDevice {
 
   NotifyXDevice({
     required this.id,
+    this.externalDeviceId,
     required this.userId,
     required this.platform,
     required this.pushToken,
@@ -68,6 +70,7 @@ class NotifyXDevice {
   factory NotifyXDevice.fromJson(Map<String, dynamic> json) {
     return NotifyXDevice(
       id: json['id']?.toString() ?? '',
+      externalDeviceId: json['externalDeviceId']?.toString(),
       userId: json['userId']?.toString() ?? '',
       platform: json['platform']?.toString() ?? '',
       pushToken: json['pushToken']?.toString() ?? '',
@@ -80,6 +83,7 @@ class NotifyXDevice {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+      'externalDeviceId': externalDeviceId,
         'userId': userId,
         'platform': platform,
         'pushToken': pushToken,

@@ -161,6 +161,7 @@ export class NotifyX {
     nickname?: string;
     language?: string;
     timezone?: string;
+    externalDeviceId?: string;
     pushToken?: string;
     platform?: "ios" | "android" | "huawei";
     provider?: "fcm" | "apns" | "hms";
@@ -178,12 +179,16 @@ export class NotifyX {
 
     if (params.pushToken && params.platform && params.provider) {
       const existingState = await this.getState();
+      const externalDeviceId =
+        params.externalDeviceId || existingState?.externalDeviceId;
       device = await this.registerDevice({
         userId: user.id,
         pushToken: params.pushToken,
         platform: params.platform,
         provider: params.provider,
-        deviceId: existingState?.deviceId,
+        ...(externalDeviceId
+          ? { externalDeviceId }
+          : { deviceId: existingState?.deviceId }),
       });
     }
 
@@ -195,6 +200,11 @@ export class NotifyX {
 
     if (device) {
       state.deviceId = device.id;
+      if (device.externalDeviceId) {
+        state.externalDeviceId = device.externalDeviceId;
+      } else if (params.externalDeviceId) {
+        state.externalDeviceId = params.externalDeviceId;
+      }
     }
 
     await this.saveState(state);
@@ -229,6 +239,7 @@ export class NotifyX {
         pushToken: data.pushToken,
         platform: data.platform,
         provider: data.provider,
+        ...(data.externalDeviceId && { externalDeviceId: data.externalDeviceId }),
         ...(data.deviceId && { deviceId: data.deviceId }),
       },
     });
@@ -236,6 +247,11 @@ export class NotifyX {
     const device = response.data;
     const currentState = (await this.getState()) || {};
     currentState.deviceId = device.id;
+    if (device.externalDeviceId) {
+      currentState.externalDeviceId = device.externalDeviceId;
+    } else if (data.externalDeviceId) {
+      currentState.externalDeviceId = data.externalDeviceId;
+    }
     await this.saveState(currentState);
 
     return device;

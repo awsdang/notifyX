@@ -318,6 +318,7 @@ model User {
 
 model Device {
   id                 String    @id @default(uuid())
+  externalDeviceId   String?   @map("external_device_id")
   userId             String    @map("user_id")
   platform           String
   pushToken          String    @map("push_token") // Encrypted at application layer
@@ -339,6 +340,7 @@ model Device {
   automationExecutions AutomationExecution[]
 
   @@unique([tokenHash, provider])
+  @@index([externalDeviceId])
   @@index([userId])
   @@index([isActive])
   @@index([provider, isActive])

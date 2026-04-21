@@ -201,10 +201,17 @@ export const getNotificationHistory = async (
       ? { appId: { ...scopedAppConstraint, equals: appId } }
       : { appId };
 
-    const where = {
+    const where: any = {
       ...(deliveryStatusRaw ? { status: deliveryStatusRaw.toUpperCase() } : {}),
       ...(providerRaw ? { provider: providerRaw } : {}),
-      ...(deviceIdRaw ? { deviceId: deviceIdRaw } : {}),
+      ...(deviceIdRaw
+        ? {
+            OR: [
+              { deviceId: deviceIdRaw },
+              { device: { externalDeviceId: deviceIdRaw } },
+            ],
+          }
+        : {}),
       ...(from || to
         ? {
             createdAt: {
@@ -245,6 +252,7 @@ export const getNotificationHistory = async (
           device: {
             select: {
               id: true,
+              externalDeviceId: true,
               platform: true,
               user: {
                 select: {
@@ -273,11 +281,11 @@ export const getNotificationHistory = async (
             },
           },
         },
-      }),
-      prisma.notificationDelivery.count({ where }),
+      } as any),
+      prisma.notificationDelivery.count({ where } as any),
     ]);
 
-    const historyItems = items.map((item) => {
+    const historyItems = (items as Array<any>).map((item) => {
       const payload = (item.notification.payload || {}) as NotificationPayload;
       const variables = payload.variables;
       const actions = Array.isArray(payload.adhocContent?.actions)
@@ -303,7 +311,7 @@ export const getNotificationHistory = async (
         appId: item.notification.appId,
         userId: item.device.user.id,
         externalUserId: item.device.user.externalUserId,
-        deviceId: item.device.id,
+        deviceId: item.device.externalDeviceId || item.device.id,
         platform: item.device.platform,
         provider: item.provider,
         type: item.notification.type,

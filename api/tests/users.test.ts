@@ -464,6 +464,37 @@ describe("Device Deduplication - Token Refresh", () => {
     expect(refreshRes.data.data.id).toBe(deviceId);
   });
 
+  test("should update existing device when externalDeviceId is provided", async () => {
+    const externalDeviceId = `external-device-${Date.now()}`;
+    const createRes = await http.post<{
+      success: boolean;
+      data: { id: string; externalDeviceId: string | null };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `external_initial_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+
+    expectSuccess(createRes);
+    const deviceId = createRes.data.data.id;
+    expect(createRes.data.data.externalDeviceId).toBe(externalDeviceId);
+
+    const refreshRes = await http.post<{
+      success: boolean;
+      data: { id: string; externalDeviceId: string | null };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `external_refresh_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+
+    expectSuccess(refreshRes);
+    expect(refreshRes.data.data.id).toBe(deviceId);
+    expect(refreshRes.data.data.externalDeviceId).toBe(externalDeviceId);
+  });
+
   test("should fall through to upsert when deviceId is invalid", async () => {
     const token = `fallthrough_${Date.now()}`;
 

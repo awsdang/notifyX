@@ -154,7 +154,7 @@ export const notificationHistoryItemSchema = z
     appId: z.uuid().meta({ example: "app-xyz" }),
     userId: z.uuid().meta({ example: "user-xyz" }),
     externalUserId: z.string().meta({ example: "external-user-123" }),
-    deviceId: z.uuid().meta({ example: "device-xyz" }),
+    deviceId: z.string().meta({ example: "ios-vendor-123" }),
     platform: z.string().meta({ example: "android" }),
     provider: z.string().meta({ example: "fcm" }),
     type: z.string().meta({ example: "transactional" }),
