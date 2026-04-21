@@ -243,17 +243,19 @@ class NotifyX {
     NotifyXDevice? device;
     if (pushToken != null && platform != null && provider != null) {
       final existingState = await _stateManager.getState();
+      final existingExternalDeviceId =
+          existingState == null ? null : existingState['externalDeviceId']?.toString();
+      final existingDeviceId =
+          existingState == null ? null : existingState['deviceId']?.toString();
       final resolvedExternalDeviceId =
-          externalDeviceId ?? existingState?['externalDeviceId']?.toString();
+          externalDeviceId ?? existingExternalDeviceId;
       device = await registerDevice(
         userId: user.id,
         pushToken: pushToken,
         platform: platform,
         provider: provider,
         externalDeviceId: resolvedExternalDeviceId,
-        deviceId: resolvedExternalDeviceId == null
-            ? existingState?['deviceId']?.toString()
-            : null,
+        deviceId: resolvedExternalDeviceId == null ? existingDeviceId : null,
       );
     }
 
