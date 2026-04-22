@@ -646,10 +646,7 @@ export function AppDetailPage({
                       "androidNotificationIconExample",
                       "e.g. ic_stat_notifyx",
                     )}
-                    hint={tp(
-                      "androidNotificationIconHint",
-                      "This must match a drawable resource bundled inside the Android app package.",
-                    )}
+                  
                   />
                 </div>
                 <Button
