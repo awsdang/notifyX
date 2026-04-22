@@ -56,7 +56,6 @@ import {
   CTA_TYPE_OPTIONS,
   type CtaType,
   DEFAULT_TAP_ACTION_TYPE,
-  getDefaultCtaLabel,
   getCtaValuePlaceholder,
 } from "../constants/cta";
 import { buildNotificationCtaPayload } from "../lib/notificationCta";
@@ -784,14 +783,13 @@ function CampaignEditorPage({
       setStatus({ type: "error", message: tt("Title and body are required.") });
       return false;
     }
-    if (
-      formData.ctaType !== "open_app" &&
-      formData.ctaType !== "dismiss" &&
-      !formData.actionUrl.trim()
-    ) {
+    if (tapActionNeedsValue && !formData.tapActionValue.trim()) {
       setStatus({
         type: "error",
-        message: tt("Default open-link URL is required."),
+        message:
+          formData.tapActionType === "deep_link"
+            ? tt("Deep link URI is required.")
+            : tt("Default open-link URL is required."),
       });
       return false;
     }
@@ -842,60 +840,37 @@ function CampaignEditorPage({
   };
 
   const buildCtaArtifacts = () => {
-    const ctaCandidates = [
-      {
-        type: formData.ctaType,
-        label: formData.ctaLabel.trim(),
-        value: formData.ctaValue.trim(),
-        dataSuffix: "",
-      },
-      {
-        type: formData.ctaTypeSecondary,
-        label: formData.ctaLabelSecondary.trim(),
-        value: formData.ctaValueSecondary.trim(),
-        dataSuffix: "Secondary",
-      },
-    ];
-
-    const ctaData: Record<string, string> = {};
-    for (const cta of ctaCandidates) {
-      if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
-      if (!cta.label || !cta.value) {
-        setStatus({
-          type: "error",
-          message: tt("CTA button label and URL are both required when enabled."),
-        });
-        return null;
-      }
-      ctaData[`ctaType${cta.dataSuffix}`] = cta.type;
-      ctaData[`ctaLabel${cta.dataSuffix}`] = cta.label;
-      ctaData[`ctaValue${cta.dataSuffix}`] = cta.value;
+    try {
+      return buildNotificationCtaPayload({
+        tapActionType: formData.tapActionType,
+        tapActionValue: formData.tapActionValue,
+        ctas: [
+          {
+            type: formData.ctaType,
+            label: formData.ctaLabel,
+            value: formData.ctaValue,
+            dataSuffix: "",
+          },
+          {
+            type: formData.ctaTypeSecondary,
+            label: formData.ctaLabelSecondary,
+            value: formData.ctaValueSecondary,
+            dataSuffix: "Secondary",
+          },
+        ],
+      });
+    } catch (error: any) {
+      setStatus({
+        type: "error",
+        message: error?.message || tt("Failed to build CTA payload."),
+      });
+      return null;
     }
-
-    const actions = ctaCandidates
-      .filter((cta) => cta.type !== "none" && cta.label && cta.value)
-      .slice(0, 2)
-      .map((cta, index) => ({
-        action:
-          index === 0
-            ? ("open_link_primary" as const)
-            : ("open_link_secondary" as const),
-        title: cta.label,
-        url: cta.value,
-      }));
-
-    return {
-      defaultActionUrl: formData.actionUrl.trim(),
-      ctaData,
-      actions,
-    };
   };
 
-  const buildCampaignPayload = (ctaArtifacts: {
-    defaultActionUrl: string;
-    ctaData: Record<string, string>;
-    actions: Array<{ action: string; title: string; url: string }>;
-  }) => ({
+  const buildCampaignPayload = (
+    ctaArtifacts: ReturnType<typeof buildNotificationCtaPayload>,
+  ) => ({
     appId: formData.appId,
     name: formData.name.trim(),
     description: formData.description.trim() || undefined,
@@ -906,12 +881,9 @@ function CampaignEditorPage({
     subtitle: formData.subtitle.trim() || undefined,
     body: formData.body.trim(),
     image: formData.image || undefined,
-    actionUrl: ctaArtifacts.defaultActionUrl,
-    data:
-      Object.keys(ctaArtifacts.ctaData).length > 0
-        ? ctaArtifacts.ctaData
-        : undefined,
-    actions: ctaArtifacts.actions.length > 0 ? ctaArtifacts.actions : undefined,
+    actionUrl: ctaArtifacts.actionUrl,
+    data: ctaArtifacts.data,
+    actions: ctaArtifacts.actions,
     platforms: formData.platforms,
     priority: formData.priority,
   });
@@ -953,11 +925,9 @@ function CampaignEditorPage({
     }
   };
 
-  const sendTestNotification = async (ctaArtifacts: {
-    defaultActionUrl: string;
-    ctaData: Record<string, string>;
-    actions: Array<{ action: string; title: string; url: string }>;
-  }) => {
+  const sendTestNotification = async (
+    ctaArtifacts: ReturnType<typeof buildNotificationCtaPayload>,
+  ) => {
     await apiFetch(
       "/notifications",
       {
@@ -975,13 +945,9 @@ function CampaignEditorPage({
             : formData.subtitle.trim() || undefined,
           body: selectedTemplateVariant ? undefined : formData.body.trim(),
           image: formData.image || undefined,
-          actionUrl: ctaArtifacts.defaultActionUrl,
-          data:
-            Object.keys(ctaArtifacts.ctaData).length > 0
-              ? ctaArtifacts.ctaData
-              : undefined,
-          actions:
-            ctaArtifacts.actions.length > 0 ? ctaArtifacts.actions : undefined,
+          actionUrl: ctaArtifacts.actionUrl,
+          data: ctaArtifacts.data,
+          actions: ctaArtifacts.actions,
           priority: "NORMAL",
           userIds: formData.testUserIds,
           platforms: formData.platforms,
@@ -1523,17 +1489,20 @@ function CampaignEditorPage({
                   </label>
                   <Select
                     className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm bg-white"
-                    value={formData.ctaType}
+                    value={formData.tapActionType}
                     onChange={(event) => {
                       const newType = event.target.value as CtaType;
-                      const noUrl = newType === "open_app" || newType === "dismiss" || newType === "none";
+                      const noUrl =
+                        newType === "open_app" ||
+                        newType === "dismiss" ||
+                        newType === "none";
                       setFormData((prev) => ({
                         ...prev,
-                        ctaType: newType,
+                        tapActionType: newType,
                         ...(noUrl && {
-                          actionUrl: "",
-                          ctaValue: "",
+                          tapActionValue: "",
                           ctaLabel: "",
+                          ctaValue: "",
                           ctaLabelSecondary: "",
                           ctaValueSecondary: "",
                           ctaTypeSecondary: "none" as CtaType,
@@ -1548,37 +1517,38 @@ function CampaignEditorPage({
                     ))}
                   </Select>
                 </div>
-                {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+                {tapActionNeedsValue && (
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                      {formData.ctaType === "deep_link" ? tt("Deep Link URI") : tt("URL")}
+                      {formData.tapActionType === "deep_link"
+                        ? tt("Deep Link URI")
+                        : tt("URL")}
                     </label>
                     <input
-                      type={formData.ctaType === "open_url" ? "url" : "text"}
+                      type={formData.tapActionType === "open_url" ? "url" : "text"}
                       className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.actionUrl || formData.ctaValue}
+                      value={formData.tapActionValue}
                       onChange={(event) =>
                         setFormData((prev) => ({
                           ...prev,
-                          actionUrl: event.target.value,
-                          ctaValue: event.target.value,
+                          tapActionValue: event.target.value,
                         }))
                       }
-                      placeholder={getCtaValuePlaceholder(formData.ctaType)}
+                      placeholder={getCtaValuePlaceholder(formData.tapActionType)}
                     />
                   </div>
                 )}
               </div>
-              {formData.ctaType === "open_app" && (
+              {formData.tapActionType === "open_app" && (
                 <p className="mt-2 text-xs text-slate-400">{tt("Tapping opens your app to its default screen.")}</p>
               )}
-              {formData.ctaType === "dismiss" && (
+              {formData.tapActionType === "dismiss" && (
                 <p className="mt-2 text-xs text-slate-400">{tt("Notification is dismissed without opening the app.")}</p>
               )}
             </div>
 
             {/* Action Buttons — only shown for open_url / deep_link tap actions */}
-            {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+            {tapActionNeedsValue && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                 <p className="mb-1 text-sm font-semibold text-slate-700">
                   {tt("Action Buttons")}
@@ -1840,7 +1810,9 @@ function CampaignEditorPage({
               subtitle={formData.subtitle || tt("Campaign subtitle")}
               body={formData.body || tt("Campaign body preview")}
               image={formData.image || undefined}
-              ctaUrl={formData.actionUrl.trim() || undefined}
+              ctaUrl={
+                tapActionNeedsValue ? formData.tapActionValue.trim() || undefined : undefined
+              }
               ctaActions={[
                 {
                   type: formData.ctaType,
