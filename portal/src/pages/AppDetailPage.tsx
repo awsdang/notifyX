@@ -18,6 +18,7 @@ import {
   History,
   Zap,
   Filter,
+  Key,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -898,7 +899,7 @@ export function AppDetailPage({
             {tp("automation", "Automation")}
           </CardTitle>
         </CardHeader>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <button
             type="button"
             onClick={() => navigate(`/apps/${app.id}/triggers`)}
@@ -944,6 +945,34 @@ export function AppDetailPage({
                   {tp(
                     "manageWorkflowsDescription",
                     "Build notification pipelines on top of triggers.",
+                  )}
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className={clsx(
+                "h-5 w-5 text-slate-400 transition-colors group-hover:text-blue-600",
+                direction === "rtl" && "-scale-x-100",
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/apps/${app.id}/api-keys`)}
+            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-200 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <Key className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700">
+                  {tp("manageApiKeys", "Manage API Keys")}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {tp(
+                    "manageApiKeysDescription",
+                    "Issue scoped machine keys for backend integrations.",
                   )}
                 </p>
               </div>

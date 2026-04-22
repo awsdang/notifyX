@@ -43,6 +43,9 @@ type PushTokenResult =
     }
   | { token?: undefined; provider?: undefined; errorMessage: string };
 
+const buildExternalDeviceId = (currentState?: Record<string, any> | null) =>
+  currentState?.externalDeviceId || `demo-${Platform.OS}-device`;
+
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
@@ -177,7 +180,7 @@ function App(): React.JSX.Element {
           pushToken: normalized,
           platform: platformValue() as 'ios' | 'android',
           provider: 'fcm',
-          deviceId: state.deviceId,
+          externalDeviceId: buildExternalDeviceId(state),
         });
         await loadState();
         setStatus('FCM token refreshed and device registered.');
@@ -342,6 +345,7 @@ function App(): React.JSX.Element {
 
       await notifyX.init({
         externalUserId,
+        externalDeviceId: buildExternalDeviceId(sdkState),
         pushToken: tokenResult.token,
         platform: platformValue() as 'ios' | 'android' | 'huawei',
         provider: tokenResult.provider,
