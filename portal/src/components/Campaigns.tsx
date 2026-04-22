@@ -55,8 +55,11 @@ type SendPlatform = "ios" | "android" | "huawei" | "web";
 import {
   CTA_TYPE_OPTIONS,
   type CtaType,
+  DEFAULT_TAP_ACTION_TYPE,
+  getDefaultCtaLabel,
   getCtaValuePlaceholder,
 } from "../constants/cta";
+import { buildNotificationCtaPayload } from "../lib/notificationCta";
 
 const SEND_PLATFORMS: SendPlatform[] = ["ios", "android", "huawei", "web"];
 const MOBILE_PLATFORMS: Array<"ios" | "android" | "huawei"> = [
@@ -463,6 +466,11 @@ function CampaignEditorPage({
   );
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const existingData = (initialCampaign?.data || {}) as Record<string, string>;
+  const initialTapActionType =
+    ((existingData.tapActionType as CtaType | undefined) ||
+      (initialCampaign?.actionUrl ? "open_url" : DEFAULT_TAP_ACTION_TYPE)) as CtaType;
+  const initialTapActionValue =
+    existingData.tapActionValue || initialCampaign?.actionUrl || "";
   const initialPrimaryCtaType = (existingData.ctaType || "none") as CtaType;
   const initialPrimaryCtaLabel = existingData.ctaLabel || "";
   const initialPrimaryCtaValue = existingData.ctaValue || "";
@@ -510,7 +518,8 @@ function CampaignEditorPage({
     subtitle: initialCampaign?.subtitle || "",
     body: initialCampaign?.body || "",
     image: initialCampaign?.image || "",
-    actionUrl: initialCampaign?.actionUrl || "",
+    tapActionType: initialTapActionType,
+    tapActionValue: initialTapActionValue,
     ctaType: initialPrimaryCtaType,
     ctaLabel: initialPrimaryCtaLabel,
     ctaValue: initialPrimaryCtaValue,
@@ -540,6 +549,13 @@ function CampaignEditorPage({
     };
     return tt(`platform_${platform}`, undefined, defaults[platform]);
   };
+
+  const tapActionNeedsValue = useMemo(
+    () =>
+      CTA_TYPE_OPTIONS.find((option) => option.value === formData.tapActionType)
+        ?.needsValue ?? false,
+    [formData.tapActionType],
+  );
 
   const ctaNeedsValue = useMemo(
     () =>

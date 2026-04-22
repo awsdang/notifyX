@@ -26,6 +26,7 @@ import {
 } from "./controllers/users";
 import {
   createNotification,
+  getNotificationHistory,
   getNotifications,
   sendEvent,
   cancelNotification,
@@ -577,6 +578,12 @@ notificationRouter.get(
   requireMarketing,
   cache(),
   getNotifications,
+);
+notificationRouter.get(
+  "/history",
+  requireMarketingOrMachineAuth,
+  cache(),
+  getNotificationHistory,
 );
 notificationRouter.post(
   "/",

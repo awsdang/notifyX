@@ -73,6 +73,10 @@ const AppTriggersPage = lazyPage(
   () => import("./pages/AppTriggersPage"),
   "AppTriggersPage",
 );
+const AppApiKeysPage = lazyPage(
+  () => import("./pages/AppApiKeysPage"),
+  "AppApiKeysPage",
+);
 const DevXPage = lazyPage(() => import("./pages/DevXPage"), "DevXPage");
 const SimulatorPage = lazyPage(
   () => import("./pages/SimulatorPage"),
@@ -125,6 +129,7 @@ export const router = createBrowserRouter([
           { path: "apps/:appId", element: renderLazyPage(AppDetailPageWrapper) },
           { path: "apps/:appId/workflows", element: renderLazyPage(AppWorkflowsPage) },
           { path: "apps/:appId/triggers", element: renderLazyPage(AppTriggersPage) },
+          { path: "apps/:appId/api-keys", element: renderLazyPage(AppApiKeysPage) },
           { path: "credentials", element: renderLazyPage(CredentialsListPage) },
           { path: "credentials/:appId", element: renderLazyPage(CredentialsDetailPage) },
           { path: "automation", element: renderLazyPage(AutomationPage) },

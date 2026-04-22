@@ -14,6 +14,15 @@ const String _manualPushToken = '';
 const String _manualProvider = 'fcm';
 bool _firebaseReady = false;
 
+String _buildExternalDeviceId(Map<String, dynamic>? state) {
+  final existing = state?['externalDeviceId']?.toString();
+  if (existing != null && existing.isNotEmpty) {
+    return existing;
+  }
+
+  return 'demo-${Platform.operatingSystem}-device';
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -259,7 +268,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
         pushToken: normalized,
         platform: _platformValue(),
         provider: 'fcm',
-        deviceId: state?['deviceId']?.toString(),
+        externalDeviceId: _buildExternalDeviceId(state),
       );
       await _loadState();
       _setStatus('FCM token refreshed and device registered.');
@@ -406,6 +415,7 @@ class _DemoHomePageState extends State<DemoHomePage> {
 
       await _notifyX.init(
         externalUserId: externalUserId,
+        externalDeviceId: _buildExternalDeviceId(_sdkState),
         pushToken: tokenResult.token,
         platform: _platformValue(),
         provider: tokenResult.provider,

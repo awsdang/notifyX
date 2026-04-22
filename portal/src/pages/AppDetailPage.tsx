@@ -18,6 +18,7 @@ import {
   History,
   Zap,
   Filter,
+  Key,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -37,6 +38,12 @@ import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useI18n, useScopedTranslation } from "../context/I18nContext";
 import { useNavigate } from "react-router-dom";
 import { uploadAppImageAsset } from "../services/assetService";
+import {
+  APP_DEFAULT_TAP_ACTION_OPTIONS,
+  appDefaultTapActionNeedsValue,
+  getCtaValuePlaceholder,
+  type AppDefaultTapActionType,
+} from "../constants/cta";
 
 interface AppDetailPageProps {
   app: Application;
@@ -79,7 +86,18 @@ export function AppDetailPage({
   );
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [isSavingIconSettings, setIsSavingIconSettings] = useState(false);
+  const [defaultTapActionType, setDefaultTapActionType] = useState<AppDefaultTapActionType>(
+    initialApp.defaultTapActionType || "none",
+  );
+  const [defaultTapActionValue, setDefaultTapActionValue] = useState(
+    initialApp.defaultTapActionValue || "",
+  );
+  const [isSavingTapActionSettings, setIsSavingTapActionSettings] = useState(false);
   const [iconStatus, setIconStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [tapActionStatus, setTapActionStatus] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
@@ -98,6 +116,8 @@ export function AppDetailPage({
       setApp(appData);
       setNewName(appData.name);
       setAndroidNotificationIcon(appData.androidNotificationIcon || "");
+      setDefaultTapActionType(appData.defaultTapActionType || "none");
+      setDefaultTapActionValue(appData.defaultTapActionValue || "");
 
       const [statsResult, campaignsResult, accessResult] =
         await Promise.allSettled([
@@ -185,6 +205,53 @@ export function AppDetailPage({
       });
     } finally {
       setIsSavingIconSettings(false);
+    }
+  };
+
+  const handleSaveTapActionSettings = async () => {
+    setIsSavingTapActionSettings(true);
+    setTapActionStatus(null);
+
+    try {
+      const needsValue = appDefaultTapActionNeedsValue(defaultTapActionType);
+      if (needsValue && !defaultTapActionValue.trim()) {
+        throw new Error(
+          defaultTapActionType === "deep_link"
+            ? tp("defaultTapActionUriRequired", "Default deep link URI is required.")
+            : tp("defaultTapActionUrlRequired", "Default URL is required."),
+        );
+      }
+
+      const updated = await appService.updateApp(
+        app.id,
+        {
+          defaultTapActionType,
+          defaultTapActionValue: needsValue
+            ? defaultTapActionValue.trim()
+            : null,
+        },
+        token,
+      );
+      setApp(updated);
+      setDefaultTapActionType(updated.defaultTapActionType || "none");
+      setDefaultTapActionValue(updated.defaultTapActionValue || "");
+      await onUpdate(updated);
+      setTapActionStatus({
+        type: "success",
+        message: tp("defaultTapActionSaved", "Default tap action saved."),
+      });
+    } catch (error: any) {
+      setTapActionStatus({
+        type: "error",
+        message:
+          error?.message ||
+          tp(
+            "defaultTapActionSaveFailed",
+            "Failed to save default tap action.",
+          ),
+      });
+    } finally {
+      setIsSavingTapActionSettings(false);
     }
   };
 
@@ -606,6 +673,97 @@ export function AppDetailPage({
                   {iconStatus.message}
                 </Badge>
               ) : null}
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="flex items-start gap-3">
+                  <Zap className="mt-0.5 h-5 w-5 text-amber-600" />
+                  <div className="min-w-0 flex-1 space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {tp("defaultTapAction", "Default Tap Action")}
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {tp(
+                          "defaultTapActionHint",
+                          "Used whenever a notification chooses Open Default instead of sending a custom URL or deep link.",
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-[220px_1fr_auto] md:items-end">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-slate-700">
+                          {tp("action", "Action")}
+                        </label>
+                        <Select
+                          value={defaultTapActionType}
+                          onChange={(event) => {
+                            const nextType = event.target.value as AppDefaultTapActionType;
+                            setDefaultTapActionType(nextType);
+                            if (!appDefaultTapActionNeedsValue(nextType)) {
+                              setDefaultTapActionValue("");
+                            }
+                          }}
+                        >
+                          {APP_DEFAULT_TAP_ACTION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {tp(option.label, option.label)}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-slate-700">
+                          {defaultTapActionType === "deep_link"
+                            ? tp("deepLinkUri", "Deep Link URI")
+                            : tp("url", "URL")}
+                        </label>
+                        <Input
+                          value={defaultTapActionValue}
+                          onChange={(event) =>
+                            setDefaultTapActionValue(event.target.value)
+                          }
+                          disabled={!appDefaultTapActionNeedsValue(defaultTapActionType)}
+                          placeholder={getCtaValuePlaceholder(defaultTapActionType as any)}
+                          hint={
+                            appDefaultTapActionNeedsValue(defaultTapActionType)
+                              ? tp(
+                                  "defaultTapActionValueHint",
+                                  "This value is used by notifications and CTA buttons that select Open Default.",
+                                )
+                              : tp(
+                                  "defaultTapActionValueNotNeeded",
+                                  "Dismiss and No CTA do not need a URL or deep link.",
+                                )
+                          }
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        className="gap-2"
+                        disabled={isSavingTapActionSettings}
+                        onClick={() => void handleSaveTapActionSettings()}
+                      >
+                        <Zap className="h-4 w-4" />
+                        {isSavingTapActionSettings
+                          ? tp("saving", "Saving...")
+                          : tp("saveTapAction", "Save Tap Action")}
+                      </Button>
+                    </div>
+
+                    {tapActionStatus ? (
+                      <Badge
+                        variant={tapActionStatus.type === "success" ? "success" : "error"}
+                        className="w-full rounded-xl px-3 py-2 text-sm"
+                      >
+                        {tapActionStatus.message}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -741,7 +899,7 @@ export function AppDetailPage({
             {tp("automation", "Automation")}
           </CardTitle>
         </CardHeader>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <button
             type="button"
             onClick={() => navigate(`/apps/${app.id}/triggers`)}
@@ -787,6 +945,34 @@ export function AppDetailPage({
                   {tp(
                     "manageWorkflowsDescription",
                     "Build notification pipelines on top of triggers.",
+                  )}
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className={clsx(
+                "h-5 w-5 text-slate-400 transition-colors group-hover:text-blue-600",
+                direction === "rtl" && "-scale-x-100",
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/apps/${app.id}/api-keys`)}
+            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-200 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <Key className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700">
+                  {tp("manageApiKeys", "Manage API Keys")}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {tp(
+                    "manageApiKeysDescription",
+                    "Issue scoped machine keys for backend integrations.",
                   )}
                 </p>
               </div>

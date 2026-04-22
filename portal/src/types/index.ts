@@ -1,6 +1,8 @@
 export interface Application {
   id: string;
   name: string;
+  defaultTapActionType?: "open_url" | "deep_link" | "dismiss" | "none" | null;
+  defaultTapActionValue?: string | null;
   notificationIconAssetId?: string | null;
   notificationIconUrl?: string | null;
   androidNotificationIcon?: string | null;

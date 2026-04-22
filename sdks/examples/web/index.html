@@ -256,6 +256,14 @@
             <input id="externalUserId" value="demo-web-user-001" />
           </div>
           <div>
+            <label for="externalDeviceId">External Device ID</label>
+            <input id="externalDeviceId" value="demo-web-device-001" />
+          </div>
+          <div>
+            <label for="nickname">Display Name (optional)</label>
+            <input id="nickname" value="Jane Doe" />
+          </div>
+          <div>
             <label for="title">Test Title</label>
             <input id="title" value="Hello from NotifyX 👋" />
           </div>
@@ -553,6 +561,8 @@
           log("Step 1/4: Requesting notification permission...", null);
           const result = await instance.init({
             externalUserId: $("externalUserId").value.trim(),
+            externalDeviceId: $("externalDeviceId").value.trim() || undefined,
+            nickname: $("nickname").value.trim() || undefined,
           });
           log("Initialized successfully ✅", result);
         } catch (error) {

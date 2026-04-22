@@ -484,24 +484,40 @@ export const registerDevice = async (
     }
 
     let device;
+    const deviceIdentity = data.externalDeviceId?.trim() || undefined;
 
-    // When a deviceId is provided (e.g. on token refresh), update the existing
-    // device record in-place to prevent creating duplicates for the same
-    // physical device.
-    if (data.deviceId) {
-      const existing = await prisma.device.findUnique({
-        where: { id: data.deviceId },
-        include: { user: { select: { appId: true } } },
-      });
+    // Prefer client-managed externalDeviceId for subscription refreshes, then
+    // fall back to the internal device UUID for backwards compatibility.
+    const existing = deviceIdentity
+      ? await prisma.device.findFirst({
+          where: {
+            externalDeviceId: deviceIdentity,
+            user: { appId: user.appId },
+          },
+          select: { id: true },
+        } as any)
+      : data.deviceId
+        ? await prisma.device.findUnique({
+            where: { id: data.deviceId },
+            include: { user: { select: { appId: true } } },
+          })
+        : null;
 
-      if (existing && existing.user.appId === user.appId) {
+    const scopedExisting =
+      existing as ({ id: string; user?: { appId: string } } & Record<string, unknown>) | null;
+
+    if (
+      scopedExisting &&
+      (!scopedExisting.user || scopedExisting.user.appId === user.appId)
+    ) {
         device = await prisma.device.update({
-          where: { id: data.deviceId },
+          where: { id: scopedExisting.id },
           data: {
             userId: data.userId,
             platform: data.platform,
             pushToken: encryptedPushToken,
             tokenHash: tokenHashed,
+            ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
             isActive: true,
             lastSeenAt: new Date(),
           },
@@ -521,10 +537,9 @@ export const registerDevice = async (
             deactivationReason: "token_transferred",
           },
         });
-      }
-      // If deviceId was invalid or belongs to another app, fall through to
-      // the normal upsert path below (graceful degradation).
     }
+    // If the supplied identity was invalid or belongs to another app, fall
+    // through to the normal upsert path below (graceful degradation).
 
     if (!device) {
       try {
@@ -538,6 +553,7 @@ export const registerDevice = async (
           update: {
             userId: data.userId, // Reassign
             pushToken: encryptedPushToken,
+            ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
             isActive: true,
             lastSeenAt: new Date(),
           },
@@ -547,6 +563,7 @@ export const registerDevice = async (
             pushToken: encryptedPushToken,
             tokenHash: tokenHashed,
             provider: data.provider,
+            ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
             isActive: true,
           },
         });
@@ -572,6 +589,7 @@ export const registerDevice = async (
               userId: data.userId,
               platform: data.platform,
               pushToken: encryptedPushToken,
+              ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
               isActive: true,
               lastSeenAt: new Date(),
             },
@@ -584,6 +602,7 @@ export const registerDevice = async (
               pushToken: encryptedPushToken,
               tokenHash: tokenHashed,
               provider: data.provider,
+              ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
               isActive: true,
             },
           });
@@ -592,14 +611,19 @@ export const registerDevice = async (
     }
 
     // Return device without exposing encrypted token
+    const responseDevice = device as typeof device & {
+      externalDeviceId?: string | null;
+    };
+
     sendSuccess(res, {
-      id: device.id,
-      userId: device.userId,
-      platform: device.platform,
-      provider: device.provider,
-      isActive: device.isActive,
-      lastSeenAt: device.lastSeenAt,
-      createdAt: device.createdAt,
+      id: responseDevice.id,
+      externalDeviceId: responseDevice.externalDeviceId ?? null,
+      userId: responseDevice.userId,
+      platform: responseDevice.platform,
+      provider: responseDevice.provider,
+      isActive: responseDevice.isActive,
+      lastSeenAt: responseDevice.lastSeenAt,
+      createdAt: responseDevice.createdAt,
     });
   } catch (error) {
     const err = error as { code?: string } | undefined;

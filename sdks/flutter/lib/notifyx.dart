@@ -188,6 +188,13 @@ class NotifyX {
             if (parsedActionId == actionId && parsedActionUrl != null) {
               return parsedActionUrl;
             }
+            if (
+              parsedActionId == actionId &&
+              parsedActionUrl == null &&
+              ['dismiss', 'mark_read', 'snooze'].contains(actionId)
+            ) {
+              return null;
+            }
           }
 
           final firstUrl = _toOptionalTrimmedString(action['url']);
@@ -216,8 +223,10 @@ class NotifyX {
   /// If [pushToken] is null, this will still register the user but not the device.
   Future<Map<String, dynamic>> init({
     required String externalUserId,
+    String? nickname,
     String? language,
     String? timezone,
+    String? externalDeviceId,
     String? pushToken,
     String? platform,
     String? provider,
@@ -226,6 +235,7 @@ class NotifyX {
 
     final user = await registerUser(
       externalUserId: externalUserId,
+      nickname: nickname,
       language: language,
       timezone: timezone,
     );
@@ -233,19 +243,31 @@ class NotifyX {
     NotifyXDevice? device;
     if (pushToken != null && platform != null && provider != null) {
       final existingState = await _stateManager.getState();
+      final existingExternalDeviceId =
+          existingState == null ? null : existingState['externalDeviceId']?.toString();
+      final existingDeviceId =
+          existingState == null ? null : existingState['deviceId']?.toString();
+      final resolvedExternalDeviceId =
+          externalDeviceId ?? existingExternalDeviceId;
       device = await registerDevice(
         userId: user.id,
         pushToken: pushToken,
         platform: platform,
         provider: provider,
-        deviceId: existingState?['deviceId']?.toString(),
+        externalDeviceId: resolvedExternalDeviceId,
+        deviceId: resolvedExternalDeviceId == null ? existingDeviceId : null,
       );
     }
+
+    final savedExternalDeviceId =
+        device?.externalDeviceId ?? externalDeviceId;
 
     final state = {
       'userId': user.id,
       'externalUserId': externalUserId,
       if (device != null) 'deviceId': device.id,
+      if (savedExternalDeviceId != null)
+        'externalDeviceId': savedExternalDeviceId,
       'initializedAt': DateTime.now().toIso8601String(),
     };
 
@@ -258,6 +280,7 @@ class NotifyX {
   /// Registers a user.
   Future<NotifyXUser> registerUser({
     required String externalUserId,
+    String? nickname,
     String? language,
     String? timezone,
   }) async {
@@ -267,6 +290,7 @@ class NotifyX {
       body: {
         'appId': appId,
         'externalUserId': externalUserId,
+        if (nickname != null) 'nickname': nickname,
         'language': language ?? 'en',
         'timezone': timezone ?? 'UTC',
       },
@@ -282,6 +306,7 @@ class NotifyX {
     required String pushToken,
     required String platform,
     required String provider,
+    String? externalDeviceId,
     String? deviceId,
   }) async {
     _log('Registering device ($provider) for user $userId');
@@ -292,6 +317,7 @@ class NotifyX {
         'pushToken': pushToken,
         'platform': platform,
         'provider': provider,
+        if (externalDeviceId != null) 'externalDeviceId': externalDeviceId,
         if (deviceId != null) 'deviceId': deviceId,
       },
     );
@@ -301,6 +327,11 @@ class NotifyX {
     // Update state to include deviceId if we have one
     final currentState = await _stateManager.getState() ?? {};
     currentState['deviceId'] = device.id;
+    if (device.externalDeviceId != null) {
+      currentState['externalDeviceId'] = device.externalDeviceId;
+    } else if (externalDeviceId != null) {
+      currentState['externalDeviceId'] = externalDeviceId;
+    }
     await _stateManager.saveState(currentState);
 
     return device;

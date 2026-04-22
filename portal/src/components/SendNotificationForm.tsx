@@ -72,9 +72,11 @@ const NOTIFICATION_TYPES = [
 import {
   CTA_TYPE_OPTIONS,
   type CtaType,
-  DEFAULT_CTA_TYPE,
+  DEFAULT_TAP_ACTION_TYPE,
+  getDefaultCtaLabel,
   getCtaValuePlaceholder,
 } from "../constants/cta";
+import { buildNotificationCtaPayload } from "../lib/notificationCta";
 
 type SendPlatform = (typeof SEND_PLATFORMS)[number];
 type NotifyType = (typeof NOTIFICATION_TYPES)[number];
@@ -97,8 +99,9 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     title: "",
     subtitle: "",
     body: "",
-    actionUrl: "",
-    ctaType: DEFAULT_CTA_TYPE as CtaType,
+    tapActionType: DEFAULT_TAP_ACTION_TYPE as CtaType,
+    tapActionValue: "",
+    ctaType: "none" as CtaType,
     ctaLabel: "",
     ctaValue: "",
     ctaTypeSecondary: "none" as CtaType,
@@ -450,11 +453,15 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       errors.push(tt("Select at least one platform."));
     }
     if (
-      formData.ctaType !== "open_app" &&
-      formData.ctaType !== "dismiss" &&
-      !formData.actionUrl.trim()
+      (formData.tapActionType === "open_url" ||
+        formData.tapActionType === "deep_link") &&
+      !formData.tapActionValue.trim()
     ) {
-      errors.push(tt("Default open-link URL is required."));
+      errors.push(
+        formData.tapActionType === "deep_link"
+          ? tt("Deep link URI is required.")
+          : tt("URL is required when tap action is Open URL."),
+      );
     }
     if (step === "test" && formData.testUserIds.length === 0) {
       errors.push(
@@ -473,9 +480,10 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
   }, [
     deliveryMode,
     formData.appId,
-    formData.actionUrl,
     formData.platforms.length,
     formData.scheduledLocal,
+    formData.tapActionType,
+    formData.tapActionValue,
     formData.testUserIds.length,
     readiness,
     step,
@@ -487,11 +495,12 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     : Boolean(formData.title.trim()) && Boolean(formData.body.trim());
 
   const needsActionUrl =
-    formData.ctaType !== "open_app" && formData.ctaType !== "dismiss";
+    formData.tapActionType === "open_url" ||
+    formData.tapActionType === "deep_link";
   const canSubmit =
     !!formData.appId &&
     hasRequiredContent &&
-    (!needsActionUrl || Boolean(formData.actionUrl.trim())) &&
+    (!needsActionUrl || Boolean(formData.tapActionValue.trim())) &&
     readinessErrors.length === 0 &&
     !isSubmitting;
 
@@ -598,61 +607,28 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     setIsSubmitting(true);
 
     try {
-      const defaultActionUrl = formData.actionUrl.trim();
-      if (formData.ctaType === "open_url" && !defaultActionUrl) {
-        throw new Error(tt("URL is required when action type is Open URL."));
-      }
-      if (formData.ctaType === "deep_link" && !defaultActionUrl) {
-        throw new Error(tt("Deep link URI is required."));
-      }
-
-      const ctaData: Record<string, string> = {};
-      const ctaCandidates = [
-        {
-          type: formData.ctaType,
-          label: formData.ctaLabel.trim(),
-          value: formData.ctaValue.trim(),
-          needsValue: Boolean(ctaNeedsValue),
-          dataSuffix: "",
-        },
-        ...(showSecondaryCta
-          ? [
-              {
-                type: formData.ctaTypeSecondary,
-                label: formData.ctaLabelSecondary.trim(),
-                value: formData.ctaValueSecondary.trim(),
-                needsValue: Boolean(secondaryCtaNeedsValue),
-                dataSuffix: "Secondary",
-              },
-            ]
-          : []),
-      ];
-
-      for (const cta of ctaCandidates) {
-        if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
-
-        if (!cta.label || !cta.value) {
-          throw new Error(
-            tt("CTA button label and URL are both required when enabled."),
-          );
-        }
-
-        ctaData[`ctaType${cta.dataSuffix}`] = cta.type;
-        ctaData[`ctaLabel${cta.dataSuffix}`] = cta.label;
-        ctaData[`ctaValue${cta.dataSuffix}`] = cta.value;
-      }
-
-      const actions = ctaCandidates
-        .filter((cta) => cta.type !== "none" && cta.label && cta.value)
-        .slice(0, 2)
-        .map((cta, index) => ({
-          action:
-            index === 0
-              ? ("open_link_primary" as const)
-              : ("open_link_secondary" as const),
-          title: cta.label,
-          url: cta.value,
-        }));
+      const ctaPayload = buildNotificationCtaPayload({
+        tapActionType: formData.tapActionType,
+        tapActionValue: formData.tapActionValue,
+        ctas: [
+          {
+            type: formData.ctaType,
+            label: formData.ctaLabel,
+            value: formData.ctaValue,
+            dataSuffix: "",
+          },
+          ...(showSecondaryCta
+            ? [
+                {
+                  type: formData.ctaTypeSecondary,
+                  label: formData.ctaLabelSecondary,
+                  value: formData.ctaValueSecondary,
+                  dataSuffix: "Secondary" as const,
+                },
+              ]
+            : []),
+        ],
+      });
 
       const sendAt =
         step === "live" &&
@@ -680,9 +656,10 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                 : undefined,
             body: selectedTemplateVariant ? undefined : formData.body,
             image: formData.image || undefined,
-            actionUrl: defaultActionUrl,
-            data: Object.keys(ctaData).length > 0 ? ctaData : undefined,
-            actions: actions.length > 0 ? actions : undefined,
+            tapActionType: ctaPayload.tapActionType,
+            actionUrl: ctaPayload.actionUrl,
+            data: ctaPayload.data,
+            actions: ctaPayload.actions,
             priority: formData.priority,
             userIds: targetUserIds.length > 0 ? targetUserIds : undefined,
             platforms:
@@ -1134,23 +1111,17 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                   </label>
                   <Select
                     className={inputClass}
-                    value={formData.ctaType}
+                    value={formData.tapActionType}
                     onChange={(e) => {
                       const newType = e.target.value as CtaType;
-                      const noUrl = newType === "open_app" || newType === "dismiss" || newType === "none";
                       setFormData((prev) => ({
                         ...prev,
-                        ctaType: newType,
-                        ...(noUrl && {
-                          actionUrl: "",
-                          ctaValue: "",
-                          ctaLabel: "",
-                          ctaLabelSecondary: "",
-                          ctaValueSecondary: "",
-                          ctaTypeSecondary: "none" as CtaType,
-                        }),
+                        tapActionType: newType,
+                        ...(CTA_TYPE_OPTIONS.find((option) => option.value === newType)
+                          ?.needsValue
+                          ? {}
+                          : { tapActionValue: "" }),
                       }));
-                      if (noUrl) setShowSecondaryCta(false);
                     }}
                   >
                     {CTA_TYPE_OPTIONS.map((option) => (
@@ -1160,89 +1131,123 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     ))}
                   </Select>
                 </div>
-                {formData.ctaType === "open_url" || formData.ctaType === "deep_link" ? (
+                {formData.tapActionType === "open_url" ||
+                formData.tapActionType === "deep_link" ? (
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                      {formData.ctaType === "deep_link" ? tt("Deep Link URI") : tt("URL")}
+                      {formData.tapActionType === "deep_link"
+                        ? tt("Deep Link URI")
+                        : tt("URL")}
                     </label>
                     <input
-                      type={formData.ctaType === "open_url" ? "url" : "text"}
+                      type={formData.tapActionType === "open_url" ? "url" : "text"}
                       className={inputClass}
-                      value={formData.actionUrl || formData.ctaValue}
+                      value={formData.tapActionValue}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          actionUrl: e.target.value,
-                          ctaValue: e.target.value,
+                          tapActionValue: e.target.value,
                         }))
                       }
-                      placeholder={getCtaValuePlaceholder(formData.ctaType)}
+                      placeholder={getCtaValuePlaceholder(formData.tapActionType)}
                     />
                   </div>
                 ) : null}
               </div>
-              {formData.ctaType === "open_app" && (
+              {formData.tapActionType === "open_app" && (
                 <p className="mt-2 text-xs text-slate-400">
-                  {tt("Tapping opens your app to its default screen.")}
+                  {tt("Tapping uses the app default action from App Settings.")}
                 </p>
               )}
-              {formData.ctaType === "dismiss" && (
+              {formData.tapActionType === "dismiss" && (
                 <p className="mt-2 text-xs text-slate-400">
                   {tt("Notification is dismissed without opening the app.")}
                 </p>
               )}
+              {formData.tapActionType === "none" && (
+                <p className="mt-2 text-xs text-slate-400">
+                  {tt("No tap action will run when the notification body is pressed.")}
+                </p>
+              )}
             </div>
 
-            {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
-              <>
-                {/* Optional CTA Buttons */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                  <p className="mb-1 text-sm font-semibold text-slate-700">
-                    {tt("Action Buttons")}
-                    <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
-                  </p>
-                  <p className="mb-3 text-xs text-slate-500">
-                    {tt("Extra buttons shown on the expanded notification (up to 2).")}
-                  </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                        {tt("Button Label")}
-                      </label>
-                      <input
-                        type="text"
-                        className={inputClass}
-                        value={formData.ctaLabel}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            ctaLabel: e.target.value,
-                          }))
-                        }
-                        placeholder={tt("e.g. View Details")}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                        {tt("Button URL")}
-                      </label>
-                      <input
-                        type="url"
-                        className={inputClass}
-                        value={formData.ctaValue}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            ctaValue: e.target.value,
-                          }))
-                        }
-                        placeholder="https://..."
-                      />
-                    </div>
+            <>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                <p className="mb-1 text-sm font-semibold text-slate-700">
+                  {tt("Action Buttons")}
+                  <span className="ml-1.5 text-xs font-normal text-slate-400">{tt("optional")}</span>
+                </p>
+                <p className="mb-3 text-xs text-slate-500">
+                  {tt("Extra buttons shown on the expanded notification (up to 2).")}
+                </p>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                      {tt("CTA Type")}
+                    </label>
+                    <Select
+                      className={inputClass}
+                      value={formData.ctaType}
+                      onChange={(e) => {
+                        const nextType = e.target.value as CtaType;
+                        setFormData((prev) => ({
+                          ...prev,
+                          ctaType: nextType,
+                          ctaLabel: getDefaultCtaLabel(nextType),
+                          ...(CTA_TYPE_OPTIONS.find((option) => option.value === nextType)
+                            ?.needsValue
+                            ? {}
+                            : { ctaValue: "" }),
+                        }));
+                      }}
+                    >
+                      {CTA_TYPE_OPTIONS.map((option) => (
+                        <option key={`primary-${option.value}`} value={option.value}>
+                          {getCtaTypeLabel(option.value)}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                      {tt("CTA Label")}
+                    </label>
+                    <input
+                      type="text"
+                      className={inputClass}
+                      value={formData.ctaLabel}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ctaLabel: e.target.value,
+                        }))
+                      }
+                      placeholder={tt(getDefaultCtaLabel(formData.ctaType) || "CTA label")}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                      {formData.ctaType === "deep_link" ? tt("CTA URI") : tt("CTA URL")}
+                    </label>
+                    <input
+                      type={formData.ctaType === "open_url" ? "url" : "text"}
+                      className={inputClass}
+                      value={formData.ctaValue}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ctaValue: e.target.value,
+                        }))
+                      }
+                      disabled={!ctaNeedsValue}
+                      placeholder={getCtaValuePlaceholder(formData.ctaType)}
+                    />
                   </div>
                 </div>
+              </div>
 
-                {showSecondaryCta ? (
+              {showSecondaryCta ? (
                   <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm font-semibold text-slate-700">
@@ -1273,12 +1278,18 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                         <Select
                           className={inputClass}
                           value={formData.ctaTypeSecondary}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const nextType = e.target.value as CtaType;
                             setFormData((prev) => ({
                               ...prev,
-                              ctaTypeSecondary: e.target.value as CtaType,
-                            }))
-                          }
+                              ctaTypeSecondary: nextType,
+                              ctaLabelSecondary: getDefaultCtaLabel(nextType),
+                              ...(CTA_TYPE_OPTIONS.find((option) => option.value === nextType)
+                                ?.needsValue
+                                ? {}
+                                : { ctaValueSecondary: "" }),
+                            }));
+                          }}
                         >
                           {CTA_TYPE_OPTIONS.map((option) => (
                             <option
@@ -1304,15 +1315,21 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                               ctaLabelSecondary: e.target.value,
                             }))
                           }
-                          placeholder={tt("Learn more")}
+                          placeholder={tt(getDefaultCtaLabel(formData.ctaTypeSecondary) || "Learn more")}
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-2">
-                          {tt("CTA URL")}
+                          {formData.ctaTypeSecondary === "deep_link"
+                            ? tt("CTA URI")
+                            : tt("CTA URL")}
                         </label>
                         <input
-                          type="url"
+                          type={
+                            formData.ctaTypeSecondary === "open_url"
+                              ? "url"
+                              : "text"
+                          }
                           className={inputClass}
                           value={formData.ctaValueSecondary}
                           onChange={(e) =>
@@ -1322,9 +1339,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                             }))
                           }
                           disabled={!secondaryCtaNeedsValue}
-                          placeholder={tt(
-                            getCtaValuePlaceholder(formData.ctaTypeSecondary),
-                          )}
+                          placeholder={getCtaValuePlaceholder(formData.ctaTypeSecondary)}
                         />
                       </div>
                     </div>
@@ -1339,8 +1354,7 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                     {tt("Add second CTA button")}
                   </button>
                 )}
-              </>
-            )}
+            </>
           </div>
 
           <div>
@@ -1724,18 +1738,25 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                 tt("NotifyX")
               }
               image={formData.image || undefined}
-              ctaUrl={formData.actionUrl.trim() || undefined}
+              ctaUrl={
+                (formData.tapActionValue.trim() ||
+                  apps.find((a) => a.id === formData.appId)?.defaultTapActionValue ||
+                  undefined)
+              }
               ctaActions={[
                 {
                   type: formData.ctaType,
-                  label: formData.ctaLabel.trim(),
+                  label:
+                    formData.ctaLabel.trim() || getDefaultCtaLabel(formData.ctaType),
                   value: ctaNeedsValue ? formData.ctaValue.trim() : "",
                 },
                 ...(showSecondaryCta
                   ? [
                       {
                         type: formData.ctaTypeSecondary,
-                        label: formData.ctaLabelSecondary.trim(),
+                        label:
+                          formData.ctaLabelSecondary.trim() ||
+                          getDefaultCtaLabel(formData.ctaTypeSecondary),
                         value: secondaryCtaNeedsValue
                           ? formData.ctaValueSecondary.trim()
                           : "",
