@@ -1,6 +1,7 @@
 library notifyx;
 
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'src/api_client.dart';
@@ -8,6 +9,20 @@ import 'src/state_manager.dart';
 import 'src/models.dart';
 
 export 'src/models.dart';
+
+/// RFC4122 v4 UUID used to mint a stable, client-managed device identity that
+/// survives push-token rotation, keeping a device's history on a single record.
+String _generateUuid() {
+  final rng = Random();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replaceAllMapped(
+    RegExp(r'[xy]'),
+    (match) {
+      final r = rng.nextInt(16);
+      final v = match.group(0) == 'x' ? r : (r & 0x3) | 0x8;
+      return v.toRadixString(16);
+    },
+  );
+}
 
 class NotifyX {
   static const MethodChannel _apnsChannel = MethodChannel('notifyx/apns');
@@ -224,6 +239,7 @@ class NotifyX {
   Future<Map<String, dynamic>> init({
     required String externalUserId,
     String? nickname,
+    String? phone,
     String? language,
     String? timezone,
     String? externalDeviceId,
@@ -236,33 +252,37 @@ class NotifyX {
     final user = await registerUser(
       externalUserId: externalUserId,
       nickname: nickname,
+      phone: phone,
       language: language,
       timezone: timezone,
     );
 
+    final existingState = await _stateManager.getState();
+    final existingExternalDeviceId = existingState == null
+        ? null
+        : existingState['externalDeviceId']?.toString();
+
     NotifyXDevice? device;
+    // Always anchor to a stable externalDeviceId so token refreshes update the
+    // same device record (continuous history) instead of creating a new row.
+    String? resolvedExternalDeviceId =
+        externalDeviceId ?? existingExternalDeviceId;
     if (pushToken != null && platform != null && provider != null) {
-      final existingState = await _stateManager.getState();
-      final existingExternalDeviceId =
-          existingState == null ? null : existingState['externalDeviceId']?.toString();
-      final existingDeviceId =
-          existingState == null ? null : existingState['deviceId']?.toString();
-      final resolvedExternalDeviceId =
-          externalDeviceId ?? existingExternalDeviceId;
+      resolvedExternalDeviceId ??= _generateUuid();
       device = await registerDevice(
         userId: user.id,
         pushToken: pushToken,
         platform: platform,
         provider: provider,
         externalDeviceId: resolvedExternalDeviceId,
-        deviceId: resolvedExternalDeviceId == null ? existingDeviceId : null,
       );
     }
 
     final savedExternalDeviceId =
-        device?.externalDeviceId ?? externalDeviceId;
+        device?.externalDeviceId ?? resolvedExternalDeviceId;
 
     final state = {
+      ...?existingState,
       'userId': user.id,
       'externalUserId': externalUserId,
       if (device != null) 'deviceId': device.id,
@@ -281,6 +301,7 @@ class NotifyX {
   Future<NotifyXUser> registerUser({
     required String externalUserId,
     String? nickname,
+    String? phone,
     String? language,
     String? timezone,
   }) async {
@@ -291,6 +312,7 @@ class NotifyX {
         'appId': appId,
         'externalUserId': externalUserId,
         if (nickname != null) 'nickname': nickname,
+        if (phone != null) 'phone': phone,
         'language': language ?? 'en',
         'timezone': timezone ?? 'UTC',
       },
@@ -335,6 +357,104 @@ class NotifyX {
     await _stateManager.saveState(currentState);
 
     return device;
+  }
+
+  /// Returns the persisted, client-managed device identity, creating and saving
+  /// one on first use. This anchors a single device record (and a continuous
+  /// notification history) across push-token rotations.
+  Future<String> getOrCreateExternalDeviceId() async {
+    final state = await _stateManager.getState() ?? {};
+    final existing = state['externalDeviceId']?.toString();
+    if (existing != null && existing.trim().isNotEmpty) return existing;
+
+    final externalDeviceId = _generateUuid();
+    state['externalDeviceId'] = externalDeviceId;
+    await _stateManager.saveState(Map<String, dynamic>.from(state));
+    _log('Generated stable externalDeviceId', externalDeviceId);
+    return externalDeviceId;
+  }
+
+  /// Re-register the current device with a fresh push token. Call this from your
+  /// FCM `onTokenRefresh` / APNs token-update handler so NotifyX never holds a
+  /// stale token. Reuses the persisted user + stable externalDeviceId, so the
+  /// same device record is updated and the server clears any prior invalid-token
+  /// deactivation. Returns null if the SDK has not been initialized yet.
+  Future<NotifyXDevice?> updatePushToken({
+    required String pushToken,
+    required String platform,
+    required String provider,
+  }) async {
+    final state = await _stateManager.getState();
+    final userId = state?['userId']?.toString();
+    if (userId == null) {
+      _log('updatePushToken called before init(); ignoring.');
+      return null;
+    }
+
+    final externalDeviceId = await getOrCreateExternalDeviceId();
+    _log('Updating push token for stable device', externalDeviceId);
+    return registerDevice(
+      userId: userId,
+      pushToken: pushToken,
+      platform: platform,
+      provider: provider,
+      externalDeviceId: externalDeviceId,
+    );
+  }
+
+  /// Fetch this user's notification history. Queries by userId so it aggregates
+  /// across every device the user has ever had — robust even if older token
+  /// rotations fragmented history across multiple device records.
+  Future<Map<String, dynamic>> getHistory({
+    int page = 1,
+    int limit = 20,
+    String? type,
+    String? provider,
+    String? deliveryStatus,
+    String? from,
+    String? to,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
+    final state = await _stateManager.getState();
+    final externalUserId = state?['externalUserId']?.toString();
+    if (externalUserId == null) {
+      throw Exception('No registered user found. Call init() before getHistory().');
+    }
+
+    final safePage = page > 0 ? page : 1;
+    final safeLimit = limit > 0 ? (limit > 100 ? 100 : limit) : 20;
+
+    final query = <String, String>{
+      'appId': appId,
+      'userId': externalUserId,
+      'page': safePage.toString(),
+      'limit': safeLimit.toString(),
+      if (type != null) 'type': type,
+      if (provider != null) 'provider': provider,
+      if (deliveryStatus != null) 'deliveryStatus': deliveryStatus,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+      if (sortBy != null) 'sortBy': sortBy,
+      if (sortOrder != null) 'sortOrder': sortOrder,
+    };
+
+    final response = await _apiClient.get(
+      '/api/v1/notifications/history',
+      query: query,
+    );
+
+    final data = response['data'];
+    final total = response['totalCount'] is int ? response['totalCount'] as int : 0;
+    return {
+      'items': data is List ? data : <dynamic>[],
+      'pagination': {
+        'page': safePage,
+        'limit': safeLimit,
+        'total': total,
+        'totalPages': (total / safeLimit).ceil().clamp(1, 1 << 31),
+      },
+    };
   }
 
   /// Sends a test notification to the currently registered device.

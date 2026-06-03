@@ -16,6 +16,7 @@ import {
 import { getRedisClient } from "../services/redis";
 import { chooseABTestFanoutStrategy } from "../services/abTestFanout";
 import { processExecution } from "../services/automation-engine";
+import { reconcileSendingCampaigns } from "../services/campaignFinalizer";
 
 // Poll interval in milliseconds
 const POLL_INTERVAL = parseInt(process.env.SCHEDULER_POLL_INTERVAL || "10000"); // 10 seconds
@@ -570,13 +571,21 @@ async function tick(): Promise<void> {
   }
 
   try {
-    const [notifCount, recoveredQueuedCount, campaignCount, testCount, automationCount] =
-      await Promise.all([
+    const [
+      notifCount,
+      recoveredQueuedCount,
+      campaignCount,
+      testCount,
+      automationCount,
+      finalizedCampaignCount,
+    ] = await Promise.all([
       processScheduledNotifications(),
       recoverStaleQueuedNotifications(),
       processScheduledCampaigns(),
       processScheduledABTests(),
       processDueAutomationExecutions(),
+      // Self-healing sweep: complete campaigns whose notifications all finished.
+      reconcileSendingCampaigns(),
     ]);
 
     // Periodic cleanup tasks (non-blocking — errors don't fail the tick)
@@ -590,13 +599,15 @@ async function tick(): Promise<void> {
       recoveredQueuedCount > 0 ||
       campaignCount > 0 ||
       testCount > 0 ||
-      automationCount > 0
+      automationCount > 0 ||
+      finalizedCampaignCount > 0
     ) {
       console.log(
         `[Scheduler] Tick complete: ${notifCount} scheduled notifications, ` +
           `${recoveredQueuedCount} recovered queued notifications, ` +
           `${campaignCount} campaigns, ${testCount} A/B tests, ` +
-          `${automationCount} automation executions`,
+          `${automationCount} automation executions, ` +
+          `${finalizedCampaignCount} campaigns finalized`,
       );
     }
   } catch (error) {

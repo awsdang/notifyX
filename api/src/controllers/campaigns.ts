@@ -19,6 +19,7 @@ import {
   parseCampaignTargetingData,
 } from "../utils/campaignTargeting";
 import { normalizeOpenLinkCta } from "../utils/cta";
+import { mapDeliveryBreakdown } from "../services/campaignFinalizer";
 
 function assertAppAccess(req: Request, appId: string): void {
   if (!canAccessAppId(req, appId)) {
@@ -590,25 +591,33 @@ export const getCampaignStats = async (
 
     const notificationIds = notifications.map((n) => n.id);
 
-    const deliveryStats = await prisma.notificationDelivery.groupBy({
-      by: ["status"],
-      where: { notificationId: { in: notificationIds } },
-      _count: true,
-    });
+    const deliveryStats =
+      notificationIds.length > 0
+        ? await prisma.notificationDelivery.groupBy({
+            by: ["status"],
+            where: { notificationId: { in: notificationIds } },
+            _count: true,
+          })
+        : [];
+
+    // Compute stats LIVE from the source of truth (NotificationDelivery rows).
+    // The denormalized Campaign.{sent,delivered,failed}Count fields are only a
+    // final snapshot written at completion, so reading them mid-flight (or for
+    // any campaign that finished before this fix) shows stale zeros.
+    const counts = mapDeliveryBreakdown(
+      deliveryStats.map((s) => ({
+        status: s.status,
+        count: s._count as unknown as number,
+      })),
+    );
 
     const stats = {
       total: campaign.totalTargets,
       processed: campaign.processedCount,
-      sent: campaign.sentCount,
-      delivered: campaign.deliveredCount,
-      failed: campaign.failedCount,
-      deliveryBreakdown: deliveryStats.reduce(
-        (acc, s) => {
-          acc[s.status] = s._count;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
+      sent: counts.sent,
+      delivered: counts.delivered,
+      failed: counts.failed,
+      deliveryBreakdown: counts.breakdown,
     };
 
     sendSuccess(res, {

@@ -25,6 +25,7 @@ import {
 } from "../services/push-providers";
 import { addToDeadLetterQueue } from "../services/deadLetterQueue";
 import { processCampaignExplosion } from "./campaignExplosion";
+import { finalizeCampaignIfComplete } from "../services/campaignFinalizer";
 import type { NotificationPayload } from "../interfaces/workers/notification";
 import { decryptTokenIfNeeded } from "../utils/crypto";
 import { resolvePushMessageIcons, withAppIconData } from "../utils/appIcons";
@@ -291,6 +292,7 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
     image: image || undefined,
     icon: messageIcons.icon,
     androidIcon: messageIcons.androidIcon,
+    androidChannelId: payload.adhocContent?.androidChannelId || undefined,
     actionUrl: actionUrl || undefined,
     actions: actions.length > 0 ? actions : undefined,
     data: withAppIconData(
@@ -444,6 +446,16 @@ async function tryFinalizeNotification(notificationId: string): Promise<void> {
         `notif:${notificationId}:failed`,
       )
       .catch(() => {});
+
+    // Roll completion up to the parent campaign (if any). The last
+    // notification to finalize transitions the campaign SENDING → COMPLETED.
+    const finalized = await prisma.notification.findUnique({
+      where: { id: notificationId },
+      select: { campaignId: true },
+    });
+    if (finalized?.campaignId) {
+      await finalizeCampaignIfComplete(finalized.campaignId).catch(() => {});
+    }
   } catch (error) {
     // Non-critical — log and move on; a periodic cleanup job can fix orphans
     console.error(

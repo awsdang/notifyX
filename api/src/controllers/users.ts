@@ -4,6 +4,7 @@ import {
   registerUserSchema,
   registerDeviceSchema,
   updateUserNicknameSchema,
+  setTestFavouritesSchema,
 } from "../schemas/users";
 import { AppError, sendSuccess } from "../utils/response";
 import { hashToken, encryptToken } from "../utils/crypto";
@@ -13,6 +14,11 @@ import { triggerAutomation } from "../services/automation-engine";
 
 const normalizeNickname = (nickname?: string | null) => {
   const trimmed = nickname?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const normalizePhone = (phone?: string | null) => {
+  const trimmed = phone?.trim();
   return trimmed ? trimmed : null;
 };
 
@@ -59,6 +65,19 @@ export const getUsers = async (
           },
         },
       ];
+    }
+    // Restrict to users that have at least one deliverable device — used by the
+    // notification target pickers so they only paginate over reachable users.
+    if (req.query.withDevices === "true") {
+      where.devices = { some: { isActive: true, tokenInvalidAt: null } };
+    }
+    // Favourite ("test") user filter. `true` -> only favourites (loaded first
+    // in the target pickers); `false` -> only the rest (the "load other users"
+    // page). Absent -> all users.
+    if (req.query.isTestUser === "true") {
+      where.isTestUser = true;
+    } else if (req.query.isTestUser === "false") {
+      where.isTestUser = false;
     }
 
     const [users, total] = await Promise.all([
@@ -277,15 +296,26 @@ export const deactivateDevice = async (
         .json({ error: true, message: "API key is not scoped to this app", data: null });
     }
 
-    await prisma.user.delete({
-      where: { id: existing.user.id },
+    // Deactivate ONLY this device. Never delete the user here — doing so
+    // cascade-deletes every other device and the user's entire notification
+    // history. Sending stops for this token because the worker filters on
+    // { isActive: true }, while history (NotificationDelivery) is preserved.
+    const device = await prisma.device.update({
+      where: { id: existing.id },
+      data: {
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedBy: req.adminUser?.id ?? req.machineAuth?.keyId ?? null,
+        deactivationReason: "MANUAL_DEACTIVATION",
+      },
     });
 
     await Promise.all([invalidateCache("/devices"), invalidateCache("/users")]);
     sendSuccess(res, {
-      deleted: true,
-      deviceId: existing.id,
+      deactivated: true,
+      deviceId: device.id,
       userId: existing.user.id,
+      isActive: device.isActive,
     });
   } catch (error) {
     next(error);
@@ -383,6 +413,66 @@ export const deleteUser = async (
   }
 };
 
+// Replace the set of favourite ("test") users for an app. Any user not in the
+// provided list is unflagged; everyone in it is flagged. Used by the Users &
+// Devices page; surfaced first in every test-target picker.
+export const setTestFavourites = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { appId, externalUserIds } = setTestFavouritesSchema.parse(req.body);
+
+    if (!canAccessAppId(req, appId)) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
+    if (req.machineAuth && req.machineAuth.appId !== appId) {
+      throw new AppError(403, "API key is not scoped to this app", "FORBIDDEN");
+    }
+
+    // De-dupe and drop blanks.
+    const ids = Array.from(
+      new Set(
+        externalUserIds
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+
+    await prisma.$transaction([
+      // Unflag any current favourite that is no longer in the list.
+      prisma.user.updateMany({
+        where: { appId, isTestUser: true, externalUserId: { notIn: ids } },
+        data: { isTestUser: false },
+      }),
+      // Flag everyone in the list (no-op for ids that don't exist).
+      ...(ids.length > 0
+        ? [
+            prisma.user.updateMany({
+              where: { appId, externalUserId: { in: ids } },
+              data: { isTestUser: true },
+            }),
+          ]
+        : []),
+    ]);
+
+    // Return the canonical, persisted set (only ids that actually exist).
+    const favourites = await prisma.user.findMany({
+      where: { appId, isTestUser: true, deletedAt: null },
+      select: { externalUserId: true },
+    });
+
+    await invalidateCache("/users");
+    sendSuccess(res, {
+      appId,
+      externalUserIds: favourites.map((u) => u.externalUserId),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const registerUser = async (
   req: Request,
   res: Response,
@@ -405,6 +495,9 @@ export const registerUser = async (
         ...(data.nickname !== undefined
           ? { nickname: normalizeNickname(data.nickname) }
           : {}),
+        ...(data.phone !== undefined
+          ? { phone: normalizePhone(data.phone) }
+          : {}),
       },
       create: {
         appId: data.appId,
@@ -412,6 +505,7 @@ export const registerUser = async (
         language: data.language ?? "en",
         timezone: data.timezone ?? "UTC",
         nickname: normalizeNickname(data.nickname),
+        phone: normalizePhone(data.phone),
       },
     });
 
@@ -486,6 +580,23 @@ export const registerDevice = async (
     let device;
     const deviceIdentity = data.externalDeviceId?.trim() || undefined;
 
+    // Whenever a device (re-)registers with a fresh token we must clear any
+    // prior invalidation/deactivation state. The delivery worker only targets
+    // devices where { isActive: true, tokenInvalidAt: null }, so leaving these
+    // fields set after a token refresh permanently excludes a perfectly valid
+    // device from all future sends (the classic "stopped getting pushes and
+    // never recovered" failure).
+    const reactivationFields = {
+      isActive: true,
+      tokenInvalidAt: null,
+      tokenExpiresAt: null,
+      deactivatedAt: null,
+      deactivatedBy: null,
+      deactivationReason: null,
+      deactivationNote: null,
+      lastSeenAt: new Date(),
+    };
+
     // Prefer client-managed externalDeviceId for subscription refreshes, then
     // fall back to the internal device UUID for backwards compatibility.
     const existing = deviceIdentity
@@ -515,11 +626,11 @@ export const registerDevice = async (
           data: {
             userId: data.userId,
             platform: data.platform,
+            provider: data.provider,
             pushToken: encryptedPushToken,
             tokenHash: tokenHashed,
             ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
-            isActive: true,
-            lastSeenAt: new Date(),
+            ...reactivationFields,
           },
         });
 
@@ -552,10 +663,10 @@ export const registerDevice = async (
           },
           update: {
             userId: data.userId, // Reassign
+            platform: data.platform,
             pushToken: encryptedPushToken,
             ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
-            isActive: true,
-            lastSeenAt: new Date(),
+            ...reactivationFields,
           },
           create: {
             userId: data.userId,
@@ -588,10 +699,10 @@ export const registerDevice = async (
             data: {
               userId: data.userId,
               platform: data.platform,
+              provider: data.provider,
               pushToken: encryptedPushToken,
               ...(deviceIdentity ? { externalDeviceId: deviceIdentity } : {}),
-              isActive: true,
-              lastSeenAt: new Date(),
+              ...reactivationFields,
             },
           });
         } else {
