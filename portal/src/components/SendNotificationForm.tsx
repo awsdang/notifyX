@@ -17,8 +17,8 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useScopedTranslation } from "../context/I18nContext";
-import { getUserIdentityLabel } from "../lib/userIdentity";
-import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
+import { getUserDisplayLabel } from "../lib/userIdentity";
+import { PaginatedUserMultiSelect } from "./ui/PaginatedUserMultiSelect";
 import {
   applyTemplateVariables,
   buildTemplateVariablePayload,
@@ -151,13 +151,6 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
   const [isCheckingReadiness, setIsCheckingReadiness] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const {
-    allUsers: subscribedUsers,
-    testTargetUsers,
-    hasCustomTestTargetUsers,
-    isLoading: isLoadingUsers,
-    error: usersLoadError,
-  } = useAppTestTargetUsers(formData.appId, token);
 
   const formId = "send-notification-form";
   const getNotificationTypeLabel = (value: NotifyType) => {
@@ -186,8 +179,12 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
     return tt(`platform_${platform}`, undefined, defaults[platform]);
   };
 
-  const getTargetUserOptionLabel = (user: (typeof subscribedUsers)[number]) =>
-    `${getUserIdentityLabel(user)} (${user.devicesCount} devices)`;
+  const getTargetUserOptionLabel = (user: {
+    externalUserId: string;
+    nickname?: string | null;
+    phone?: string | null;
+    devicesCount: number;
+  }) => `${getUserDisplayLabel(user)} (${user.devicesCount} devices)`;
 
   useEffect(() => {
     if (step === "test") {
@@ -255,32 +252,6 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
       mounted = false;
     };
   }, [formData.appId, token]);
-
-  useEffect(() => {
-    const allUserIds = new Set(subscribedUsers.map((user) => user.externalUserId));
-    const testUserIds = new Set(testTargetUsers.map((user) => user.externalUserId));
-
-    setFormData((prev) => {
-      const nextUserIds = prev.userIds.filter((id) => allUserIds.has(id));
-      const nextTestUserIds = prev.testUserIds.filter((id) => testUserIds.has(id));
-      const userIdsChanged =
-        nextUserIds.length !== prev.userIds.length ||
-        nextUserIds.some((id, index) => id !== prev.userIds[index]);
-      const testUserIdsChanged =
-        nextTestUserIds.length !== prev.testUserIds.length ||
-        nextTestUserIds.some((id, index) => id !== prev.testUserIds[index]);
-
-      if (!userIdsChanged && !testUserIdsChanged) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        userIds: nextUserIds,
-        testUserIds: nextTestUserIds,
-      };
-    });
-  }, [subscribedUsers, testTargetUsers]);
 
   useEffect(() => {
     if (!formData.appId || !token) {
@@ -1447,48 +1418,29 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
 
             {step === "test" ? (
               <div>
-                <label className="block text-xs font-semibold mb-2">
-                  {tt("Target User IDs (required)")}
-                </label>
-                <select
-                  multiple
-                  className="w-full min-h-36 border border-slate-200 rounded-lg p-2 text-sm bg-white"
+                <PaginatedUserMultiSelect
+                  appId={formData.appId}
+                  token={token}
+                  label={tt("Target User IDs (required)")}
+                  required
                   value={formData.testUserIds}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      testUserIds: Array.from(e.target.selectedOptions).map(
-                        (option) => option.value,
-                      ),
-                    }))
+                  onChange={(ids) =>
+                    setFormData((prev) => ({ ...prev, testUserIds: ids }))
                   }
-                >
-                  {testTargetUsers.length === 0 ? (
-                    <option disabled value="">
-                      {isLoadingUsers
-                        ? tt("Loading users...")
-                        : hasCustomTestTargetUsers
-                          ? tt("No preferred test users available for this app.")
-                          : tt("No users with active devices")}
-                    </option>
-                  ) : (
-                    testTargetUsers.map((user) => (
-                      <option
-                        key={user.externalUserId}
-                        value={user.externalUserId}
-                      >
-                        {getTargetUserOptionLabel(user)}
-                      </option>
-                    ))
+                  favouritesFirst
+                  withDevices
+                  formatLabel={getTargetUserOptionLabel}
+                  favouritesLabel={tt("Favourite test users")}
+                  loadOthersLabel={tt("Load other users")}
+                  loadingText={tt("Loading users...")}
+                  emptyText={tt("No users with active devices")}
+                  placeholder={tt("Search users by ID or nickname...")}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {tt(
+                    "Favourite test users (set in Users & Devices) load first. Use \"Load other users\" to pick anyone else.",
                   )}
-                </select>
-                {hasCustomTestTargetUsers && (
-                  <p className="mt-2 text-xs text-emerald-800">
-                    {tt(
-                      "Showing only preferred test users configured in Users & Devices.",
-                    )}
-                  </p>
-                )}
+                </p>
               </div>
             ) : (
               <div>
@@ -1504,26 +1456,19 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
                 </button>
                 {showTargetUsers && (
                   <div className="mt-3">
-                    <select
-                      multiple
-                      className="w-full min-h-36 border border-slate-200 rounded-lg p-2 text-sm bg-white"
+                    <PaginatedUserMultiSelect
+                      appId={formData.appId}
+                      token={token}
                       value={formData.userIds}
-                      onChange={(e) => {
-                        const selected = Array.from(
-                          e.target.selectedOptions,
-                        ).map((option) => option.value);
-                        setFormData((prev) => ({ ...prev, userIds: selected }));
-                      }}
-                    >
-                      {subscribedUsers.map((user) => (
-                        <option
-                          key={user.externalUserId}
-                          value={user.externalUserId}
-                        >
-                          {getTargetUserOptionLabel(user)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(ids) =>
+                        setFormData((prev) => ({ ...prev, userIds: ids }))
+                      }
+                      withDevices
+                      formatLabel={getTargetUserOptionLabel}
+                      loadingText={tt("Loading users...")}
+                      emptyText={tt("No users with active devices")}
+                      placeholder={tt("Search users by ID or nickname...")}
+                    />
                     <p className="mt-2 text-xs text-slate-600">
                       {tt("Leave empty to broadcast to all subscribed users.")}
                     </p>
@@ -1532,14 +1477,6 @@ export function SendNotificationForm({ apps }: SendNotificationFormProps) {
               </div>
             )}
 
-            {isLoadingUsers && (
-              <p className="text-xs text-slate-500 mt-2">
-                {tt("Loading subscribed users...")}
-              </p>
-            )}
-            {usersLoadError && (
-              <p className="text-xs text-rose-600 mt-2">{usersLoadError}</p>
-            )}
 
             {step === "live" &&
               (!showTargetUsers || formData.userIds.length === 0) &&

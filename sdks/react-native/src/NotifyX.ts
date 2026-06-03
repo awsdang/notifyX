@@ -6,7 +6,23 @@ import {
   NotifyXUser,
   NotifyXDevice,
   NotificationActionPayload,
+  NotifyXHistoryQuery,
+  NotifyXHistoryResult,
 } from "./types";
+
+/**
+ * RFC4122 v4 UUID generated without native crypto so it works across all
+ * React Native runtimes. Used to mint a stable, client-managed device identity
+ * that survives push-token rotation — this is what keeps a device's history on
+ * a single record instead of fragmenting across rows on every token refresh.
+ */
+function generateUuid(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export class NotifyX {
   private appId: string;
@@ -58,6 +74,24 @@ export class NotifyX {
     } catch (error) {
       this.log("Failed to save SDK state", error);
     }
+  }
+
+  /**
+   * Returns the persisted, client-managed device identity, creating and saving
+   * one on first use. This is the anchor that keeps a single device record (and
+   * therefore a single, continuous notification history) stable across push
+   * token rotations and re-registrations.
+   */
+  public async getOrCreateExternalDeviceId(): Promise<string> {
+    const state = (await this.getState()) || {};
+    const existing = this.toOptionalTrimmedString(state.externalDeviceId);
+    if (existing) return existing;
+
+    const externalDeviceId = generateUuid();
+    state.externalDeviceId = externalDeviceId;
+    await this.saveState(state);
+    this.log("Generated stable externalDeviceId", externalDeviceId);
+    return externalDeviceId;
   }
 
   private toOptionalTrimmedString(value: unknown): string | undefined {
@@ -159,6 +193,7 @@ export class NotifyX {
   public async init(params: {
     externalUserId: string;
     nickname?: string;
+    phone?: string;
     language?: string;
     timezone?: string;
     externalDeviceId?: string;
@@ -171,39 +206,47 @@ export class NotifyX {
     const user = await this.registerUser({
       externalUserId: params.externalUserId,
       nickname: params.nickname,
+      phone: params.phone,
       language: params.language,
       timezone: params.timezone,
     });
 
     let device: NotifyXDevice | undefined;
 
+    // Always anchor the device to a stable, persisted externalDeviceId. If the
+    // caller supplied one, adopt it; otherwise reuse the stored one or mint a
+    // new one. This guarantees token refreshes update the same device record
+    // (continuous history) instead of spawning a new row each time.
+    const existingState = await this.getState();
+    let externalDeviceId =
+      params.externalDeviceId ||
+      this.toOptionalTrimmedString(existingState?.externalDeviceId) ||
+      undefined;
     if (params.pushToken && params.platform && params.provider) {
-      const existingState = await this.getState();
-      const externalDeviceId =
-        params.externalDeviceId || existingState?.externalDeviceId;
+      if (!externalDeviceId) {
+        externalDeviceId = await this.getOrCreateExternalDeviceId();
+      }
       device = await this.registerDevice({
         userId: user.id,
         pushToken: params.pushToken,
         platform: params.platform,
         provider: params.provider,
-        ...(externalDeviceId
-          ? { externalDeviceId }
-          : { deviceId: existingState?.deviceId }),
+        externalDeviceId,
       });
     }
 
     const state: Record<string, any> = {
+      ...(existingState || {}),
       userId: user.id,
       externalUserId: params.externalUserId,
       initializedAt: new Date().toISOString(),
     };
 
+    if (externalDeviceId) state.externalDeviceId = externalDeviceId;
     if (device) {
       state.deviceId = device.id;
       if (device.externalDeviceId) {
         state.externalDeviceId = device.externalDeviceId;
-      } else if (params.externalDeviceId) {
-        state.externalDeviceId = params.externalDeviceId;
       }
     }
 
@@ -221,6 +264,7 @@ export class NotifyX {
         appId: this.appId,
         externalUserId: data.externalUserId,
         ...(data.nickname !== undefined && { nickname: data.nickname }),
+        ...(data.phone !== undefined && { phone: data.phone }),
         language: data.language || "en",
         timezone: data.timezone || "UTC",
       },
@@ -255,6 +299,90 @@ export class NotifyX {
     await this.saveState(currentState);
 
     return device;
+  }
+
+  /**
+   * Re-register the current device with a fresh push token. Call this from your
+   * FCM `onTokenRefresh` / APNs token-update handler so NotifyX never holds a
+   * stale token. It reuses the persisted user + stable externalDeviceId, so the
+   * same device record is updated in place (history stays intact) and the
+   * server clears any prior invalid-token deactivation.
+   *
+   * Returns null if the SDK has not been initialized yet (no stored userId).
+   */
+  public async updatePushToken(params: {
+    pushToken: string;
+    platform: "ios" | "android" | "huawei";
+    provider: "fcm" | "apns" | "hms";
+  }): Promise<NotifyXDevice | null> {
+    const state = await this.getState();
+    if (!state?.userId) {
+      this.log(
+        "updatePushToken called before init(); ignoring. Call init() first.",
+      );
+      return null;
+    }
+
+    const externalDeviceId = await this.getOrCreateExternalDeviceId();
+    this.log("Updating push token for stable device", externalDeviceId);
+    return this.registerDevice({
+      userId: state.userId,
+      pushToken: params.pushToken,
+      platform: params.platform,
+      provider: params.provider,
+      externalDeviceId,
+    });
+  }
+
+  /**
+   * Fetch this user's notification history. Queries by userId so it aggregates
+   * across every device the user has ever had — robust even if older token
+   * rotations fragmented history across multiple device records.
+   */
+  public async getHistory(
+    query: NotifyXHistoryQuery = {},
+  ): Promise<NotifyXHistoryResult> {
+    const state = await this.getState();
+    const externalUserId = state?.externalUserId;
+    if (!externalUserId) {
+      throw new Error(
+        "No registered user found. Call init() before getHistory().",
+      );
+    }
+
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit = query.limit && query.limit > 0 ? Math.min(query.limit, 100) : 20;
+
+    const params = new URLSearchParams({
+      appId: this.appId,
+      userId: externalUserId,
+      page: String(page),
+      limit: String(limit),
+    });
+    if (query.type) params.set("type", query.type);
+    if (query.provider) params.set("provider", query.provider);
+    if (query.deliveryStatus) params.set("deliveryStatus", query.deliveryStatus);
+    if (query.from) params.set("from", query.from);
+    if (query.to) params.set("to", query.to);
+    if (query.sortBy) params.set("sortBy", query.sortBy);
+    if (query.sortOrder) params.set("sortOrder", query.sortOrder);
+
+    const response = await this.request(
+      `/api/v1/notifications/history?${params.toString()}`,
+      { method: "GET" },
+    );
+
+    const total =
+      typeof response.totalCount === "number" ? response.totalCount : 0;
+    return {
+      items: Array.isArray(response.data) ? response.data : [],
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   }
 
   public async sendTestNotification(payload?: {

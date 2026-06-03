@@ -10,6 +10,19 @@
     return output;
   }
 
+  // Stable, client-managed device identity. Keeps a single device record (and a
+  // continuous notification history) across push-subscription rotations.
+  function generateUuid() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
   class NotifyXWebSDK {
     constructor(options) {
       if (!options || !options.baseUrl || !options.appId) {
@@ -23,6 +36,35 @@
       this.serviceWorkerPath = options.serviceWorkerPath || "/notifyx-sw.js";
       this.debug = Boolean(options.debug);
       this.storageKey = `notifyx:web:${this.appId}`;
+    }
+
+    // Publish the config the service worker needs to self-heal a rotated push
+    // subscription (pushsubscriptionchange) without an open page. Stored via the
+    // Cache API because it is the only storage shared with the SW that the page
+    // can also write. The apiKey is only suitable here for first-party apps.
+    async syncServiceWorkerConfig(extra) {
+      if (typeof caches === "undefined") return;
+      const state = this.getState() || {};
+      try {
+        const cache = await caches.open("notifyx-config");
+        const config = {
+          baseUrl: this.baseUrl,
+          appId: this.appId,
+          apiKey: this.apiKey,
+          vapidPublicKey: this.vapidPublicKey,
+          userId: state.userId,
+          externalDeviceId: state.externalDeviceId,
+          ...(extra || {}),
+        };
+        await cache.put(
+          "notifyx-config",
+          new Response(JSON.stringify(config), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      } catch (error) {
+        this.log("Failed to sync service worker config", error);
+      }
     }
 
     static isSupported() {
@@ -75,34 +117,36 @@
       const user = await this.registerUser({
         externalUserId: settings.externalUserId,
         nickname: settings.nickname,
+        phone: settings.phone,
         language: settings.language || navigator.language || "en",
         timezone: settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
       this.log("User registered", { id: user.id, externalUserId: settings.externalUserId });
 
       const existingState = this.getState();
-      const externalDeviceId = settings.externalDeviceId || existingState?.externalDeviceId;
+      // Always anchor to a stable externalDeviceId so subscription refreshes
+      // update the same device record instead of creating a new one each time.
+      const externalDeviceId =
+        settings.externalDeviceId ||
+        existingState?.externalDeviceId ||
+        generateUuid();
       const device = await this.registerDevice({
         userId: user.id,
         pushToken: JSON.stringify(subscription.toJSON()),
-        ...(externalDeviceId
-          ? { externalDeviceId }
-          : { deviceId: existingState?.deviceId }),
+        externalDeviceId,
       });
       this.log("Device registered", { id: device.id, provider: device.provider });
 
       const state = {
+        ...(existingState || {}),
         userId: user.id,
         deviceId: device.id,
-        ...(device.externalDeviceId
-          ? { externalDeviceId: device.externalDeviceId }
-          : externalDeviceId
-            ? { externalDeviceId }
-            : {}),
+        externalDeviceId: device.externalDeviceId || externalDeviceId,
         externalUserId: settings.externalUserId,
         subscribedAt: new Date().toISOString(),
       };
       localStorage.setItem(this.storageKey, JSON.stringify(state));
+      await this.syncServiceWorkerConfig();
 
       this.log("SDK initialized ✅ — state saved to localStorage", state);
       return { user, device, subscription: subscription.toJSON() };
@@ -138,6 +182,90 @@
       return response.data;
     }
 
+    // Re-register the current push subscription. Call this on page load (after
+    // init has run at least once) and from the service worker's
+    // `pushsubscriptionchange` flow so NotifyX never holds a stale endpoint.
+    // Reuses the stored userId + stable externalDeviceId, so the same device
+    // record is updated and the server clears any prior invalid-token state.
+    async refreshSubscription() {
+      const state = this.getState();
+      if (!state || !state.userId) {
+        this.log("refreshSubscription called before init(); ignoring.");
+        return null;
+      }
+
+      const registration = await navigator.serviceWorker.getRegistration(
+        this.serviceWorkerPath,
+      );
+      const subscription = registration
+        ? await registration.pushManager.getSubscription()
+        : null;
+      if (!subscription) {
+        this.log("No active push subscription to refresh.");
+        return null;
+      }
+
+      const externalDeviceId = state.externalDeviceId || generateUuid();
+      const device = await this.registerDevice({
+        userId: state.userId,
+        pushToken: JSON.stringify(subscription.toJSON()),
+        externalDeviceId,
+      });
+
+      const nextState = {
+        ...state,
+        deviceId: device.id,
+        externalDeviceId: device.externalDeviceId || externalDeviceId,
+        refreshedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(this.storageKey, JSON.stringify(nextState));
+      await this.syncServiceWorkerConfig();
+      this.log("Subscription refreshed ✅", { id: device.id });
+      return device;
+    }
+
+    // Fetch this user's notification history. Queries by userId so it
+    // aggregates across all of the user's devices.
+    async getHistory(query) {
+      const q = query || {};
+      const state = this.getState();
+      const externalUserId = state && state.externalUserId;
+      if (!externalUserId) {
+        throw new Error("No registered user found. Call init() before getHistory().");
+      }
+
+      const page = q.page && q.page > 0 ? q.page : 1;
+      const limit = q.limit && q.limit > 0 ? Math.min(q.limit, 100) : 20;
+      const params = new URLSearchParams({
+        appId: this.appId,
+        userId: externalUserId,
+        page: String(page),
+        limit: String(limit),
+      });
+      if (q.type) params.set("type", q.type);
+      if (q.provider) params.set("provider", q.provider);
+      if (q.deliveryStatus) params.set("deliveryStatus", q.deliveryStatus);
+      if (q.from) params.set("from", q.from);
+      if (q.to) params.set("to", q.to);
+      if (q.sortBy) params.set("sortBy", q.sortBy);
+      if (q.sortOrder) params.set("sortOrder", q.sortOrder);
+
+      const response = await this.request(
+        `/api/v1/notifications/history?${params.toString()}`,
+        { method: "GET" },
+      );
+      const total = typeof response.totalCount === "number" ? response.totalCount : 0;
+      return {
+        items: Array.isArray(response.data) ? response.data : [],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      };
+    }
+
     async unsubscribe() {
       const registration = await navigator.serviceWorker.getRegistration(this.serviceWorkerPath);
       const subscription = registration ? await registration.pushManager.getSubscription() : null;
@@ -163,6 +291,7 @@
           appId: this.appId,
           externalUserId: data.externalUserId,
           nickname: data.nickname,
+          phone: data.phone,
           language: data.language,
           timezone: data.timezone,
         },

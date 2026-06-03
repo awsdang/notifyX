@@ -2,6 +2,7 @@ class NotifyXUser {
   final String id;
   final String externalUserId;
   final String? nickname;
+  final String? phone;
   final String appId;
   final String language;
   final String timezone;
@@ -12,6 +13,7 @@ class NotifyXUser {
     required this.id,
     required this.externalUserId,
     this.nickname,
+    this.phone,
     required this.appId,
     required this.language,
     required this.timezone,
@@ -24,6 +26,7 @@ class NotifyXUser {
       id: json['id']?.toString() ?? '',
       externalUserId: json['externalUserId']?.toString() ?? '',
       nickname: json['nickname']?.toString(),
+      phone: json['phone']?.toString(),
       appId: json['appId']?.toString() ?? '',
       language: json['language']?.toString() ?? 'en',
       timezone: json['timezone']?.toString() ?? 'UTC',
@@ -36,6 +39,7 @@ class NotifyXUser {
         'id': id,
         'externalUserId': externalUserId,
       'nickname': nickname,
+        'phone': phone,
         'appId': appId,
         'language': language,
         'timezone': timezone,

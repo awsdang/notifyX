@@ -28,13 +28,14 @@ import {
   normalizeNickname,
 } from "../lib/userIdentity";
 import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
+import { PaginatedUserMultiSelect } from "./ui/PaginatedUserMultiSelect";
 import { apiFetch } from "../lib/api";
-const MAX_VISIBLE_TEST_TARGET_USERS = 300;
 
 interface User {
   id: string;
   externalUserId: string;
   nickname?: string | null;
+  phone?: string | null;
   appId: string;
   language: string;
   timezone: string;
@@ -109,12 +110,9 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
   const [filterPlatform, setFilterPlatform] = useState("");
   const [filterProvider, setFilterProvider] = useState("");
   const [filterActive, setFilterActive] = useState("");
-  const [testTargetSearch, setTestTargetSearch] = useState("");
   const {
-    allUsers: testTargetCandidates,
     preferredTestTargetIds,
     hasCustomTestTargetUsers,
-    isLoading: isLoadingTestTargetUsers,
     error: testTargetUsersError,
     setPreferredTestTargetIds,
     clearPreferredTestTargetIds,
@@ -393,7 +391,6 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
 
   useEffect(() => {
     setSelectedUser(null);
-    setTestTargetSearch("");
   }, [filterAppId]);
 
   useEffect(() => {
@@ -510,27 +507,6 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
     () => new Set(preferredTestTargetIds),
     [preferredTestTargetIds],
   );
-  const normalizedTestTargetSearch = testTargetSearch.trim().toLowerCase();
-  const visibleTestTargetCandidates = useMemo(() => {
-    if (!normalizedTestTargetSearch) {
-      return testTargetCandidates.slice(0, MAX_VISIBLE_TEST_TARGET_USERS);
-    }
-
-    return testTargetCandidates.filter((candidate) => {
-      const displayName = getPreferredUserName(candidate).toLowerCase();
-      return (
-        displayName.includes(normalizedTestTargetSearch) ||
-        candidate.externalUserId.toLowerCase().includes(normalizedTestTargetSearch)
-      );
-    });
-  }, [normalizedTestTargetSearch, testTargetCandidates]);
-
-  const toggleTestTargetCandidate = (externalUserId: string) => {
-    const nextIds = preferredTestTargetSet.has(externalUserId)
-      ? preferredTestTargetIds.filter((id) => id !== externalUserId)
-      : [...preferredTestTargetIds, externalUserId];
-    setPreferredTestTargetIds(nextIds);
-  };
 
   const formatRangeStart = (page: number, limit: number) => (page - 1) * limit + 1;
   const formatRangeEnd = (page: number, limit: number, total: number) =>
@@ -588,6 +564,12 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                   {selectedUser.nickname ? (
                     <p className="mt-1 font-mono text-xs text-slate-500">
                       {selectedUser.externalUserId}
+                    </p>
+                  ) : null}
+                  {selectedUser.phone ? (
+                    <p className="mt-1 text-sm text-slate-500">
+                      {tt("Phone")}:{" "}
+                      <span className="font-medium">{selectedUser.phone}</span>
                     </p>
                   ) : null}
                   <p className="mt-1 text-sm text-slate-500">
@@ -896,71 +878,23 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
           <div className="space-y-3 border-t p-4">
             <p className="text-xs text-slate-500">
               {tt(
-                "Only these users appear in Test notification target selectors across Send, Campaigns, and A/B Testing.",
+                "These users load first in every Test notification target selector across Send, Campaigns, and A/B Testing. Saved on the server and shared across your team.",
               )}
             </p>
 
-            <div className="relative">
-              <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={testTargetSearch}
-                onChange={(event) => setTestTargetSearch(event.target.value)}
-                placeholder={tt("Filter users for test target list...")}
-                className="w-full ps-10 pe-4 py-2.5 border border-slate-200 rounded-xl text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            {filterAppId && (
+              <PaginatedUserMultiSelect
+                appId={filterAppId}
+                token={token}
+                withDevices
+                value={preferredTestTargetIds}
+                onChange={setPreferredTestTargetIds}
+                loadingText={tt("Loading users...")}
+                emptyText={tt("No users with active devices in this app.")}
+                placeholder={tt("Search users to add as favourites...")}
+                helpText={tt("Tick users to mark them as favourite test users.")}
               />
-            </div>
-
-            <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 divide-y">
-            {isLoadingTestTargetUsers ? (
-              <div className="p-3 text-sm text-slate-500">
-                {tt("Loading users...")}
-              </div>
-            ) : visibleTestTargetCandidates.length === 0 ? (
-              <div className="p-3 text-sm text-slate-500">
-                {testTargetSearch.trim()
-                  ? tt("No users match this search.")
-                  : tt("No users with active devices in this app.")}
-              </div>
-            ) : (
-              visibleTestTargetCandidates.map((candidate) => (
-                <label
-                  key={candidate.externalUserId}
-                  className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {getUserDisplayName(candidate)}
-                    </p>
-                    <p className="text-xs text-slate-500 font-mono truncate">
-                      {candidate.externalUserId}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-slate-500">
-                      {tt("{{count}} devices", { count: candidate.devicesCount })}
-                    </span>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300"
-                      checked={preferredTestTargetSet.has(candidate.externalUserId)}
-                      onChange={() => toggleTestTargetCandidate(candidate.externalUserId)}
-                    />
-                  </div>
-                </label>
-              ))
             )}
-          </div>
-
-            {!normalizedTestTargetSearch &&
-              testTargetCandidates.length > MAX_VISIBLE_TEST_TARGET_USERS && (
-                <p className="text-xs text-slate-500">
-                  {tt(
-                    "Showing first {{count}} users. Use search to find additional users.",
-                    { count: MAX_VISIBLE_TEST_TARGET_USERS },
-                  )}
-                </p>
-              )}
 
             {testTargetUsersError && (
               <p className="text-xs text-rose-600">{testTargetUsersError}</p>

@@ -23,8 +23,9 @@ import { apiFetch } from "../lib/api";
 import type { Application, Campaign } from "../types";
 import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useScopedTranslation } from "../context/I18nContext";
-import { getUserIdentityLabel } from "../lib/userIdentity";
+import { getUserDisplayLabel } from "../lib/userIdentity";
 import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
+import { PaginatedUserMultiSelect } from "./ui/PaginatedUserMultiSelect";
 import {
   applyTemplateVariables,
   buildTemplateVariablePayload,
@@ -532,10 +533,6 @@ function CampaignEditorPage({
         : ([...SEND_PLATFORMS] as SendPlatform[]),
   });
   const {
-    allUsers: subscribedUsers,
-    testTargetUsers,
-    hasCustomTestTargetUsers,
-    isLoading: isLoadingUsers,
     error: usersLoadError,
   } = useAppTestTargetUsers(formData.appId, token);
 
@@ -696,29 +693,6 @@ function CampaignEditorPage({
     };
   }, [formData.appId, token]);
 
-  useEffect(() => {
-    const allUserIds = new Set(subscribedUsers.map((user) => user.externalUserId));
-    const testUserIds = new Set(testTargetUsers.map((user) => user.externalUserId));
-
-    setFormData((prev) => {
-      const nextTargetUserIds = prev.targetUserIds.filter((id) => allUserIds.has(id));
-      const nextTestUserIds = prev.testUserIds.filter((id) => testUserIds.has(id));
-      const targetChanged =
-        nextTargetUserIds.length !== prev.targetUserIds.length ||
-        nextTargetUserIds.some((id, index) => id !== prev.targetUserIds[index]);
-      const testChanged =
-        nextTestUserIds.length !== prev.testUserIds.length ||
-        nextTestUserIds.some((id, index) => id !== prev.testUserIds[index]);
-
-      if (!targetChanged && !testChanged) return prev;
-
-      return {
-        ...prev,
-        targetUserIds: nextTargetUserIds,
-        testUserIds: nextTestUserIds,
-      };
-    });
-  }, [subscribedUsers, testTargetUsers]);
 
   const togglePlatform = (platform: SendPlatform) => {
     setFormData((prev) => ({
@@ -1066,10 +1040,12 @@ function CampaignEditorPage({
     }
   };
 
-  const userSelectClass =
-    "w-full min-h-36 border border-slate-200 rounded-xl p-3 text-sm bg-white";
-  const getTargetUserOptionLabel = (user: (typeof subscribedUsers)[number]) =>
-    `${getUserIdentityLabel(user)} (${user.devicesCount} devices)`;
+  const getTargetUserOptionLabel = (user: {
+    externalUserId: string;
+    nickname?: string | null;
+    phone?: string | null;
+    devicesCount: number;
+  }) => `${getUserDisplayLabel(user)} (${user.devicesCount} devices)`;
   const isAnyActionRunning =
     isSaving || isSendingTest || isSchedulingLive || isSendingNow;
 
@@ -1209,39 +1185,20 @@ function CampaignEditorPage({
 
           {formData.targetingMode === "USER_LIST" && (
             <div>
-              <label className="block text-sm font-semibold mb-2">
-                {tt("Live target users")}
-              </label>
-              <select
-                multiple
-                className={userSelectClass}
+              <PaginatedUserMultiSelect
+                appId={formData.appId}
+                token={token}
+                label={tt("Live target users")}
                 value={formData.targetUserIds}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    targetUserIds: Array.from(event.target.selectedOptions).map(
-                      (option) => option.value,
-                    ),
-                  }))
+                onChange={(ids) =>
+                  setFormData((prev) => ({ ...prev, targetUserIds: ids }))
                 }
-              >
-                {subscribedUsers.length === 0 ? (
-                  <option disabled value="">
-                    {isLoadingUsers
-                      ? tt("Loading users...")
-                      : tt("No users with devices")}
-                  </option>
-                ) : (
-                  subscribedUsers.map((user) => (
-                    <option key={user.externalUserId} value={user.externalUserId}>
-                      {getTargetUserOptionLabel(user)}
-                    </option>
-                  ))
-                )}
-              </select>
-              <p className="mt-2 text-xs text-slate-500">
-                {tt("Hold Cmd/Ctrl to select multiple users.")}
-              </p>
+                withDevices
+                formatLabel={getTargetUserOptionLabel}
+                loadingText={tt("Loading users...")}
+                emptyText={tt("No users with devices")}
+                placeholder={tt("Search users by ID or nickname...")}
+              />
             </div>
           )}
 
@@ -1250,42 +1207,28 @@ function CampaignEditorPage({
               <Users className="w-4 h-4" />
               {tt("Test recipients (required)")}
             </div>
-            <select
-              multiple
-              className={userSelectClass}
+            <PaginatedUserMultiSelect
+              appId={formData.appId}
+              token={token}
+              required
               value={formData.testUserIds}
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  testUserIds: Array.from(event.target.selectedOptions).map(
-                    (option) => option.value,
-                  ),
-                }))
+              onChange={(ids) =>
+                setFormData((prev) => ({ ...prev, testUserIds: ids }))
               }
-            >
-              {testTargetUsers.length === 0 ? (
-                <option disabled value="">
-                  {isLoadingUsers
-                    ? tt("Loading users...")
-                    : hasCustomTestTargetUsers
-                      ? tt("No preferred test users available for this app.")
-                      : tt("No users with devices")}
-                </option>
-              ) : (
-                testTargetUsers.map((user) => (
-                  <option key={user.externalUserId} value={user.externalUserId}>
-                    {getTargetUserOptionLabel(user)}
-                  </option>
-                ))
+              favouritesFirst
+              withDevices
+              formatLabel={getTargetUserOptionLabel}
+              favouritesLabel={tt("Favourite test users")}
+              loadOthersLabel={tt("Load other users")}
+              loadingText={tt("Loading users...")}
+              emptyText={tt("No users with devices")}
+              placeholder={tt("Search users by ID or nickname...")}
+            />
+            <p className="mt-2 text-xs text-emerald-800">
+              {tt(
+                "Favourite test users (set in Users & Devices) load first. Use \"Load other users\" to pick anyone else.",
               )}
-            </select>
-            {hasCustomTestTargetUsers && (
-              <p className="mt-2 text-xs text-emerald-800">
-                {tt(
-                  "Showing only preferred test users configured in Users & Devices.",
-                )}
-              </p>
-            )}
+            </p>
           </div>
           {usersLoadError && (
             <p className="text-xs text-rose-600">{usersLoadError}</p>
