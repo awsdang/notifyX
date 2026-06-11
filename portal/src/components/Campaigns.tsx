@@ -23,8 +23,9 @@ import { apiFetch } from "../lib/api";
 import type { Application, Campaign } from "../types";
 import { useConfirmDialog } from "../context/ConfirmDialogContext";
 import { useScopedTranslation } from "../context/I18nContext";
-import { getUserIdentityLabel } from "../lib/userIdentity";
+import { getUserDisplayLabel } from "../lib/userIdentity";
 import { useAppTestTargetUsers } from "../hooks/useAppTestTargetUsers";
+import { PaginatedUserMultiSelect } from "./ui/PaginatedUserMultiSelect";
 import {
   applyTemplateVariables,
   buildTemplateVariablePayload,
@@ -56,7 +57,6 @@ import {
   CTA_TYPE_OPTIONS,
   type CtaType,
   DEFAULT_TAP_ACTION_TYPE,
-  getDefaultCtaLabel,
   getCtaValuePlaceholder,
 } from "../constants/cta";
 import { buildNotificationCtaPayload } from "../lib/notificationCta";
@@ -533,10 +533,6 @@ function CampaignEditorPage({
         : ([...SEND_PLATFORMS] as SendPlatform[]),
   });
   const {
-    allUsers: subscribedUsers,
-    testTargetUsers,
-    hasCustomTestTargetUsers,
-    isLoading: isLoadingUsers,
     error: usersLoadError,
   } = useAppTestTargetUsers(formData.appId, token);
 
@@ -697,29 +693,6 @@ function CampaignEditorPage({
     };
   }, [formData.appId, token]);
 
-  useEffect(() => {
-    const allUserIds = new Set(subscribedUsers.map((user) => user.externalUserId));
-    const testUserIds = new Set(testTargetUsers.map((user) => user.externalUserId));
-
-    setFormData((prev) => {
-      const nextTargetUserIds = prev.targetUserIds.filter((id) => allUserIds.has(id));
-      const nextTestUserIds = prev.testUserIds.filter((id) => testUserIds.has(id));
-      const targetChanged =
-        nextTargetUserIds.length !== prev.targetUserIds.length ||
-        nextTargetUserIds.some((id, index) => id !== prev.targetUserIds[index]);
-      const testChanged =
-        nextTestUserIds.length !== prev.testUserIds.length ||
-        nextTestUserIds.some((id, index) => id !== prev.testUserIds[index]);
-
-      if (!targetChanged && !testChanged) return prev;
-
-      return {
-        ...prev,
-        targetUserIds: nextTargetUserIds,
-        testUserIds: nextTestUserIds,
-      };
-    });
-  }, [subscribedUsers, testTargetUsers]);
 
   const togglePlatform = (platform: SendPlatform) => {
     setFormData((prev) => ({
@@ -784,14 +757,13 @@ function CampaignEditorPage({
       setStatus({ type: "error", message: tt("Title and body are required.") });
       return false;
     }
-    if (
-      formData.ctaType !== "open_app" &&
-      formData.ctaType !== "dismiss" &&
-      !formData.actionUrl.trim()
-    ) {
+    if (tapActionNeedsValue && !formData.tapActionValue.trim()) {
       setStatus({
         type: "error",
-        message: tt("Default open-link URL is required."),
+        message:
+          formData.tapActionType === "deep_link"
+            ? tt("Deep link URI is required.")
+            : tt("Default open-link URL is required."),
       });
       return false;
     }
@@ -842,60 +814,37 @@ function CampaignEditorPage({
   };
 
   const buildCtaArtifacts = () => {
-    const ctaCandidates = [
-      {
-        type: formData.ctaType,
-        label: formData.ctaLabel.trim(),
-        value: formData.ctaValue.trim(),
-        dataSuffix: "",
-      },
-      {
-        type: formData.ctaTypeSecondary,
-        label: formData.ctaLabelSecondary.trim(),
-        value: formData.ctaValueSecondary.trim(),
-        dataSuffix: "Secondary",
-      },
-    ];
-
-    const ctaData: Record<string, string> = {};
-    for (const cta of ctaCandidates) {
-      if (cta.type === "none" || cta.type === "open_app" || cta.type === "dismiss") continue;
-      if (!cta.label || !cta.value) {
-        setStatus({
-          type: "error",
-          message: tt("CTA button label and URL are both required when enabled."),
-        });
-        return null;
-      }
-      ctaData[`ctaType${cta.dataSuffix}`] = cta.type;
-      ctaData[`ctaLabel${cta.dataSuffix}`] = cta.label;
-      ctaData[`ctaValue${cta.dataSuffix}`] = cta.value;
+    try {
+      return buildNotificationCtaPayload({
+        tapActionType: formData.tapActionType,
+        tapActionValue: formData.tapActionValue,
+        ctas: [
+          {
+            type: formData.ctaType,
+            label: formData.ctaLabel,
+            value: formData.ctaValue,
+            dataSuffix: "",
+          },
+          {
+            type: formData.ctaTypeSecondary,
+            label: formData.ctaLabelSecondary,
+            value: formData.ctaValueSecondary,
+            dataSuffix: "Secondary",
+          },
+        ],
+      });
+    } catch (error: any) {
+      setStatus({
+        type: "error",
+        message: error?.message || tt("Failed to build CTA payload."),
+      });
+      return null;
     }
-
-    const actions = ctaCandidates
-      .filter((cta) => cta.type !== "none" && cta.label && cta.value)
-      .slice(0, 2)
-      .map((cta, index) => ({
-        action:
-          index === 0
-            ? ("open_link_primary" as const)
-            : ("open_link_secondary" as const),
-        title: cta.label,
-        url: cta.value,
-      }));
-
-    return {
-      defaultActionUrl: formData.actionUrl.trim(),
-      ctaData,
-      actions,
-    };
   };
 
-  const buildCampaignPayload = (ctaArtifacts: {
-    defaultActionUrl: string;
-    ctaData: Record<string, string>;
-    actions: Array<{ action: string; title: string; url: string }>;
-  }) => ({
+  const buildCampaignPayload = (
+    ctaArtifacts: ReturnType<typeof buildNotificationCtaPayload>,
+  ) => ({
     appId: formData.appId,
     name: formData.name.trim(),
     description: formData.description.trim() || undefined,
@@ -906,12 +855,9 @@ function CampaignEditorPage({
     subtitle: formData.subtitle.trim() || undefined,
     body: formData.body.trim(),
     image: formData.image || undefined,
-    actionUrl: ctaArtifacts.defaultActionUrl,
-    data:
-      Object.keys(ctaArtifacts.ctaData).length > 0
-        ? ctaArtifacts.ctaData
-        : undefined,
-    actions: ctaArtifacts.actions.length > 0 ? ctaArtifacts.actions : undefined,
+    actionUrl: ctaArtifacts.actionUrl,
+    data: ctaArtifacts.data,
+    actions: ctaArtifacts.actions,
     platforms: formData.platforms,
     priority: formData.priority,
   });
@@ -953,11 +899,9 @@ function CampaignEditorPage({
     }
   };
 
-  const sendTestNotification = async (ctaArtifacts: {
-    defaultActionUrl: string;
-    ctaData: Record<string, string>;
-    actions: Array<{ action: string; title: string; url: string }>;
-  }) => {
+  const sendTestNotification = async (
+    ctaArtifacts: ReturnType<typeof buildNotificationCtaPayload>,
+  ) => {
     await apiFetch(
       "/notifications",
       {
@@ -975,13 +919,9 @@ function CampaignEditorPage({
             : formData.subtitle.trim() || undefined,
           body: selectedTemplateVariant ? undefined : formData.body.trim(),
           image: formData.image || undefined,
-          actionUrl: ctaArtifacts.defaultActionUrl,
-          data:
-            Object.keys(ctaArtifacts.ctaData).length > 0
-              ? ctaArtifacts.ctaData
-              : undefined,
-          actions:
-            ctaArtifacts.actions.length > 0 ? ctaArtifacts.actions : undefined,
+          actionUrl: ctaArtifacts.actionUrl,
+          data: ctaArtifacts.data,
+          actions: ctaArtifacts.actions,
           priority: "NORMAL",
           userIds: formData.testUserIds,
           platforms: formData.platforms,
@@ -1100,10 +1040,12 @@ function CampaignEditorPage({
     }
   };
 
-  const userSelectClass =
-    "w-full min-h-36 border border-slate-200 rounded-xl p-3 text-sm bg-white";
-  const getTargetUserOptionLabel = (user: (typeof subscribedUsers)[number]) =>
-    `${getUserIdentityLabel(user)} (${user.devicesCount} devices)`;
+  const getTargetUserOptionLabel = (user: {
+    externalUserId: string;
+    nickname?: string | null;
+    phone?: string | null;
+    devicesCount: number;
+  }) => `${getUserDisplayLabel(user)} (${user.devicesCount} devices)`;
   const isAnyActionRunning =
     isSaving || isSendingTest || isSchedulingLive || isSendingNow;
 
@@ -1243,39 +1185,20 @@ function CampaignEditorPage({
 
           {formData.targetingMode === "USER_LIST" && (
             <div>
-              <label className="block text-sm font-semibold mb-2">
-                {tt("Live target users")}
-              </label>
-              <select
-                multiple
-                className={userSelectClass}
+              <PaginatedUserMultiSelect
+                appId={formData.appId}
+                token={token}
+                label={tt("Live target users")}
                 value={formData.targetUserIds}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    targetUserIds: Array.from(event.target.selectedOptions).map(
-                      (option) => option.value,
-                    ),
-                  }))
+                onChange={(ids) =>
+                  setFormData((prev) => ({ ...prev, targetUserIds: ids }))
                 }
-              >
-                {subscribedUsers.length === 0 ? (
-                  <option disabled value="">
-                    {isLoadingUsers
-                      ? tt("Loading users...")
-                      : tt("No users with devices")}
-                  </option>
-                ) : (
-                  subscribedUsers.map((user) => (
-                    <option key={user.externalUserId} value={user.externalUserId}>
-                      {getTargetUserOptionLabel(user)}
-                    </option>
-                  ))
-                )}
-              </select>
-              <p className="mt-2 text-xs text-slate-500">
-                {tt("Hold Cmd/Ctrl to select multiple users.")}
-              </p>
+                withDevices
+                formatLabel={getTargetUserOptionLabel}
+                loadingText={tt("Loading users...")}
+                emptyText={tt("No users with devices")}
+                placeholder={tt("Search users by ID or nickname...")}
+              />
             </div>
           )}
 
@@ -1284,42 +1207,28 @@ function CampaignEditorPage({
               <Users className="w-4 h-4" />
               {tt("Test recipients (required)")}
             </div>
-            <select
-              multiple
-              className={userSelectClass}
+            <PaginatedUserMultiSelect
+              appId={formData.appId}
+              token={token}
+              required
               value={formData.testUserIds}
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  testUserIds: Array.from(event.target.selectedOptions).map(
-                    (option) => option.value,
-                  ),
-                }))
+              onChange={(ids) =>
+                setFormData((prev) => ({ ...prev, testUserIds: ids }))
               }
-            >
-              {testTargetUsers.length === 0 ? (
-                <option disabled value="">
-                  {isLoadingUsers
-                    ? tt("Loading users...")
-                    : hasCustomTestTargetUsers
-                      ? tt("No preferred test users available for this app.")
-                      : tt("No users with devices")}
-                </option>
-              ) : (
-                testTargetUsers.map((user) => (
-                  <option key={user.externalUserId} value={user.externalUserId}>
-                    {getTargetUserOptionLabel(user)}
-                  </option>
-                ))
+              favouritesFirst
+              withDevices
+              formatLabel={getTargetUserOptionLabel}
+              favouritesLabel={tt("Favourite test users")}
+              loadOthersLabel={tt("Load other users")}
+              loadingText={tt("Loading users...")}
+              emptyText={tt("No users with devices")}
+              placeholder={tt("Search users by ID or nickname...")}
+            />
+            <p className="mt-2 text-xs text-emerald-800">
+              {tt(
+                "Favourite test users (set in Users & Devices) load first. Use \"Load other users\" to pick anyone else.",
               )}
-            </select>
-            {hasCustomTestTargetUsers && (
-              <p className="mt-2 text-xs text-emerald-800">
-                {tt(
-                  "Showing only preferred test users configured in Users & Devices.",
-                )}
-              </p>
-            )}
+            </p>
           </div>
           {usersLoadError && (
             <p className="text-xs text-rose-600">{usersLoadError}</p>
@@ -1523,17 +1432,20 @@ function CampaignEditorPage({
                   </label>
                   <Select
                     className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm bg-white"
-                    value={formData.ctaType}
+                    value={formData.tapActionType}
                     onChange={(event) => {
                       const newType = event.target.value as CtaType;
-                      const noUrl = newType === "open_app" || newType === "dismiss" || newType === "none";
+                      const noUrl =
+                        newType === "open_app" ||
+                        newType === "dismiss" ||
+                        newType === "none";
                       setFormData((prev) => ({
                         ...prev,
-                        ctaType: newType,
+                        tapActionType: newType,
                         ...(noUrl && {
-                          actionUrl: "",
-                          ctaValue: "",
+                          tapActionValue: "",
                           ctaLabel: "",
+                          ctaValue: "",
                           ctaLabelSecondary: "",
                           ctaValueSecondary: "",
                           ctaTypeSecondary: "none" as CtaType,
@@ -1548,37 +1460,38 @@ function CampaignEditorPage({
                     ))}
                   </Select>
                 </div>
-                {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+                {tapActionNeedsValue && (
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                      {formData.ctaType === "deep_link" ? tt("Deep Link URI") : tt("URL")}
+                      {formData.tapActionType === "deep_link"
+                        ? tt("Deep Link URI")
+                        : tt("URL")}
                     </label>
                     <input
-                      type={formData.ctaType === "open_url" ? "url" : "text"}
+                      type={formData.tapActionType === "open_url" ? "url" : "text"}
                       className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm"
-                      value={formData.actionUrl || formData.ctaValue}
+                      value={formData.tapActionValue}
                       onChange={(event) =>
                         setFormData((prev) => ({
                           ...prev,
-                          actionUrl: event.target.value,
-                          ctaValue: event.target.value,
+                          tapActionValue: event.target.value,
                         }))
                       }
-                      placeholder={getCtaValuePlaceholder(formData.ctaType)}
+                      placeholder={getCtaValuePlaceholder(formData.tapActionType)}
                     />
                   </div>
                 )}
               </div>
-              {formData.ctaType === "open_app" && (
+              {formData.tapActionType === "open_app" && (
                 <p className="mt-2 text-xs text-slate-400">{tt("Tapping opens your app to its default screen.")}</p>
               )}
-              {formData.ctaType === "dismiss" && (
+              {formData.tapActionType === "dismiss" && (
                 <p className="mt-2 text-xs text-slate-400">{tt("Notification is dismissed without opening the app.")}</p>
               )}
             </div>
 
             {/* Action Buttons — only shown for open_url / deep_link tap actions */}
-            {(formData.ctaType === "open_url" || formData.ctaType === "deep_link") && (
+            {tapActionNeedsValue && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                 <p className="mb-1 text-sm font-semibold text-slate-700">
                   {tt("Action Buttons")}
@@ -1840,7 +1753,9 @@ function CampaignEditorPage({
               subtitle={formData.subtitle || tt("Campaign subtitle")}
               body={formData.body || tt("Campaign body preview")}
               image={formData.image || undefined}
-              ctaUrl={formData.actionUrl.trim() || undefined}
+              ctaUrl={
+                tapActionNeedsValue ? formData.tapActionValue.trim() || undefined : undefined
+              }
               ctaActions={[
                 {
                   type: formData.ctaType,

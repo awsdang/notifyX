@@ -5,7 +5,16 @@
  */
 
 import type { PushProvider, PushMessage, PushResult, PushErrorCode } from './types';
-import { connect, constants } from 'node:http2';
+import { connect, constants, type ClientHttp2Session } from 'node:http2';
+
+// Store-and-forward window. A value of 0 in `apns-expiration` tells APNs to
+// discard the notification if the device is offline at that instant — the
+// classic cause of "the push never arrived". We default to a multi-day window
+// so APNs holds and retries until the device reconnects.
+const DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+const APNS_MAX_TTL_SECONDS = 2419200; // ~28 days — APNs storage ceiling
+// Close an idle HTTP/2 session after this long; APNs also closes idle sockets.
+const SESSION_IDLE_MS = 5 * 60 * 1000;
 
 interface APNSConfig {
     keyId: string;
@@ -24,6 +33,7 @@ export class APNSProvider implements PushProvider {
     readonly name = 'apns';
     private config: APNSConfig | null = null;
     private tokenCache: APNSTokenCache | null = null;
+    private session: ClientHttp2Session | null = null;
 
     constructor(config?: APNSConfig) {
         if (config) {
@@ -91,6 +101,49 @@ export class APNSProvider implements PushProvider {
         return this.config.production
             ? 'https://api.push.apple.com'
             : 'https://api.sandbox.push.apple.com';
+    }
+
+    /**
+     * Returns a live, shared HTTP/2 session to APNs, creating one if needed.
+     * Apple requires keeping connections open and multiplexing many requests
+     * over them; opening and closing a connection per notification is treated
+     * as a denial-of-service pattern and severely limits throughput. The
+     * session is recreated automatically after a close/error/GOAWAY or idle
+     * timeout. Listeners are attached ONCE here (never per-request) to avoid
+     * leaking handlers on the long-lived session.
+     */
+    private getSession(): ClientHttp2Session {
+        if (this.session && !this.session.closed && !this.session.destroyed) {
+            return this.session;
+        }
+
+        const session = connect(this.getBaseUrl());
+        const drop = () => {
+            if (this.session === session) this.session = null;
+        };
+        session.on('error', drop);
+        session.on('close', drop);
+        session.on('goaway', () => {
+            try {
+                session.close();
+            } catch {
+                // ignore
+            }
+            drop();
+        });
+        // Don't let an idle keep-alive socket pin the event loop forever.
+        session.setTimeout(SESSION_IDLE_MS, () => {
+            try {
+                session.close();
+            } catch {
+                // ignore
+            }
+            drop();
+        });
+        session.unref();
+
+        this.session = session;
+        return session;
     }
 
     async send(message: PushMessage): Promise<PushResult> {
@@ -167,33 +220,39 @@ export class APNSProvider implements PushProvider {
                 ...(hasNormalizedData ? { data: normalizedData } : {}),
                 ...(message.image && { image: message.image }),
             };
-            const baseUrl = this.getBaseUrl();
             const payload = JSON.stringify(apnsPayload);
 
+            // Compute a store-and-forward expiration. Never send 0 (= discard if
+            // offline). Respect an explicit ttl, clamped to the APNs ceiling.
+            const ttlSeconds = Math.min(
+                APNS_MAX_TTL_SECONDS,
+                message.ttl && message.ttl > 0 ? message.ttl : DEFAULT_TTL_SECONDS,
+            );
+            const apnsExpiration = Math.floor(Date.now() / 1000) + ttlSeconds;
+
             return await new Promise<PushResult>((resolve) => {
-                const client = connect(baseUrl);
-                let resolved = false;
-
-                const done = (result: PushResult) => {
-                    if (resolved) return;
-                    resolved = true;
-                    try {
-                        client.close();
-                    } catch {
-                        // Ignore close errors
-                    }
-                    resolve(result);
-                };
-
-                client.on('error', (error) => {
-                    done({
+                let client: ClientHttp2Session;
+                try {
+                    client = this.getSession();
+                } catch (error) {
+                    resolve({
                         success: false,
                         error: error instanceof Error ? error.message : 'APNS HTTP/2 connection error',
                         errorCode: 'UNKNOWN',
                         shouldRetry: true,
                         invalidToken: false,
                     });
-                });
+                    return;
+                }
+
+                let resolved = false;
+                const done = (result: PushResult) => {
+                    if (resolved) return;
+                    resolved = true;
+                    // Close only the per-notification stream — keep the shared
+                    // HTTP/2 session open for subsequent notifications.
+                    resolve(result);
+                };
 
                 const req = client.request({
                     [constants.HTTP2_HEADER_METHOD]: 'POST',
@@ -202,7 +261,10 @@ export class APNSProvider implements PushProvider {
                     'apns-topic': this.config!.bundleId,
                     'apns-push-type': 'alert',
                     'apns-priority': '10',
-                    'apns-expiration': '0',
+                    'apns-expiration': String(apnsExpiration),
+                    ...(message.collapseKey
+                        ? { 'apns-collapse-id': String(message.collapseKey).slice(0, 64) }
+                        : {}),
                     'content-type': 'application/json',
                 });
 
@@ -248,6 +310,14 @@ export class APNSProvider implements PushProvider {
                 });
 
                 req.on('error', (error) => {
+                    // A stream/connection error may mean the shared session is
+                    // unhealthy — drop it so the next send reconnects cleanly.
+                    if (this.session === client) this.session = null;
+                    try {
+                        client.close();
+                    } catch {
+                        // ignore
+                    }
                     done({
                         success: false,
                         error: error instanceof Error ? error.message : 'APNS request error',

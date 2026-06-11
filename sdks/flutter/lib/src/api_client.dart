@@ -50,4 +50,41 @@ class NotifyXApiClient {
 
     return jsonResponse;
   }
+
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? query,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl$path',
+    ).replace(queryParameters: query == null ? null : query);
+    _log('GET $uri');
+    final response = await http.get(
+      uri,
+      headers: {'Content-Type': 'application/json', 'x-api-key': apiKey},
+    );
+    _log('RESPONSE status=${response.statusCode} uri=$uri body=${response.body}');
+
+    Map<String, dynamic> jsonResponse;
+    try {
+      jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      jsonResponse = {
+        'error': true,
+        'message': 'Invalid JSON response',
+        'data': null,
+      };
+    }
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        jsonResponse['error'] == true) {
+      throw Exception(
+        jsonResponse['message'] ??
+            'Request failed with status ${response.statusCode}',
+      );
+    }
+
+    return jsonResponse;
+  }
 }

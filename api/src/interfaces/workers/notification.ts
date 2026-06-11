@@ -10,6 +10,7 @@ export interface NotificationPayload {
         actionUrl?: string;
         actions?: Array<{ action: string; title: string; url?: string }>;
         data?: Record<string, string>;
+        androidChannelId?: string;
     };
     variables?: Record<string, string>;
 }

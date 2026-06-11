@@ -21,7 +21,7 @@ Open this folder with a static server (required for service worker):
 
 1. Click **Initialize & Subscribe**
 2. Browser asks notification permission
-3. SDK registers user + device in NotifyX
+3. SDK registers user + device in NotifyX using the provided `externalDeviceId`
 4. Click **Send Test Push**
 5. Notification should appear from service worker
 

@@ -1,28 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
-import { compareUsersByIdentity } from "../lib/userIdentity";
+
+/**
+ * Backend-backed "favourite test users" for an app.
+ *
+ * Favourites are persisted on the server (User.isTestUser) so they are shared
+ * across admins and browsers. This hook fetches the current favourite ids and
+ * exposes setters that replace the whole set via the API. It deliberately does
+ * NOT load every user — the target pickers paginate users themselves.
+ */
 
 interface UsersListResponse {
-  users: Array<{
-    externalUserId: string;
-    nickname?: string | null;
-    _count?: {
-      devices?: number;
-    };
-  }>;
-  pagination?: {
-    page: number;
-    totalPages: number;
-  };
+  users: Array<{ externalUserId: string }>;
+  pagination?: { page: number; totalPages: number };
 }
 
-export interface AppTargetUser {
-  externalUserId: string;
-  nickname?: string | null;
-  devicesCount: number;
+interface SetFavouritesResponse {
+  appId: string;
+  externalUserIds: string[];
 }
-
-const STORAGE_KEY = "notifyx_test_target_users_v1";
 
 const toUniqueUserIds = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -35,190 +31,113 @@ const toUniqueUserIds = (value: unknown): string[] => {
   return Array.from(unique);
 };
 
-const areArraysEqual = (a: string[], b: string[]): boolean =>
-  a.length === b.length && a.every((value, index) => value === b[index]);
-
-const readStoredTargets = (): Record<string, string[]> => {
-  if (typeof window === "undefined") return {};
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    const normalized: Record<string, string[]> = {};
-    for (const [appId, userIds] of Object.entries(parsed)) {
-      if (typeof appId !== "string") continue;
-      normalized[appId] = toUniqueUserIds(userIds);
-    }
-    return normalized;
-  } catch {
-    return {};
-  }
-};
-
-const writeStoredTargets = (value: Record<string, string[]>) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-};
-
-const hasOwnKey = (value: Record<string, string[]>, key: string): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
-
-const getStoredTargetsForApp = (
-  appId: string,
-): { hasCustomEntry: boolean; userIds: string[] } => {
-  if (!appId) return { hasCustomEntry: false, userIds: [] };
-  const map = readStoredTargets();
-  return {
-    hasCustomEntry: hasOwnKey(map, appId),
-    userIds: toUniqueUserIds(map[appId]),
-  };
-};
-
-const setStoredTargetsForApp = (
-  appId: string,
-  userIds: string[],
-  keepEntry: boolean,
-) => {
-  if (!appId) return;
-  const map = readStoredTargets();
-  const normalized = toUniqueUserIds(userIds);
-  if (!keepEntry) {
-    delete map[appId];
-  } else {
-    map[appId] = normalized;
-  }
-  writeStoredTargets(map);
-};
-
 export function useAppTestTargetUsers(appId: string, token: string | null) {
-  const [allUsers, setAllUsers] = useState<AppTargetUser[]>([]);
-  const [hasCustomTestTargetUsers, setHasCustomTestTargetUsers] = useState(false);
   const [preferredTestTargetIds, setPreferredTestTargetIdsState] = useState<
     string[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const setPreferredTestTargetIds = useCallback(
-    (userIds: string[]) => {
-      const allowedUserIds = new Set(allUsers.map((user) => user.externalUserId));
-      const next = toUniqueUserIds(userIds).filter((id) => allowedUserIds.has(id));
-      const hasPreferredTargets = next.length > 0;
-      setStoredTargetsForApp(appId, next, hasPreferredTargets);
-      setHasCustomTestTargetUsers(hasPreferredTargets);
-      setPreferredTestTargetIdsState(next);
-    },
-    [allUsers, appId],
-  );
-  const clearPreferredTestTargetIds = useCallback(() => {
-    setStoredTargetsForApp(appId, [], false);
-    setHasCustomTestTargetUsers(false);
-    setPreferredTestTargetIdsState([]);
-  }, [appId]);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadFavourites = useCallback(async () => {
     if (!appId || !token) {
-      setAllUsers([]);
-      setHasCustomTestTargetUsers(false);
       setPreferredTestTargetIdsState([]);
-      setIsLoading(false);
       setError(null);
       return;
     }
-
-    let mounted = true;
-
-    const loadUsers = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const usersMap = new Map<string, AppTargetUser>();
-        let page = 1;
-        let totalPages = 1;
-
-        do {
-          const response = await apiFetch<UsersListResponse>(
-            `/users?appId=${encodeURIComponent(appId)}&page=${page}&limit=100`,
-            {},
-            token,
-          );
-
-          for (const user of response.users || []) {
-            const devicesCount = user._count?.devices || 0;
-            if (devicesCount <= 0) continue;
-
-            usersMap.set(user.externalUserId, {
-              externalUserId: user.externalUserId,
-              nickname: user.nickname ?? null,
-              devicesCount,
-            });
-          }
-
-          totalPages = response.pagination?.totalPages || 1;
-          page += 1;
-        } while (page <= totalPages);
-
-        if (!mounted) return;
-
-        const users = Array.from(usersMap.values()).sort(compareUsersByIdentity);
-        const allowedUserIds = new Set(users.map((user) => user.externalUserId));
-        const storedTargets = getStoredTargetsForApp(appId);
-        const sanitizedTargets = storedTargets.userIds.filter((id) =>
-          allowedUserIds.has(id),
+    setIsLoading(true);
+    setError(null);
+    try {
+      const ids: string[] = [];
+      let page = 1;
+      let totalPages = 1;
+      // Favourite sets are small, but paginate defensively.
+      do {
+        const response = await apiFetch<UsersListResponse>(
+          `/users?appId=${encodeURIComponent(appId)}&isTestUser=true&page=${page}&limit=100`,
+          {},
+          token,
         );
-
-        const hasPreferredTargets = sanitizedTargets.length > 0;
-
-        if (
-          !areArraysEqual(storedTargets.userIds, sanitizedTargets) ||
-          storedTargets.hasCustomEntry !== hasPreferredTargets
-        ) {
-          setStoredTargetsForApp(appId, sanitizedTargets, hasPreferredTargets);
+        for (const user of response.users || []) {
+          if (user.externalUserId) ids.push(user.externalUserId);
         }
+        totalPages = response.pagination?.totalPages || 1;
+        page += 1;
+      } while (page <= totalPages);
 
-        setAllUsers(users);
-        setHasCustomTestTargetUsers(hasPreferredTargets);
-        setPreferredTestTargetIdsState(sanitizedTargets);
-      } catch (loadError: any) {
-        if (!mounted) return;
-        setAllUsers([]);
-        setHasCustomTestTargetUsers(false);
-        setPreferredTestTargetIdsState([]);
-        setError(loadError?.message || "Failed to load app users.");
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+      if (mountedRef.current) {
+        setPreferredTestTargetIdsState(toUniqueUserIds(ids));
       }
-    };
-
-    void loadUsers();
-
-    return () => {
-      mounted = false;
-    };
+    } catch (loadError: any) {
+      if (mountedRef.current) {
+        setError(loadError?.message || "Failed to load favourite test users.");
+        setPreferredTestTargetIdsState([]);
+      }
+    } finally {
+      if (mountedRef.current) setIsLoading(false);
+    }
   }, [appId, token]);
 
-  const testTargetUsers = useMemo(() => {
-    if (!hasCustomTestTargetUsers) return allUsers;
-    const preferredSet = new Set(preferredTestTargetIds);
-    return allUsers.filter((user) => preferredSet.has(user.externalUserId));
-  }, [allUsers, hasCustomTestTargetUsers, preferredTestTargetIds]);
+  useEffect(() => {
+    void loadFavourites();
+  }, [loadFavourites]);
+
+  const persist = useCallback(
+    async (nextIds: string[]) => {
+      if (!appId || !token) return;
+      const unique = toUniqueUserIds(nextIds);
+      // Optimistic update for snappy UI; reconcile with the server response.
+      setPreferredTestTargetIdsState(unique);
+      try {
+        const response = await apiFetch<SetFavouritesResponse>(
+          `/users/test-favourites`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ appId, externalUserIds: unique }),
+          },
+          token,
+        );
+        if (mountedRef.current) {
+          setPreferredTestTargetIdsState(
+            toUniqueUserIds(response.externalUserIds),
+          );
+        }
+      } catch (saveError: any) {
+        if (mountedRef.current) {
+          setError(saveError?.message || "Failed to save favourite test users.");
+        }
+        // Re-sync from the server on failure.
+        void loadFavourites();
+      }
+    },
+    [appId, token, loadFavourites],
+  );
+
+  const setPreferredTestTargetIds = useCallback(
+    (userIds: string[]) => {
+      void persist(userIds);
+    },
+    [persist],
+  );
+
+  const clearPreferredTestTargetIds = useCallback(() => {
+    void persist([]);
+  }, [persist]);
 
   return {
-    allUsers,
-    testTargetUsers,
     preferredTestTargetIds,
-    hasCustomTestTargetUsers,
+    hasCustomTestTargetUsers: preferredTestTargetIds.length > 0,
     isLoading,
     error,
     setPreferredTestTargetIds,
     clearPreferredTestTargetIds,
+    refresh: loadFavourites,
   };
 }

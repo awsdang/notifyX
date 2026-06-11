@@ -14,6 +14,12 @@ export interface PushMessage {
     collapseKey?: string;
     ttl?: number;
     actions?: any[];
+    /**
+     * Android notification channel id (Android 8.0+). Required for the
+     * notification to display; if omitted, FCM falls back to the app's
+     * `default_notification_channel_id` from the manifest. See FCM docs.
+     */
+    androidChannelId?: string;
 }
 
 export interface PushResult {

@@ -9,6 +9,12 @@ export const registerUserSchema = z
     language: z.string().optional().meta({ example: "en" }),
     timezone: z.string().optional().meta({ example: "UTC" }),
     nickname: z.string().trim().max(64).optional().meta({ example: "Jane" }),
+    phone: z
+      .string()
+      .trim()
+      .max(32)
+      .optional()
+      .meta({ example: "+15551234567" }),
   })
   .register(registry, { id: "RegisterUserRequest" });
 
@@ -19,6 +25,16 @@ export const updateUserNicknameSchema = z
       .transform((value) => (value === "" ? null : value)),
   })
   .register(registry, { id: "UpdateUserNicknameRequest" });
+
+export const setTestFavouritesSchema = z
+  .object({
+    appId: z.string().meta({ example: "app-xyz" }),
+    externalUserIds: z
+      .array(z.string().trim().min(1))
+      .max(1000)
+      .meta({ example: ["user-123", "user-456"] }),
+  })
+  .register(registry, { id: "SetTestFavouritesRequest" });
 
 export const registerDeviceSchema = z
   .object({
@@ -37,6 +53,17 @@ export const registerDeviceSchema = z
         description:
           "Existing device ID to update (e.g. on token refresh). When provided, the existing device record is updated in-place instead of creating a duplicate.",
       }),
+    externalDeviceId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .optional()
+      .meta({
+        example: "ios-vendor-123",
+        description:
+          "Client-managed device identifier used to update the same physical device across subscription refreshes.",
+      }),
   })
   .register(registry, { id: "RegisterDeviceRequest" });
 
@@ -45,6 +72,7 @@ export const userSchema = z.object({
   id: z.uuid().meta({ example: "user-123" }),
   externalUserId: z.string().meta({ example: "user-123" }),
   nickname: z.string().nullable().meta({ example: "Jane" }),
+  phone: z.string().nullable().meta({ example: "+15551234567" }),
   appId: z.string().uuid().meta({ example: "app-xyz" }),
   language: z.string().meta({ example: "en" }),
   timezone: z.string().meta({ example: "UTC" }),
@@ -58,6 +86,7 @@ export const userSchema = z.object({
 
 export const deviceSchema = z.object({
   id: z.uuid().meta({ example: "device-123" }),
+  externalDeviceId: z.string().nullable().meta({ example: "ios-vendor-123" }),
   userId: z.uuid().meta({ example: "user-123" }),
   platform: z
     .enum(["android", "ios", "web", "huawei"])
