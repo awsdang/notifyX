@@ -54,6 +54,17 @@ export const updateAppSchema = z
       .nullable()
       .optional()
       .meta({ example: "ic_stat_notifyx" }),
+    defaultTapActionType: z
+      .enum(["open_url", "deep_link", "dismiss", "none"])
+      .nullable()
+      .optional()
+      .meta({ example: "open_url" }),
+    defaultTapActionValue: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .meta({ example: "https://example.com/deeplink" }),
   })
   .register(registry, { id: "UpdateAppRequest" });
 
@@ -102,6 +113,14 @@ export const appSchema = z.object({
     })
     .meta({ example: { android: true, ios: true } }),
   defaultLanguage: z.string().meta({ example: "en" }),
+  defaultTapActionType: z
+    .enum(["open_url", "deep_link", "dismiss", "none"])
+    .nullable()
+    .meta({ example: "open_url" }),
+  defaultTapActionValue: z
+    .string()
+    .nullable()
+    .meta({ example: "https://example.com/deeplink" }),
   notificationIconAssetId: z
     .uuid()
     .nullable()

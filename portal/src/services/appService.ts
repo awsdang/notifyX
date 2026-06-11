@@ -66,6 +66,8 @@ export const appService = {
       name?: string;
       notificationIconAssetId?: string | null;
       androidNotificationIcon?: string | null;
+      defaultTapActionType?: "open_url" | "deep_link" | "dismiss" | "none" | null;
+      defaultTapActionValue?: string | null;
     },
     token: string | null,
   ): Promise<Application> =>

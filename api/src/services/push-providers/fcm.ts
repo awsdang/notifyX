@@ -192,6 +192,13 @@ export class FCMProvider implements PushProvider {
                             sound: message.sound || 'default',
                             ...(message.androidIcon && { icon: message.androidIcon }),
                             ...(message.image && { image: message.image }),
+                            // Android 8.0+ requires a channel to display. Prefer
+                            // a per-message channel, then a server default; if
+                            // neither is set FCM uses the app manifest's
+                            // default_notification_channel_id.
+                            ...((message.androidChannelId || process.env.FCM_DEFAULT_CHANNEL_ID)
+                                ? { channel_id: message.androidChannelId || process.env.FCM_DEFAULT_CHANNEL_ID }
+                                : {}),
                         },
                     },
                     apns: {

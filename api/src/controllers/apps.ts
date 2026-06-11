@@ -35,6 +35,28 @@ const normalizeAndroidNotificationIcon = (
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const TAP_ACTION_TYPES = new Set(["open_url", "deep_link", "dismiss", "none"]);
+
+const normalizeDefaultTapActionType = (
+  value: string | null | undefined,
+): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 && TAP_ACTION_TYPES.has(trimmed) ? trimmed : null;
+};
+
+const normalizeDefaultTapActionValue = (
+  value: string | null | undefined,
+): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 async function resolveAppIconUpdate(
   appId: string,
   notificationIconAssetId: string | null | undefined,
@@ -542,12 +564,24 @@ export const updateApp = async (
     const androidNotificationIcon = normalizeAndroidNotificationIcon(
       data.androidNotificationIcon,
     );
+    const defaultTapActionType = normalizeDefaultTapActionType(
+      data.defaultTapActionType,
+    );
+    const defaultTapActionValue = normalizeDefaultTapActionValue(
+      data.defaultTapActionValue,
+    );
 
     const updateData = {
       ...data,
       ...(iconUpdate || {}),
       ...(androidNotificationIcon !== undefined
         ? { androidNotificationIcon }
+        : {}),
+      ...(defaultTapActionType !== undefined
+        ? { defaultTapActionType }
+        : {}),
+      ...(defaultTapActionValue !== undefined
+        ? { defaultTapActionValue }
         : {}),
     };
 

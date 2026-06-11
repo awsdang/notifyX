@@ -16,6 +16,7 @@ import {
   canAccessApp as authzCanAccessApp,
   type AuthContext,
 } from "../services/authz";
+import { computeAccessibleAppIds } from "./tenantScope";
 
 /**
  * Hash session token the same way admin.ts stores it.
@@ -90,6 +91,12 @@ export async function authenticateAdmin(
 
     // Attach user to request
     req.adminUser = session.adminUser;
+
+    // Resolve app scope here — the global resolveAccessibleApps middleware
+    // runs before route-level auth, when req.adminUser is not yet set, so
+    // admin routes would otherwise be left unscoped (all apps visible).
+    req.accessibleAppIds = await computeAccessibleAppIds(session.adminUser);
+
     next();
   } catch (error) {
     next(error);

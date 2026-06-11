@@ -6,7 +6,11 @@ export interface RouteSurfaceEntry {
   security?: Array<Record<string, string[]>>;
 }
 
-const bearerOnly = [{ bearerAuth: [] }];
+const bearerOnly: Array<Record<string, string[]>> = [{ bearerAuth: [] }];
+const bearerOrApiKey: Array<Record<string, string[]>> = [
+  { bearerAuth: [] },
+  { apiKeyAuth: [] },
+];
 
 export const mountedRouteSurface: RouteSurfaceEntry[] = [
   // Admin
@@ -404,6 +408,13 @@ export const mountedRouteSurface: RouteSurfaceEntry[] = [
   },
 
   // Notifications / Events / Templates
+  {
+    method: "get",
+    path: "/notifications/history",
+    summary: "Notification history",
+    tags: ["Notifications"],
+    security: bearerOrApiKey,
+  },
   {
     method: "post",
     path: "/notifications",

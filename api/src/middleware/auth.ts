@@ -83,6 +83,9 @@ function getRequiredScope(req: Request): string | null {
   if (path === "/notifications" && method === "POST") {
     return "notifications:send";
   }
+  if (path === "/notifications/history" && method === "GET") {
+    return "notifications:read";
+  }
   if (path.startsWith("/notifications/") && method === "POST") {
     if (path.endsWith("/test")) return "notifications:test";
     return "notifications:manage";

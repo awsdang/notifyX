@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../services/database";
+import type { NotificationPayload } from "../interfaces/workers/notification";
 import {
   createNotificationSchema,
   sendEventSchema,
@@ -46,6 +47,309 @@ function parseDateQuery(value: string, endOfDay = false): Date {
   }
   return parsed;
 }
+
+function replaceNotificationVariables(
+  value: string | undefined,
+  variables: Record<string, string> | undefined,
+): string | undefined {
+  if (!value) {
+    return value;
+  }
+
+  let resolved = value;
+  if (!variables) {
+    return resolved;
+  }
+
+  for (const [key, variableValue] of Object.entries(variables)) {
+    resolved = resolved.replaceAll(`{{${key}}}`, variableValue);
+  }
+
+  return resolved;
+}
+
+function getNotificationHistoryOrderBy(
+  sortBy: string,
+  sortOrder: "asc" | "desc",
+) {
+  switch (sortBy) {
+    case "sendAt":
+      return [
+        { notification: { sendAt: sortOrder } },
+        { createdAt: "desc" as const },
+      ];
+    case "type":
+      return [
+        { notification: { type: sortOrder } },
+        { createdAt: "desc" as const },
+      ];
+    case "provider":
+      return [{ provider: sortOrder }, { createdAt: "desc" as const }];
+    case "status":
+    case "deliveryStatus":
+      return [{ status: sortOrder }, { createdAt: "desc" as const }];
+    case "notificationStatus":
+      return [
+        { notification: { status: sortOrder } },
+        { createdAt: "desc" as const },
+      ];
+    case "createdAt":
+      return [{ createdAt: sortOrder }];
+    case "sentAt":
+    default:
+      return [
+        { sentAt: sortOrder },
+        { createdAt: sortOrder },
+        { id: "desc" as const },
+      ];
+  }
+}
+
+export const getNotificationHistory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const pageRaw = typeof req.query.page === "string" ? req.query.page : "1";
+    const limitRaw =
+      typeof req.query.limit === "string" ? req.query.limit : "20";
+    const appId = typeof req.query.appId === "string" ? req.query.appId.trim() : "";
+    const userIdRaw =
+      typeof req.query.userId === "string" ? req.query.userId.trim() : "";
+    const deviceIdRaw =
+      typeof req.query.deviceId === "string" ? req.query.deviceId.trim() : "";
+    const typeRaw =
+      typeof req.query.type === "string" ? req.query.type.trim() : "";
+    const providerRaw =
+      typeof req.query.provider === "string" ? req.query.provider.trim() : "";
+    const deliveryStatusRaw =
+      typeof req.query.deliveryStatus === "string"
+        ? req.query.deliveryStatus.trim()
+        : typeof req.query.status === "string"
+          ? req.query.status.trim()
+          : "";
+    const notificationStatusRaw =
+      typeof req.query.notificationStatus === "string"
+        ? req.query.notificationStatus.trim()
+        : "";
+    const sortByRaw =
+      typeof req.query.sortBy === "string" ? req.query.sortBy.trim() : "sentAt";
+    const sortOrderRaw =
+      typeof req.query.sortOrder === "string"
+        ? req.query.sortOrder.trim().toLowerCase()
+        : "desc";
+    const fromRaw =
+      typeof req.query.from === "string" ? req.query.from.trim() : "";
+    const toRaw = typeof req.query.to === "string" ? req.query.to.trim() : "";
+
+    if (!appId) {
+      throw new AppError(400, '"appId" is required', "APP_ID_REQUIRED");
+    }
+
+    if (!userIdRaw && !deviceIdRaw) {
+      throw new AppError(
+        400,
+        'Either "userId" or "deviceId" is required',
+        "RECIPIENT_REQUIRED",
+      );
+    }
+
+    const allowedSortFields = new Set([
+      "createdAt",
+      "deliveryStatus",
+      "notificationStatus",
+      "provider",
+      "sendAt",
+      "sentAt",
+      "status",
+      "type",
+    ]);
+    if (!allowedSortFields.has(sortByRaw)) {
+      throw new AppError(
+        400,
+        `Invalid sortBy. Allowed values: ${Array.from(allowedSortFields).join(", ")}`,
+        "INVALID_SORT_BY",
+      );
+    }
+
+    if (sortOrderRaw !== "asc" && sortOrderRaw !== "desc") {
+      throw new AppError(
+        400,
+        'Invalid sortOrder. Allowed values: "asc" or "desc"',
+        "INVALID_SORT_ORDER",
+      );
+    }
+
+    const page = Math.max(1, parseInt(pageRaw, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitRaw, 10) || 20));
+    const skip = (page - 1) * limit;
+    const from = fromRaw ? parseDateQuery(fromRaw) : null;
+    const to = toRaw ? parseDateQuery(toRaw, true) : null;
+
+    if (from && to && from > to) {
+      throw new AppError(
+        400,
+        '"from" must be before or equal to "to"',
+        "INVALID_DATE_RANGE",
+      );
+    }
+
+    const scopedAppFilter = appIdScopeFilter(req);
+    const scopedAppConstraint = scopedAppFilter.appId;
+    const appIdFilter = scopedAppConstraint
+      ? { appId: { ...scopedAppConstraint, equals: appId } }
+      : { appId };
+
+    const where: any = {
+      ...(deliveryStatusRaw ? { status: deliveryStatusRaw.toUpperCase() } : {}),
+      ...(providerRaw ? { provider: providerRaw } : {}),
+      ...(deviceIdRaw
+        ? {
+            OR: [
+              { deviceId: deviceIdRaw },
+              { device: { externalDeviceId: deviceIdRaw } },
+            ],
+          }
+        : {}),
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
+        : {}),
+      notification: {
+        ...appIdFilter,
+        ...(typeRaw ? { type: typeRaw } : {}),
+        ...(notificationStatusRaw
+          ? { status: notificationStatusRaw.toUpperCase() }
+          : {}),
+      },
+      ...(userIdRaw
+        ? {
+            device: {
+              user: {
+                deletedAt: null,
+                OR: [{ id: userIdRaw }, { externalUserId: userIdRaw }],
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      prisma.notificationDelivery.findMany({
+        where,
+        orderBy: getNotificationHistoryOrderBy(
+          sortByRaw,
+          sortOrderRaw as "asc" | "desc",
+        ),
+        skip,
+        take: limit,
+        include: {
+          device: {
+            select: {
+              id: true,
+              externalDeviceId: true,
+              platform: true,
+              user: {
+                select: {
+                  id: true,
+                  externalUserId: true,
+                },
+              },
+            },
+          },
+          notification: {
+            select: {
+              id: true,
+              appId: true,
+              type: true,
+              status: true,
+              sendAt: true,
+              createdAt: true,
+              payload: true,
+              template: {
+                select: {
+                  title: true,
+                  body: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+      } as any),
+      prisma.notificationDelivery.count({ where } as any),
+    ]);
+
+    const historyItems = (items as Array<any>).map((item) => {
+      const payload = (item.notification.payload || {}) as NotificationPayload;
+      const variables = payload.variables;
+      const actions = Array.isArray(payload.adhocContent?.actions)
+        ? payload.adhocContent.actions
+            .filter(
+              (action) =>
+                action &&
+                typeof action.title === "string" &&
+                action.title.trim().length > 0,
+            )
+            .map((action) => ({
+              action: action.action,
+              title: action.title,
+              ...(action.url ? { url: action.url } : {}),
+            }))
+        : [];
+      const actionUrl =
+        payload.adhocContent?.actionUrl || actions.find((action) => action.url)?.url;
+
+      return {
+        deliveryId: item.id,
+        id: item.notification.id,
+        appId: item.notification.appId,
+        userId: item.device.user.id,
+        externalUserId: item.device.user.externalUserId,
+        deviceId: item.device.externalDeviceId || item.device.id,
+        platform: item.device.platform,
+        provider: item.provider,
+        type: item.notification.type,
+        notificationStatus: item.notification.status,
+        deliveryStatus: item.status,
+        title: replaceNotificationVariables(
+          payload.adhocContent?.title || item.notification.template?.title || undefined,
+          variables,
+        ) || "Notification",
+        body:
+          replaceNotificationVariables(
+            payload.adhocContent?.body || item.notification.template?.body || undefined,
+            variables,
+          ) || "",
+        image:
+          replaceNotificationVariables(
+            payload.adhocContent?.image || item.notification.template?.image || undefined,
+            variables,
+          ) || null,
+        cta:
+          actionUrl || actions.length > 0
+            ? {
+                ...(actionUrl ? { actionUrl } : {}),
+                ...(actions.length > 0 ? { actions } : {}),
+              }
+            : null,
+        sentAt: item.sentAt,
+        sendAt: item.notification.sendAt,
+        createdAt: item.createdAt,
+        notificationCreatedAt: item.notification.createdAt,
+      };
+    });
+
+    sendPaginated(res, historyItems, total, page, limit);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getNotifications = async (
   req: Request,
@@ -240,13 +544,16 @@ export const createNotification = async (
     const data = createNotificationSchema.parse(req.body);
     const adminUser = req.adminUser;
 
-    const app = await prisma.app.findUnique({ where: { id: data.appId } });
-    if (!app) {
+    const existingApp = await prisma.app.findUnique({
+      where: { id: data.appId },
+      select: { id: true, isKilled: true },
+    });
+    if (!existingApp) {
       throw new AppError(404, "App not found", "APP_NOT_FOUND");
     }
     assertMachineKeyAppAccess(req, data.appId);
 
-    if (app.isKilled) {
+    if (existingApp.isKilled) {
       throw new AppError(
         403,
         "App is disabled. Cannot create notifications.",
@@ -305,18 +612,32 @@ export const createNotification = async (
     const isImmediate = sendAt <= now;
     const status = isImmediate ? "QUEUED" : "SCHEDULED";
 
-    const template = data.templateId
-      ? await prisma.notificationTemplate.findFirst({
-          where: { id: data.templateId, appId: data.appId },
-          select: {
-            id: true,
-            title: true,
-            subtitle: true,
-            body: true,
-            image: true,
-          },
-        })
-      : null;
+    const [app, template] = await Promise.all([
+      prisma.app.findUnique({
+        where: { id: data.appId },
+        select: {
+          id: true,
+          defaultTapActionType: true,
+          defaultTapActionValue: true,
+        },
+      }),
+      data.templateId
+        ? prisma.notificationTemplate.findFirst({
+            where: { id: data.templateId, appId: data.appId },
+            select: {
+              id: true,
+              title: true,
+              subtitle: true,
+              body: true,
+              image: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
 
     if (data.templateId && !template) {
       throw new AppError(404, "Template not found", "TEMPLATE_NOT_FOUND");
@@ -330,6 +651,9 @@ export const createNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -800,7 +1124,16 @@ export const sendTestNotification = async (
     const data = testNotificationSchema.parse(req.body);
     const adminUser = req.adminUser;
 
-    const app = await prisma.app.findUnique({ where: { id: data.appId } });
+    const app = await prisma.app.findUnique({
+      where: { id: data.appId },
+      select: {
+        id: true,
+        defaultTapActionType: true,
+        defaultTapActionValue: true,
+        notificationIconUrl: true,
+        androidNotificationIcon: true,
+      },
+    });
     if (!app) {
       throw new AppError(404, "App not found", "APP_NOT_FOUND");
     }
@@ -833,6 +1166,9 @@ export const sendTestNotification = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
     const messageIcons = resolvePushMessageIcons(app, data.icon);

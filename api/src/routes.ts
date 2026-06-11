@@ -23,9 +23,11 @@ import {
   deactivateDevice,
   activateDevice,
   deleteUser,
+  setTestFavourites,
 } from "./controllers/users";
 import {
   createNotification,
+  getNotificationHistory,
   getNotifications,
   sendEvent,
   cancelNotification,
@@ -195,6 +197,7 @@ import {
   registerUserSchema,
   registerDeviceSchema,
   updateUserNicknameSchema,
+  setTestFavouritesSchema,
 } from "./schemas/users";
 import {
   createABTestSchema,
@@ -531,6 +534,15 @@ appRouter.post(
 // ===========================================
 export const userRouter = Router();
 userRouter.get("/", authenticateAdmin, requireMarketing, cache(), getUsers);
+// Favourite ("test") users — replace the whole set for an app. Registered
+// before "/:id" so the literal path is not captured as an id.
+userRouter.put(
+  "/test-favourites",
+  authenticateAdmin,
+  requireMarketing,
+  validateRequest(setTestFavouritesSchema),
+  setTestFavourites,
+);
 userRouter.get("/:id", authenticateAdmin, requireMarketing, cache(), getUser);
 userRouter.patch(
   "/:id",
@@ -577,6 +589,12 @@ notificationRouter.get(
   requireMarketing,
   cache(),
   getNotifications,
+);
+notificationRouter.get(
+  "/history",
+  requireMarketingOrMachineAuth,
+  cache(),
+  getNotificationHistory,
 );
 notificationRouter.post(
   "/",
@@ -885,7 +903,10 @@ campaignRouter.get(
   "/:id/stats",
   authenticateAdmin,
   requireMarketing,
-  cache(),
+  // Short TTL: campaign stats change continuously while sending. The default
+  // 5-minute cache made them appear "stuck". Completion also explicitly
+  // invalidates this key (see campaignFinalizer).
+  cache({ duration: 10 }),
   getCampaignStats,
 );
 

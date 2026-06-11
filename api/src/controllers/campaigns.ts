@@ -19,6 +19,7 @@ import {
   parseCampaignTargetingData,
 } from "../utils/campaignTargeting";
 import { normalizeOpenLinkCta } from "../utils/cta";
+import { mapDeliveryBreakdown } from "../services/campaignFinalizer";
 
 function assertAppAccess(req: Request, appId: string): void {
   if (!canAccessAppId(req, appId)) {
@@ -90,6 +91,9 @@ export const createCampaign = async (
       actionUrl: data.actionUrl,
       actions: data.actions,
       data: data.data,
+      tapActionType: data.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -233,10 +237,26 @@ export const updateCampaign = async (
     const mergedActionUrl = data.actionUrl ?? existingTargeting.actionUrl;
     const mergedData = data.data ?? existingTargeting.data;
     const mergedActions = data.actions ?? existingTargeting.actions;
+    const app = await prisma.app.findUnique({
+      where: { id: existing.appId },
+      select: {
+        id: true,
+        defaultTapActionType: true,
+        defaultTapActionValue: true,
+      },
+    });
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
+
     const normalizedCta = normalizeOpenLinkCta({
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
+      tapActionType: data.tapActionType ?? existingTargeting.data?.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 
@@ -571,25 +591,33 @@ export const getCampaignStats = async (
 
     const notificationIds = notifications.map((n) => n.id);
 
-    const deliveryStats = await prisma.notificationDelivery.groupBy({
-      by: ["status"],
-      where: { notificationId: { in: notificationIds } },
-      _count: true,
-    });
+    const deliveryStats =
+      notificationIds.length > 0
+        ? await prisma.notificationDelivery.groupBy({
+            by: ["status"],
+            where: { notificationId: { in: notificationIds } },
+            _count: true,
+          })
+        : [];
+
+    // Compute stats LIVE from the source of truth (NotificationDelivery rows).
+    // The denormalized Campaign.{sent,delivered,failed}Count fields are only a
+    // final snapshot written at completion, so reading them mid-flight (or for
+    // any campaign that finished before this fix) shows stale zeros.
+    const counts = mapDeliveryBreakdown(
+      deliveryStats.map((s) => ({
+        status: s.status,
+        count: s._count as unknown as number,
+      })),
+    );
 
     const stats = {
       total: campaign.totalTargets,
       processed: campaign.processedCount,
-      sent: campaign.sentCount,
-      delivered: campaign.deliveredCount,
-      failed: campaign.failedCount,
-      deliveryBreakdown: deliveryStats.reduce(
-        (acc, s) => {
-          acc[s.status] = s._count;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
+      sent: counts.sent,
+      delivered: counts.delivered,
+      failed: counts.failed,
+      deliveryBreakdown: counts.breakdown,
     };
 
     sendSuccess(res, {
@@ -853,10 +881,26 @@ export const saveCampaignDraft = async (
     const mergedActionUrl = data.actionUrl ?? existingTargeting.actionUrl;
     const mergedData = data.data ?? existingTargeting.data;
     const mergedActions = data.actions ?? existingTargeting.actions;
+    const app = await prisma.app.findUnique({
+      where: { id: existing.appId },
+      select: {
+        id: true,
+        defaultTapActionType: true,
+        defaultTapActionValue: true,
+      },
+    });
+
+    if (!app) {
+      throw new AppError(404, "App not found", "APP_NOT_FOUND");
+    }
+
     const normalizedCta = normalizeOpenLinkCta({
       actionUrl: mergedActionUrl,
       actions: mergedActions as unknown[] | undefined,
       data: mergedData ?? undefined,
+      tapActionType: data.tapActionType ?? existingTargeting.data?.tapActionType,
+      defaultTapActionType: app.defaultTapActionType,
+      defaultTapActionValue: app.defaultTapActionValue,
       maxActions: 2,
     });
 

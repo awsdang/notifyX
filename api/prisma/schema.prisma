@@ -171,6 +171,8 @@ model App {
   packageName     String?  @map("package_name")
   platforms       Json // { android: boolean, ios: boolean, web: boolean, huawei: boolean }
   defaultLanguage String   @map("default_language")
+  defaultTapActionType String? @map("default_tap_action_type")
+  defaultTapActionValue String? @map("default_tap_action_value")
   notificationIconAssetId String? @map("notification_icon_asset_id")
   notificationIconUrl String? @map("notification_icon_url")
   androidNotificationIcon String? @map("android_notification_icon")
@@ -297,9 +299,11 @@ model User {
   id             String    @id @default(uuid())
   externalUserId String    @map("external_user_id")
   nickname       String?   @map("nickname")
+  phone          String?   @map("phone")
   appId          String    @map("app_id")
   language       String    @default("en")
   timezone       String    @default("UTC")
+  isTestUser     Boolean   @default(false) @map("is_test_user") // Favourite test recipient for this app
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
@@ -311,11 +315,13 @@ model User {
   @@unique([appId, externalUserId])
   @@index([appId])
   @@index([deletedAt])
+  @@index([appId, isTestUser])
   @@map("users")
 }
 
 model Device {
   id                 String    @id @default(uuid())
+  externalDeviceId   String?   @map("external_device_id")
   userId             String    @map("user_id")
   platform           String
   pushToken          String    @map("push_token") // Encrypted at application layer
@@ -337,6 +343,7 @@ model Device {
   automationExecutions AutomationExecution[]
 
   @@unique([tokenHash, provider])
+  @@index([externalDeviceId])
   @@index([userId])
   @@index([isActive])
   @@index([provider, isActive])

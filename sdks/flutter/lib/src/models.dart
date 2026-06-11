@@ -1,6 +1,8 @@
 class NotifyXUser {
   final String id;
   final String externalUserId;
+  final String? nickname;
+  final String? phone;
   final String appId;
   final String language;
   final String timezone;
@@ -10,6 +12,8 @@ class NotifyXUser {
   NotifyXUser({
     required this.id,
     required this.externalUserId,
+    this.nickname,
+    this.phone,
     required this.appId,
     required this.language,
     required this.timezone,
@@ -21,6 +25,8 @@ class NotifyXUser {
     return NotifyXUser(
       id: json['id']?.toString() ?? '',
       externalUserId: json['externalUserId']?.toString() ?? '',
+      nickname: json['nickname']?.toString(),
+      phone: json['phone']?.toString(),
       appId: json['appId']?.toString() ?? '',
       language: json['language']?.toString() ?? 'en',
       timezone: json['timezone']?.toString() ?? 'UTC',
@@ -32,6 +38,8 @@ class NotifyXUser {
   Map<String, dynamic> toJson() => {
         'id': id,
         'externalUserId': externalUserId,
+      'nickname': nickname,
+        'phone': phone,
         'appId': appId,
         'language': language,
         'timezone': timezone,
@@ -42,6 +50,7 @@ class NotifyXUser {
 
 class NotifyXDevice {
   final String id;
+  final String? externalDeviceId;
   final String userId;
   final String platform;
   final String pushToken;
@@ -52,6 +61,7 @@ class NotifyXDevice {
 
   NotifyXDevice({
     required this.id,
+    this.externalDeviceId,
     required this.userId,
     required this.platform,
     required this.pushToken,
@@ -64,6 +74,7 @@ class NotifyXDevice {
   factory NotifyXDevice.fromJson(Map<String, dynamic> json) {
     return NotifyXDevice(
       id: json['id']?.toString() ?? '',
+      externalDeviceId: json['externalDeviceId']?.toString(),
       userId: json['userId']?.toString() ?? '',
       platform: json['platform']?.toString() ?? '',
       pushToken: json['pushToken']?.toString() ?? '',
@@ -76,6 +87,7 @@ class NotifyXDevice {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+      'externalDeviceId': externalDeviceId,
         'userId': userId,
         'platform': platform,
         'pushToken': pushToken,

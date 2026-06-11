@@ -5,6 +5,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { prisma } from "../src/services/database";
 import {
   http,
   factory,
@@ -324,6 +325,165 @@ describe("Notifications API - Test Notifications", () => {
     const res = await http.post("/notifications/test", {
       body: { appId: testAppId }, // Missing deviceId, title, body
     });
+
+    expectError(res, 400);
+  });
+});
+
+describe("Notifications API - History", () => {
+  let historyUserId: string;
+  let historyExternalUserId: string;
+  let historyDeviceId: string;
+  let historyExternalDeviceId: string;
+
+  beforeAll(async () => {
+    const externalUserId = `history_user_${Date.now()}`;
+    historyExternalUserId = externalUserId;
+
+    const userRes = await http.post<{ success: boolean; data: { id: string } }>(
+      "/users",
+      {
+        body: factory.user({ appId: testAppId, externalUserId }),
+      },
+    );
+    expectSuccess(userRes);
+    historyUserId = userRes.data.data.id;
+    cleanup.trackUser(historyUserId);
+
+    historyExternalDeviceId = `history-device-${Date.now()}`;
+
+    const deviceRes = await http.post<{ success: boolean; data: { id: string } }>(
+      "/users/device",
+      {
+        body: factory.device(historyUserId, testAppId, {
+          platform: "android",
+          externalDeviceId: historyExternalDeviceId,
+        }),
+      },
+    );
+    expectSuccess(deviceRes);
+    historyDeviceId = deviceRes.data.data.id;
+
+    const createdAtBase = Date.now();
+    const firstNotification = await prisma.notification.create({
+      data: {
+        appId: testAppId,
+        type: "transactional",
+        status: "SENT",
+        priority: "NORMAL",
+        sendAt: new Date(createdAtBase - 60_000),
+        payload: {
+          userIds: [historyExternalUserId],
+          variables: { firstName: "Taylor", orderId: "1001" },
+          adhocContent: {
+            title: "Hi {{firstName}}",
+            body: "Order #{{orderId}} is ready",
+            image: "https://example.com/order-ready.png",
+            actionUrl: "https://example.com/orders/1001",
+            actions: [
+              {
+                action: "open_link_primary",
+                title: "View order",
+                url: "https://example.com/orders/1001",
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const secondNotification = await prisma.notification.create({
+      data: {
+        appId: testAppId,
+        type: "marketing",
+        status: "QUEUED",
+        priority: "HIGH",
+        sendAt: new Date(createdAtBase - 30_000),
+        payload: {
+          userIds: [historyExternalUserId],
+          adhocContent: {
+            title: "Weekend deal",
+            body: "20% off this weekend only",
+          },
+        },
+      },
+    });
+
+    await prisma.notificationDelivery.create({
+      data: {
+        notificationId: firstNotification.id,
+        deviceId: historyDeviceId,
+        provider: "fcm",
+        status: "DELIVERED",
+        sentAt: new Date(createdAtBase - 50_000),
+      },
+    });
+
+    await prisma.notificationDelivery.create({
+      data: {
+        notificationId: secondNotification.id,
+        deviceId: historyDeviceId,
+        provider: "fcm",
+        status: "PENDING",
+        sentAt: new Date(createdAtBase - 10_000),
+      },
+    });
+  });
+
+  test("should list notification history for a device", async () => {
+    const res = await http.get<{
+      error: boolean;
+      data: Array<{
+        id: string;
+        deviceId: string;
+        title: string;
+        body: string;
+        image: string | null;
+        cta: { actionUrl?: string; actions?: Array<{ title: string }> } | null;
+        deliveryStatus: string;
+      }>;
+      totalCount: number;
+    }>(
+      `/notifications/history?appId=${testAppId}&deviceId=${historyExternalDeviceId}&sortBy=sentAt&sortOrder=desc`,
+      { token: adminToken, apiKey: "" },
+    );
+
+    expectSuccess(res);
+    expect(res.data.totalCount).toBe(2);
+    expect(res.data.data).toHaveLength(2);
+    expect(res.data.data[0]?.deviceId).toBe(historyExternalDeviceId);
+    expect(res.data.data[0]?.deliveryStatus).toBe("PENDING");
+    expect(res.data.data[1]?.title).toBe("Hi Taylor");
+    expect(res.data.data[1]?.body).toBe("Order #1001 is ready");
+    expect(res.data.data[1]?.image).toBe("https://example.com/order-ready.png");
+    expect(res.data.data[1]?.cta?.actionUrl).toBe(
+      "https://example.com/orders/1001",
+    );
+    expect(res.data.data[1]?.cta?.actions?.[0]?.title).toBe("View order");
+  });
+
+  test("should filter notification history by user and type", async () => {
+    const res = await http.get<{
+      error: boolean;
+      data: Array<{ type: string; userId: string; externalUserId: string }>;
+      totalCount: number;
+    }>(
+      `/notifications/history?appId=${testAppId}&userId=${historyUserId}&type=transactional&sortBy=createdAt&sortOrder=asc`,
+      { token: adminToken, apiKey: "" },
+    );
+
+    expectSuccess(res);
+    expect(res.data.totalCount).toBe(1);
+    expect(res.data.data[0]?.type).toBe("transactional");
+    expect(res.data.data[0]?.userId).toBe(historyUserId);
+    expect(res.data.data[0]?.externalUserId).toBe(historyExternalUserId);
+  });
+
+  test("should reject history requests without recipient", async () => {
+    const res = await http.get(
+      `/notifications/history?appId=${testAppId}`,
+      { token: adminToken, apiKey: "" },
+    );
 
     expectError(res, 400);
   });

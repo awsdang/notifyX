@@ -5,6 +5,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { prisma } from "../src/services/database";
 import {
   http,
   factory,
@@ -207,16 +208,18 @@ describe("Devices API - Single Requests", () => {
     // Deactivate device
     const res = await http.patch<{
       success: boolean;
-      data: { deleted: boolean; deviceId: string; userId: string };
+      data: { deactivated: boolean; deviceId: string; userId: string; isActive: boolean };
     }>(`/devices/${deviceId}/deactivate`, { token: adminToken });
 
     expectSuccess(res);
-    expect(res.data.data.deleted).toBe(true);
+    expect(res.data.data.deactivated).toBe(true);
     expect(res.data.data.deviceId).toBe(deviceId);
     expect(res.data.data.userId).toBe(testUserId);
+    expect(res.data.data.isActive).toBe(false);
 
+    // The user (and their history) must survive deactivating a single device.
     const userRes = await http.get(`/users/${testUserId}`, { token: adminToken });
-    expectError(userRes, 404);
+    expectSuccess(userRes);
   });
 
   test("should handle duplicate device token update", async () => {
@@ -307,7 +310,8 @@ describe("Users API - Bulk Requests", () => {
   });
 
   test("should handle bulk device deactivation", async () => {
-    // Create one user/device pair per request so each deactivate can hard-delete.
+    // Create one user/device pair per request. Deactivation only disables the
+    // device; the user and their history are preserved.
     const userIds: string[] = [];
     const deviceIds: string[] = [];
     for (let i = 0; i < 5; i++) {
@@ -355,7 +359,7 @@ describe("Users API - Bulk Requests", () => {
     );
     const getUserResults = await Promise.all(getUserRequests);
     for (const getUserRes of getUserResults) {
-      expectError(getUserRes, 404);
+      expectSuccess(getUserRes);
     }
   });
 });
@@ -365,7 +369,7 @@ describe("Users API - Bulk Requests", () => {
 // ============================================================
 
 describe("Device Cleanup - Safety Action Scenario", () => {
-  test("should permanently delete suspicious device and user", async () => {
+  test("should deactivate a suspicious device without destroying user history", async () => {
     // Create user
     const userRes = await http.post<{ success: boolean; data: { id: string } }>(
       "/users",
@@ -392,15 +396,16 @@ describe("Device Cleanup - Safety Action Scenario", () => {
     // Manager deactivates device
     const deactivateRes = await http.patch<{
       success: boolean;
-      data: { deleted: boolean; deviceId: string; userId: string };
+      data: { deactivated: boolean; deviceId: string; userId: string; isActive: boolean };
     }>(`/devices/${deviceId}/deactivate`, { token: adminToken });
 
     expectSuccess(deactivateRes);
-    expect(deactivateRes.data.data.deleted).toBe(true);
+    expect(deactivateRes.data.data.deactivated).toBe(true);
     expect(deactivateRes.data.data.deviceId).toBe(deviceId);
     expect(deactivateRes.data.data.userId).toBe(userId);
+    expect(deactivateRes.data.data.isActive).toBe(false);
 
-    // Verify the device no longer exists in listings.
+    // The device is still listed, but marked inactive (not deleted).
     const devicesRes = await http.get<{
       success: boolean;
       data: { devices: Array<{ id: string; isActive: boolean }> };
@@ -409,10 +414,12 @@ describe("Device Cleanup - Safety Action Scenario", () => {
     expectSuccess(devicesRes);
     const device = devicesRes.data.data.devices.find((d) => d.id === deviceId);
 
-    expect(device).toBeUndefined();
+    expect(device).toBeDefined();
+    expect(device?.isActive).toBe(false);
 
+    // The user and their notification history survive.
     const getUserRes = await http.get(`/users/${userId}`, { token: adminToken });
-    expectError(getUserRes, 404);
+    expectSuccess(getUserRes);
   });
 });
 
@@ -462,6 +469,37 @@ describe("Device Deduplication - Token Refresh", () => {
     expectSuccess(refreshRes);
     // Same device record should be returned (updated in-place)
     expect(refreshRes.data.data.id).toBe(deviceId);
+  });
+
+  test("should update existing device when externalDeviceId is provided", async () => {
+    const externalDeviceId = `external-device-${Date.now()}`;
+    const createRes = await http.post<{
+      success: boolean;
+      data: { id: string; externalDeviceId: string | null };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `external_initial_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+
+    expectSuccess(createRes);
+    const deviceId = createRes.data.data.id;
+    expect(createRes.data.data.externalDeviceId).toBe(externalDeviceId);
+
+    const refreshRes = await http.post<{
+      success: boolean;
+      data: { id: string; externalDeviceId: string | null };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `external_refresh_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+
+    expectSuccess(refreshRes);
+    expect(refreshRes.data.data.id).toBe(deviceId);
+    expect(refreshRes.data.data.externalDeviceId).toBe(externalDeviceId);
   });
 
   test("should fall through to upsert when deviceId is invalid", async () => {
@@ -522,5 +560,55 @@ describe("Device Deduplication - Token Refresh", () => {
     });
     expectSuccess(res3);
     expect(res3.data.data.id).toBe(deviceId);
+  });
+
+  test("should revive an auto-deactivated device on re-registration (token refresh after invalid-token)", async () => {
+    const externalDeviceId = `revive-${Date.now()}`;
+
+    // Register a device with a stable externalDeviceId.
+    const createRes = await http.post<{
+      success: boolean;
+      data: { id: string };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `revive_initial_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+    expectSuccess(createRes);
+    const deviceId = createRes.data.data.id;
+
+    // Simulate the delivery worker auto-deactivating it on an invalid token.
+    await prisma.device.update({
+      where: { id: deviceId },
+      data: {
+        isActive: false,
+        tokenInvalidAt: new Date(),
+        deactivatedAt: new Date(),
+        deactivationReason: "INVALID_TOKEN_AUTO",
+      },
+    });
+
+    // Re-register with a fresh token (what the SDK does on token refresh).
+    const refreshRes = await http.post<{
+      success: boolean;
+      data: { id: string; isActive: boolean };
+    }>("/users/device", {
+      body: factory.device(testUserId, testAppId, {
+        pushToken: `revive_refreshed_${Date.now()}`,
+        externalDeviceId,
+      }),
+    });
+    expectSuccess(refreshRes);
+    expect(refreshRes.data.data.id).toBe(deviceId);
+    expect(refreshRes.data.data.isActive).toBe(true);
+
+    // The device must be fully eligible for sending again: the worker filters
+    // on { isActive: true, tokenInvalidAt: null }.
+    const revived = await prisma.device.findUnique({ where: { id: deviceId } });
+    expect(revived?.isActive).toBe(true);
+    expect(revived?.tokenInvalidAt).toBeNull();
+    expect(revived?.deactivatedAt).toBeNull();
+    expect(revived?.deactivationReason).toBeNull();
   });
 });
