@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit",
     "openapi:check": "bun run generate:openapi && git diff --exit-code openapi.json",
     "quality:check": "bun run typecheck && bun run openapi:check && bun test tests/openapi.test.ts",
+    "admin:reset-password": "bun scripts/reset-admin-password.ts",
     "stress-test": "tsx scripts/stress-test.ts",
     "test": "bun test tests --exclude tests/providers",
     "test:all": "bun test tests",
