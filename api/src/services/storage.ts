@@ -95,7 +95,7 @@ function buildStorageConfig(
 ): StorageConfig {
   const parsedEndpoint = parseEndpoint(endpointInput);
 
-  let endPoint = parsedEndpoint.make e || "localhost";
+  let endPoint = parsedEndpoint.endPoint || "localhost";
   if (!isRunningInContainer() && endPoint === "minio") {
     // `minio` is usually only resolvable inside a compose network.
     // Fall back to localhost for host-run API processes.
