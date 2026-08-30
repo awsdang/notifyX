@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/Card";
 import { Badge } from "./ui/Badge";
+import { ProviderBrandIcon } from "./ui/BrandIcons";
+import { ReachabilityPanel } from "./users/ReachabilityPanel";
 import { EmptyState } from "./ui/EmptyState";
 import { SkeletonTable } from "./ui/Skeleton";
 import { Input, Select } from "./ui/Input";
@@ -15,8 +17,6 @@ import {
   XCircle,
   RefreshCw,
   UploadCloud,
-  Bot,
-  Globe,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -109,7 +109,18 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
   const [filterAppId, setFilterAppId] = useState(() => apps[0]?.id || "");
   const [filterPlatform, setFilterPlatform] = useState("");
   const [filterProvider, setFilterProvider] = useState("");
-  const [filterActive, setFilterActive] = useState("");
+  // Devices default to the live ones — a list dominated by revoked tokens is
+  // noise when you are looking for someone to send to.
+  const [filterActive, setFilterActive] = useState("true");
+  const [filterTokenValid, setFilterTokenValid] = useState("true");
+  const [deviceSearch, setDeviceSearch] = useState("");
+  // Users with no reachable device cannot receive anything, so they are hidden
+  // unless you go looking for them. The two unreachable causes are split out
+  // because they need different fixes: "never registered" means push setup
+  // never completed on the client, "token dead" means the provider rejected a
+  // device that used to work (usually an uninstall).
+  const [filterReachability, setFilterReachability] = useState("reachable");
+  const [filterLanguage, setFilterLanguage] = useState("");
   const {
     preferredTestTargetIds,
     hasCustomTestTargetUsers,
@@ -138,6 +149,8 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
       const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (searchQuery) params.append("search", searchQuery);
       params.append("appId", filterAppId);
+      if (filterReachability) params.append("reachability", filterReachability);
+      if (filterLanguage) params.append("language", filterLanguage);
 
       params.append("ts", Date.now().toString());
       const data = await authApiCall(`/users?${params}`);
@@ -165,6 +178,8 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
       if (filterPlatform) params.append("platform", filterPlatform);
       if (filterProvider) params.append("provider", filterProvider);
       if (filterActive) params.append("isActive", filterActive);
+      if (filterTokenValid) params.append("tokenValid", filterTokenValid);
+      if (deviceSearch) params.append("search", deviceSearch);
       if (selectedUser) params.append("userId", selectedUser.id);
       params.append("ts", Date.now().toString());
 
@@ -399,7 +414,17 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
     } else if (activeTab === "devices") {
       fetchDevices();
     }
-  }, [activeTab, filterAppId, filterPlatform, filterProvider, filterActive]);
+  }, [
+    activeTab,
+    filterAppId,
+    filterPlatform,
+    filterProvider,
+    filterActive,
+    filterTokenValid,
+    deviceSearch,
+    filterReachability,
+    filterLanguage,
+  ]);
 
   useEffect(() => {
     if (searchQuery === "" && activeTab === "users") {
@@ -479,12 +504,6 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
   const getImportAudienceLabel = () => tt("Import Audience", undefined, "Import Audience");
   const getNoUsersFoundLabel = () => tt("No users found", undefined, "No users found");
   const getNoDevicesFoundLabel = () => tt("No devices found", undefined, "No devices found");
-  const getSearchUsersPlaceholder = () =>
-    tt(
-      "Search by user ID or nickname...",
-      undefined,
-      "Search by user ID or nickname...",
-    );
   const getUserIdLabel = () => tt("User ID", undefined, "User ID");
   const getViewLabel = () => tt("View", undefined, "View");
   const getPlatformLabelHeader = () => tt("Platform", undefined, "Platform");
@@ -520,20 +539,9 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
       minute: "2-digit",
     };
 
-  const getPlatformIcon = (platform: string) => {
-    switch (platform.toLowerCase()) {
-      case "android":
-        return <Bot className="h-5 w-5 text-emerald-600" />;
-      case "ios":
-        return <Smartphone className="h-5 w-5 text-slate-700" />;
-      case "web":
-        return <Globe className="h-5 w-5 text-blue-600" />;
-      case "huawei":
-        return <Smartphone className="h-5 w-5 text-rose-500" />;
-      default:
-        return <Smartphone className="h-5 w-5 text-slate-400" />;
-    }
-  };
+  const getPlatformIcon = (platform: string) => (
+    <ProviderBrandIcon provider={platform} size={20} />
+  );
 
   const getProviderBadgeVariant = (provider: string): "warning" | "info" | "error" | "default" => {
     const map: Record<string, "warning" | "info" | "error" | "default"> = {
@@ -778,21 +786,79 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
           </Select>
 
           {activeTab === "users" && (
-            <form onSubmit={handleSearch} className="min-w-[200px] flex-1">
-              <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder={getSearchUsersPlaceholder()}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pe-3.5 ps-10 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            </form>
+            <>
+              <form onSubmit={handleSearch} className="min-w-[220px] flex-1">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder={tt(
+                      "searchUsersByNamePhoneId",
+                      undefined,
+                      "Search name, phone or user ID…",
+                    )}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pe-3.5 ps-10 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </form>
+              <Select
+                value={filterReachability}
+                onChange={(e) => setFilterReachability(e.target.value)}
+                className="min-w-[200px]"
+                title="Reachable = has a device with a valid push token. The two unreachable causes need different fixes."
+              >
+                <option value="reachable">
+                  {tt("reachableOnly", undefined, "Reachable")}
+                </option>
+                <option value="never_registered">
+                  {tt("neverRegistered", undefined, "Never registered a device")}
+                </option>
+                <option value="token_dead">
+                  {tt("tokenWentDead", undefined, "Token went dead")}
+                </option>
+                <option value="">
+                  {tt("allUsersIncl0Devices", undefined, "All users")}
+                </option>
+              </Select>
+              <Select
+                value={filterLanguage}
+                onChange={(e) => setFilterLanguage(e.target.value)}
+                className="min-w-[120px]"
+              >
+                <option value="">{tt("allLanguages", undefined, "All languages")}</option>
+                <option value="en">EN</option>
+                <option value="ar">AR</option>
+                <option value="fr">FR</option>
+                <option value="es">ES</option>
+              </Select>
+            </>
           )}
           {activeTab === "devices" && (
             <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  fetchDevices();
+                }}
+                className="min-w-[200px] flex-1"
+              >
+                <div className="relative">
+                  <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder={tt(
+                      "searchDevices",
+                      undefined,
+                      "Search device ID, owner name or phone…",
+                    )}
+                    value={deviceSearch}
+                    onChange={(e) => setDeviceSearch(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pe-3.5 ps-10 text-sm shadow-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </form>
               <Select
                 value={filterPlatform}
                 onChange={(e) => setFilterPlatform(e.target.value)}
@@ -820,9 +886,25 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                 onChange={(e) => setFilterActive(e.target.value)}
                 className="min-w-[120px]"
               >
-                <option value="">{getAllStatusLabel()}</option>
                 <option value="true">{tt("Active", undefined, "Active")}</option>
                 <option value="false">{tt("Inactive", undefined, "Inactive")}</option>
+                <option value="">{getAllStatusLabel()}</option>
+              </Select>
+              <Select
+                value={filterTokenValid}
+                onChange={(e) => setFilterTokenValid(e.target.value)}
+                className="min-w-[150px]"
+                title="A device can be active but hold a token the provider has already rejected"
+              >
+                <option value="true">
+                  {tt("validTokenOnly", undefined, "Valid token")}
+                </option>
+                <option value="false">
+                  {tt("invalidTokenOnly", undefined, "Rejected token")}
+                </option>
+                <option value="">
+                  {tt("anyToken", undefined, "Any token state")}
+                </option>
               </Select>
             </>
           )}
@@ -844,6 +926,13 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
         <Card padding="sm" className="border-rose-200 bg-rose-50">
           <p className="text-sm text-rose-700">{error}</p>
         </Card>
+      )}
+
+      {activeTab === "users" && filterAppId && (
+        <ReachabilityPanel
+          appId={filterAppId}
+          onFilter={(value) => setFilterReachability(value)}
+        />
       )}
 
       {activeTab === "users" && filterAppId && (
@@ -965,6 +1054,11 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                             {user.externalUserId}
                           </p>
                         ) : null}
+                        {user.phone ? (
+                          <p className="truncate text-xs text-gray-400">
+                            {user.phone}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {user.app.name}
@@ -973,7 +1067,9 @@ export function UsersDevices({ apps, token }: UsersDevicesProps) {
                         {user.language}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant="info">
+                        <Badge
+                          variant={user._count.devices > 0 ? "info" : "default"}
+                        >
                           {getDeviceCountLabel(user._count.devices)}
                         </Badge>
                       </td>

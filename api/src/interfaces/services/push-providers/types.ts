@@ -1,5 +1,11 @@
 export interface PushMessage {
     token: string;
+    /**
+     * Deliver as a silent data-only message: no alert, no sound, no badge.
+     * Used by the re-subscribe ping so a live-but-stale device can refresh its
+     * registration without the user seeing anything.
+     */
+    silent?: boolean;
     title: string;
     subtitle?: string;
     body: string;
@@ -47,6 +53,18 @@ export interface PushProvider {
     send(message: PushMessage): Promise<PushResult>;
     sendBatch?(messages: PushMessage[]): Promise<PushResult[]>;
     isConfigured(): boolean;
+    /**
+     * Ask the provider whether a token is still deliverable, WITHOUT delivering
+     * anything to the device.
+     *
+     * Only implemented where the provider offers a true dry run (FCM's
+     * `validate_only`). Providers without one leave this undefined rather than
+     * faking it with a real send — waking every device in the database to find
+     * out which ones are dead is not an acceptable trade.
+     *
+     * `invalidToken: true` in the result means the token is confirmed dead.
+     */
+    validateToken?(token: string): Promise<PushResult>;
 }
 
 export interface ProviderConfig {

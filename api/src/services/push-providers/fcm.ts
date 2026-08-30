@@ -178,16 +178,24 @@ export class FCMProvider implements PushProvider {
             const fcmMessage = {
                 message: {
                     token: message.token,
-                    notification: {
-                        title: message.title,
-                        body: message.body,
-                        ...(message.image && { image: message.image }),
-                    },
+                    // A silent message carries no `notification` block at all —
+                    // that is what keeps FCM from rendering a system banner and
+                    // lets the app handle it in the background.
+                    ...(message.silent
+                        ? {}
+                        : {
+                            notification: {
+                                title: message.title,
+                                body: message.body,
+                                ...(message.image && { image: message.image }),
+                            },
+                        }),
                     ...(dataPayload ? { data: dataPayload } : {}),
                     android: {
                         priority: 'high' as const,
                         ...(message.ttl ? { ttl: `${Math.max(0, message.ttl)}s` } : {}),
                         ...(message.collapseKey ? { collapse_key: message.collapseKey } : {}),
+                        ...(message.silent ? {} : {
                         notification: {
                             sound: message.sound || 'default',
                             ...(message.androidIcon && { icon: message.androidIcon }),
@@ -200,21 +208,29 @@ export class FCMProvider implements PushProvider {
                                 ? { channel_id: message.androidChannelId || process.env.FCM_DEFAULT_CHANNEL_ID }
                                 : {}),
                         },
+                        }),
                     },
                     apns: {
+                        // content-available:1 with no alert is the iOS silent
+                        // background push; anything else renders a banner.
+                        ...(message.silent
+                            ? { headers: { 'apns-push-type': 'background', 'apns-priority': '5' } }
+                            : {}),
                         payload: {
-                            aps: {
-                                alert: {
-                                    title: message.title,
-                                    body: message.body,
-                                    ...(message.subtitle ? { subtitle: message.subtitle } : {}),
+                            aps: message.silent
+                                ? { 'content-available': 1 }
+                                : {
+                                    alert: {
+                                        title: message.title,
+                                        body: message.body,
+                                        ...(message.subtitle ? { subtitle: message.subtitle } : {}),
+                                    },
+                                    sound: message.sound || 'default',
+                                    badge: message.badge,
+                                    ...(message.image ? { 'mutable-content': 1 } : {}),
                                 },
-                                sound: message.sound || 'default',
-                                badge: message.badge,
-                                ...(message.image ? { 'mutable-content': 1 } : {}),
-                            },
                         },
-                        ...(message.image ? { fcm_options: { image: message.image } } : {}),
+                        ...(message.image && !message.silent ? { fcm_options: { image: message.image } } : {}),
                     },
                 },
             };
@@ -280,6 +296,59 @@ export class FCMProvider implements PushProvider {
             shouldRetry,
             invalidToken,
         };
+    }
+
+    /**
+     * FCM v1 `validate_only`: Google resolves and validates the token and
+     * message, then throws the message away instead of delivering it. Nothing
+     * reaches the handset — no banner, no wake-up, no battery cost — which is
+     * what makes it safe to sweep the whole device table with.
+     *
+     * A dead token comes back as UNREGISTERED/NOT_FOUND exactly as it would on
+     * a real send, so the caller can treat `invalidToken` identically.
+     */
+    async validateToken(token: string): Promise<PushResult> {
+        try {
+            if (!this.config) throw new Error('FCM not configured');
+            const accessToken = await this.getAccessToken();
+            const url = `https://fcm.googleapis.com/v1/projects/${this.config.projectId}/messages:send`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    validate_only: true,
+                    message: {
+                        token,
+                        // Minimal well-formed payload: we are testing the token,
+                        // so nothing here should be able to fail validation.
+                        data: { notifyx_probe: '1' },
+                    },
+                }),
+            });
+
+            if (response.ok) {
+                return { success: true, shouldRetry: false, invalidToken: false };
+            }
+
+            const errorData = await response.json() as {
+                error?: { code?: number; message?: string; status?: string };
+            };
+            return this.handleError(response.status, errorData);
+        } catch (error) {
+            // Network trouble tells us nothing about the token — never let it
+            // be mistaken for a dead one.
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                errorCode: 'UNKNOWN',
+                shouldRetry: true,
+                invalidToken: false,
+            };
+        }
     }
 
     async sendBatch(messages: PushMessage[]): Promise<PushResult[]> {

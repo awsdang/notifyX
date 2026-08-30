@@ -6,13 +6,16 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../services/database';
 import { sendSuccess, AppError } from '../utils/response';
+import { appIdScopeFilter, canAccessAppId } from '../middleware/tenantScope';
 
 export const getCampaignReport = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
 
-        const campaign = await prisma.campaign.findUnique({
-            where: { id: String(id) },
+        // Scoped lookup: reports must not expose campaigns from apps the caller
+        // cannot reach.
+        const campaign = await prisma.campaign.findFirst({
+            where: { id: String(id), ...appIdScopeFilter(req) },
             include: {
                 approvals: true,
             }
@@ -108,6 +111,18 @@ export const getProviderHealth = async (req: Request, res: Response, next: NextF
     try {
         const { appId, env, from, to } = req.query;
 
+        if (appId && !canAccessAppId(req, String(appId))) {
+            throw new AppError(403, 'You do not have access to this app', 'FORBIDDEN');
+        }
+
+        // Restrict the aggregate to the caller's apps; a scoped admin must not
+        // see platform-wide delivery numbers.
+        const scopedAppFilter = appIdScopeFilter(req);
+        const notificationFilter: Record<string, any> = { ...scopedAppFilter };
+        if (appId) {
+            notificationFilter.appId = String(appId);
+        }
+
         // Date range filter
         const dateFilter: any = {};
         if (from) dateFilter.gte = new Date(String(from));
@@ -121,7 +136,7 @@ export const getProviderHealth = async (req: Request, res: Response, next: NextF
             where: {
                 createdAt: dateFilter,
                 notification: {
-                    appId: appId ? String(appId) : undefined,
+                    ...notificationFilter,
                     // TODO: Filter by environment if added to Notification model 
                     // (Currently env is only on App/Credentials, not stored on Notification explicitly, 
                     // though usually implied by credential used. We might need to join or assume PROD/UAT based on app?)

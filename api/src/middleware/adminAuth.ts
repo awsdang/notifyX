@@ -255,6 +255,7 @@ export function requirePermission(...permissions: string[]) {
         adminUserId: adminUser.id,
         appId,
         orgId,
+        role: adminUser.role,
       };
 
       // SUPER_ADMIN bypass
@@ -297,7 +298,12 @@ export function requireAnyPermission(...permissions: string[]) {
         adminUserId: adminUser.id,
         appId,
         orgId,
+        role: adminUser.role,
       };
+
+      if (adminUser.role === "SUPER_ADMIN") {
+        return next();
+      }
 
       await assertCanAny(permissions, ctx);
       next();

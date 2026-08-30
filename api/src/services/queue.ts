@@ -21,6 +21,10 @@ export const APNS_QUEUE_NAME = "notifications-apns";
 export const HMS_QUEUE_NAME = "notifications-hms";
 export const WEB_QUEUE_NAME = "notifications-web";
 
+/** Periodic device-token health sweep (its own queue so it never competes
+ *  with delivery for worker slots). */
+export const DEVICE_HEALTH_QUEUE_NAME = "device-health";
+
 const REDIS_DISABLED = process.env.REDIS_DISABLED === "true";
 if (REDIS_DISABLED) {
   console.warn("[Queue] REDIS_DISABLED=true, running queue operations in no-op mode");
@@ -80,6 +84,45 @@ export const apnsQueue = createQueue(APNS_QUEUE_NAME);
 export const hmsQueue = createQueue(HMS_QUEUE_NAME);
 
 export const webQueue = createQueue(WEB_QUEUE_NAME);
+
+export const deviceHealthQueue = createQueue(DEVICE_HEALTH_QUEUE_NAME);
+
+/**
+ * Register the recurring device-health sweep as a BullMQ repeatable job.
+ *
+ * Repeatable jobs are scheduled by Redis, not by any one process, so N worker
+ * replicas still produce exactly one sweep per interval. The previous
+ * implementation throttled with a module-level timestamp, which is per-process
+ * — three replicas meant up to three sweeps an hour.
+ *
+ * Idempotent: re-registering with the same `jobId` replaces the existing
+ * schedule rather than stacking a second one.
+ */
+export async function scheduleDeviceHealthSweep(
+  cronPattern: string,
+): Promise<void> {
+  if (REDIS_DISABLED || !redisConnection) return;
+
+  // Drop any previously registered schedule so a changed cron actually takes
+  // effect instead of leaving the old one running alongside it.
+  const existing = await deviceHealthQueue.getRepeatableJobs().catch(() => []);
+  for (const job of existing) {
+    if (job.name === "sweep") {
+      await deviceHealthQueue.removeRepeatableByKey(job.key).catch(() => {});
+    }
+  }
+
+  await deviceHealthQueue.add(
+    "sweep",
+    {},
+    {
+      jobId: "device-health-sweep",
+      repeat: { pattern: cronPattern },
+      removeOnComplete: true,
+      removeOnFail: 50,
+    },
+  );
+}
 
 export async function addNotificationToQueue(
   notificationId: string,

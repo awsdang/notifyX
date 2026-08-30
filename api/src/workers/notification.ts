@@ -13,6 +13,8 @@ import {
   APNS_QUEUE_NAME,
   HMS_QUEUE_NAME,
   WEB_QUEUE_NAME,
+  DEVICE_HEALTH_QUEUE_NAME,
+  scheduleDeviceHealthSweep,
   addDeliveriesToQueue,
   type NotificationJobData,
   type DeliveryJobData,
@@ -29,6 +31,13 @@ import { finalizeCampaignIfComplete } from "../services/campaignFinalizer";
 import type { NotificationPayload } from "../interfaces/workers/notification";
 import { decryptTokenIfNeeded } from "../utils/crypto";
 import { resolvePushMessageIcons, withAppIconData } from "../utils/appIcons";
+import {
+  sweepStaleDevices,
+  isDeviceHealthEnabled,
+} from "../services/deviceHealth";
+
+/** Cron for the recurring sweep. Default: hourly, on the hour. */
+const DEVICE_HEALTH_CRON = process.env.DEVICE_HEALTH_CRON || "0 * * * *";
 
 // BullMQ requires maxRetriesPerRequest=null — use dedicated connection
 const redisConnection = getBullMQConnection();
@@ -337,6 +346,18 @@ async function handleDelivery(job: Job<DeliveryJobData>): Promise<void> {
       where: { id: delivery.id },
       data: { status: "DELIVERED", sentAt: new Date() },
     });
+    // A provider that accepted the token just proved it is still live. Without
+    // this, `lastSeenAt` only ever reflects registration time, so a device that
+    // has been receiving pushes for a year looks identical to one that has been
+    // silent since the day it signed up — and staleness cannot be measured.
+    await prisma.device
+      .update({
+        where: { id: device.id },
+        data: { lastSeenAt: new Date() },
+      })
+      .catch(() => {
+        /* best-effort freshness bookkeeping — never fail a delivery over it */
+      });
     await redis.incr(`notif:${notificationId}:delivered`);
   } else {
     let failureCategory = "UNKNOWN";
@@ -466,6 +487,28 @@ async function tryFinalizeNotification(notificationId: string): Promise<void> {
 }
 
 /**
+ * Recurring device-token health sweep.
+ *
+ * Runs here rather than inside the scheduler tick for two reasons: the sweep
+ * makes hundreds of provider round-trips and would hold the scheduler's Redis
+ * lock past its TTL, delaying time-critical scheduled sends; and BullMQ's
+ * repeatable-job scheduling is owned by Redis, so it fires once per interval
+ * no matter how many replicas are running.
+ */
+async function processDeviceHealthJob(): Promise<void> {
+  if (!isDeviceHealthEnabled()) return;
+
+  const started = Date.now();
+  const result = await sweepStaleDevices();
+  console.log(
+    `[Worker-DeviceHealth] examined=${result.examined} ` +
+      `validated=${result.validated} pinged=${result.pinged} ` +
+      `markedDead=${result.markedDead} skipped=${result.skipped} ` +
+      `durationMs=${Date.now() - started}`,
+  );
+}
+
+/**
  * Initialize notification workers
  */
 export function initWorker() {
@@ -509,6 +552,32 @@ export function initWorker() {
     });
 
     workers.push(worker);
+  }
+
+  // Device health runs on its own queue at concurrency 1 — it is a periodic
+  // maintenance sweep, not throughput work, and must never contend with
+  // delivery for worker slots.
+  const deviceHealthWorker = new Worker(
+    DEVICE_HEALTH_QUEUE_NAME,
+    processDeviceHealthJob,
+    { connection: redisConnection, concurrency: 1 },
+  );
+  deviceHealthWorker.on("failed", (job, err) => {
+    console.error(`[Worker-DeviceHealth] Job ${job?.id} failed:`, err.message);
+  });
+  workers.push(deviceHealthWorker);
+
+  // Register (or re-register) the recurring schedule. Idempotent by jobId.
+  if (isDeviceHealthEnabled()) {
+    void scheduleDeviceHealthSweep(DEVICE_HEALTH_CRON)
+      .then(() =>
+        console.log(
+          `[Worker] Device health sweep scheduled (cron: ${DEVICE_HEALTH_CRON})`,
+        ),
+      )
+      .catch((err) =>
+        console.error("[Worker] Failed to schedule device health sweep:", err),
+      );
   }
 
   console.log(

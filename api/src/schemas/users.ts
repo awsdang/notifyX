@@ -64,6 +64,14 @@ export const registerDeviceSchema = z
         description:
           "Client-managed device identifier used to update the same physical device across subscription refreshes.",
       }),
+    tokenExpiresAt: z.iso
+      .datetime()
+      .optional()
+      .meta({
+        example: "2026-12-01T00:00:00Z",
+        description:
+          "When the push subscription is known to expire. Only web push reports this (PushSubscription.expirationTime); FCM/APNs/HMS tokens have no fixed lifetime and should omit it.",
+      }),
   })
   .register(registry, { id: "RegisterDeviceRequest" });
 
@@ -193,3 +201,27 @@ export const deviceListResponseSchema = responseSchema(
       .meta({ example: { page: 1, limit: 10, total: 1, totalPages: 1 } }),
   }),
 ).register(registry, { id: "DeviceListResponse" });
+
+export const deviceHeartbeatSchema = z
+  .object({
+    appId: z.string().meta({ example: "app-xyz" }),
+    externalDeviceId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .optional()
+      .meta({ example: "ios-vendor-123" }),
+    deviceId: z
+      .string()
+      .uuid()
+      .optional()
+      .meta({ example: "d1e2f3a4-b5c6-7890-abcd-ef1234567890" }),
+    /** Current token, so a rotation is caught without a full re-register. */
+    pushToken: z.string().optional().meta({ example: "fcm-token-123" }),
+    tokenExpiresAt: z.iso.datetime().optional(),
+  })
+  .refine((data) => Boolean(data.externalDeviceId || data.deviceId), {
+    message: "Either externalDeviceId or deviceId is required",
+  })
+  .register(registry, { id: "DeviceHeartbeatRequest" });
