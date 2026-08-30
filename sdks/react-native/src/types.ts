@@ -3,6 +3,11 @@ export interface NotifyXOptions {
     baseUrl: string;
     apiKey: string;
     debug?: boolean;
+    /**
+     * Minimum hours between heartbeat network calls. Defaults to 24 — app
+     * foregrounds inside the window are throttled and cost nothing.
+     */
+    heartbeatIntervalHours?: number;
 }
 
 export interface UserRegistrationData {

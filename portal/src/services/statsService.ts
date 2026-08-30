@@ -94,3 +94,77 @@ export const statsService = {
     return parsed;
   },
 };
+
+/* ─────────────────────────  Dashboard overview  ───────────────────────── */
+
+export interface OverviewProvider {
+  provider: string;
+  attempted: number;
+  delivered: number;
+  failed: number;
+  successRate: number;
+}
+
+export interface DashboardOverview {
+  scope: { appId: string | null; appCount: number; days: number };
+  notifications: {
+    total: number;
+    pending: number;
+    processing: number;
+    sent: number;
+    delivered: number;
+    failed: number;
+    cancelled: number;
+    inWindow: number;
+    inPreviousWindow: number;
+    changePct: number | null;
+  };
+  delivery: {
+    attempted: number;
+    delivered: number;
+    failed: number;
+    successRate: number;
+    failureRate: number;
+  };
+  providers: OverviewProvider[];
+  failures: { category: string; count: number }[];
+  audience: {
+    users: number;
+    reachableUsers: number;
+    reachablePct: number;
+    devices: number;
+    byPlatform: { platform: string; count: number }[];
+  };
+  trend: { date: string; total: number; delivered: number; failed: number }[];
+  apps: {
+    id: string;
+    name: string;
+    isKilled: boolean;
+    iconUrl: string | null;
+    notifications: number;
+    users: number;
+  }[];
+  recentActivity: {
+    id: string;
+    type: string;
+    status: string;
+    title: string;
+    body: string | null;
+    createdAt: string;
+    app: { id: string; name: string } | null;
+  }[];
+}
+
+/**
+ * Single structured call for the dashboard. Replaces the old approach of
+ * fetching three flat `{ title, value }` lists and re-parsing stat names.
+ */
+export async function getDashboardOverview(
+  token: string | null,
+  options: { appId?: string | null; days?: number } = {},
+): Promise<DashboardOverview> {
+  const params = new URLSearchParams();
+  if (options.appId) params.set("appId", options.appId);
+  params.set("days", String(options.days ?? 14));
+  return apiRequest<DashboardOverview>(`/stats/overview?${params}`, token);
+}

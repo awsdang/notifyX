@@ -35,6 +35,9 @@
       this.vapidPublicKey = options.vapidPublicKey || null;
       this.serviceWorkerPath = options.serviceWorkerPath || "/notifyx-sw.js";
       this.debug = Boolean(options.debug);
+      // How often heartbeat() actually hits the network. Page loads inside the
+      // window are free.
+      this.heartbeatIntervalHours = options.heartbeatIntervalHours ?? 24;
       this.storageKey = `notifyx:web:${this.appId}`;
     }
 
@@ -134,6 +137,12 @@
         userId: user.id,
         pushToken: JSON.stringify(subscription.toJSON()),
         externalDeviceId,
+        // Browsers may set an expiry on the subscription. Passing it on lets
+        // NotifyX stop sending to a subscription it already knows has lapsed
+        // instead of burning a delivery to find out.
+        tokenExpiresAt: subscription.expirationTime
+          ? new Date(subscription.expirationTime).toISOString()
+          : undefined,
       });
       this.log("Device registered", { id: device.id, provider: device.provider });
 
@@ -144,12 +153,136 @@
         externalDeviceId: device.externalDeviceId || externalDeviceId,
         externalUserId: settings.externalUserId,
         subscribedAt: new Date().toISOString(),
+        // Registration is itself proof of life, so it resets the throttle.
+        lastHeartbeatAt: new Date().toISOString(),
       };
       localStorage.setItem(this.storageKey, JSON.stringify(state));
       await this.syncServiceWorkerConfig();
 
       this.log("SDK initialized ✅ — state saved to localStorage", state);
       return { user, device, subscription: subscription.toJSON() };
+    }
+
+    /**
+     * Tell the server this device is alive.
+     *
+     * Cheap by design — one request against your own API, no FCM/APNs traffic,
+     * so it can be called on every page load without any risk of tripping a
+     * provider rate limit.
+     *
+     * Throttled to `heartbeatIntervalHours` (default 24h) via localStorage, so
+     * repeated page loads inside the window cost nothing. Pass
+     * `{ force: true }` to bypass.
+     *
+     * Never throws: a failed heartbeat must not break the host page.
+     *
+     * If the server no longer recognises this device, or the push subscription
+     * has rotated underneath us, it replies with `action: "register"` and this
+     * method transparently re-runs the full registration.
+     */
+    async heartbeat(options = {}) {
+      try {
+        const state = this.getState();
+        if (!state || !state.userId) return { skipped: "not-registered" };
+
+        const identity = state.externalDeviceId || state.deviceId;
+        if (!identity) return { skipped: "no-device-identity" };
+
+        const intervalMs = (this.heartbeatIntervalHours || 24) * 3600 * 1000;
+        const last = state.lastHeartbeatAt
+          ? Date.parse(state.lastHeartbeatAt)
+          : 0;
+        if (!options.force && Date.now() - last < intervalMs) {
+          return { skipped: "throttled" };
+        }
+
+        // Include the live subscription so a rotation is detected server-side
+        // without needing a separate check.
+        let pushToken;
+        let tokenExpiresAt;
+        try {
+          const registration = await navigator.serviceWorker.getRegistration(
+            this.serviceWorkerPath,
+          );
+          const subscription = registration
+            ? await registration.pushManager.getSubscription()
+            : null;
+          if (subscription) {
+            pushToken = JSON.stringify(subscription.toJSON());
+            if (subscription.expirationTime) {
+              tokenExpiresAt = new Date(
+                subscription.expirationTime,
+              ).toISOString();
+            }
+          }
+        } catch {
+          /* subscription unavailable — heartbeat without it */
+        }
+
+        const body = { appId: this.appId };
+        if (state.externalDeviceId) {
+          body.externalDeviceId = state.externalDeviceId;
+        } else {
+          body.deviceId = state.deviceId;
+        }
+        if (pushToken) body.pushToken = pushToken;
+        if (tokenExpiresAt) body.tokenExpiresAt = tokenExpiresAt;
+
+        const response = await this.request("/api/v1/devices/heartbeat", {
+          method: "POST",
+          body,
+        });
+        const result = response.data || {};
+
+        this.saveHeartbeatTimestamp(state);
+
+        if (result.action === "register" && state.externalUserId) {
+          this.log("Server asked for re-registration", result.reason);
+          await this.init({
+            externalUserId: state.externalUserId,
+            externalDeviceId: state.externalDeviceId,
+          });
+          return { ...result, reregistered: true };
+        }
+
+        if (result.revived) {
+          this.log("Device was marked dead server-side and has been revived");
+        }
+        return result;
+      } catch (error) {
+        this.log("Heartbeat failed (ignored)", error?.message || error);
+        return { skipped: "error" };
+      }
+    }
+
+    saveHeartbeatTimestamp(state) {
+      try {
+        localStorage.setItem(
+          this.storageKey,
+          JSON.stringify({
+            ...state,
+            lastHeartbeatAt: new Date().toISOString(),
+          }),
+        );
+      } catch {
+        /* storage full or blocked — throttling degrades, nothing breaks */
+      }
+    }
+
+    /**
+     * Send a heartbeat now, and again whenever the tab returns to the
+     * foreground. Call once after init(); the throttle keeps it cheap.
+     *
+     * Returns a function that stops the listener.
+     */
+    startHeartbeat() {
+      void this.heartbeat();
+
+      const onVisible = () => {
+        if (document.visibilityState === "visible") void this.heartbeat();
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => document.removeEventListener("visibilitychange", onVisible);
     }
 
     async sendTestNotification(payload) {
@@ -308,6 +441,7 @@
       };
       if (data.externalDeviceId) body.externalDeviceId = data.externalDeviceId;
       if (data.deviceId) body.deviceId = data.deviceId;
+      if (data.tokenExpiresAt) body.tokenExpiresAt = data.tokenExpiresAt;
 
       const response = await this.request("/api/v1/users/device", {
         method: "POST",

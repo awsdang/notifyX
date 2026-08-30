@@ -29,6 +29,7 @@ export class NotifyX {
   private baseUrl: string;
   private apiKey: string;
   private debug: boolean;
+  private heartbeatIntervalHours: number;
   private storageKey: string;
 
   constructor(options: NotifyXOptions) {
@@ -40,6 +41,9 @@ export class NotifyX {
     this.appId = options.appId;
     this.apiKey = options.apiKey;
     this.debug = Boolean(options.debug);
+    // How often heartbeat() actually hits the network; foregrounds inside the
+    // window are free.
+    this.heartbeatIntervalHours = options.heartbeatIntervalHours ?? 24;
     this.storageKey = `@notifyx:react-native:${this.appId}`;
   }
 
@@ -423,6 +427,171 @@ export class NotifyX {
     });
     this.log("Test notification queued", response.data);
     return response.data;
+  }
+
+  /**
+   * True when an incoming push is NotifyX asking this device to re-register
+   * rather than something to show the user.
+   *
+   * Wire it into your background/foreground message handlers and return early
+   * so no UI is shown:
+   *
+   * ```ts
+   * messaging().setBackgroundMessageHandler(async (message) => {
+   *   if (notifyX.isResubscribeRequest(message)) {
+   *     await notifyX.syncRegistration({
+   *       externalUserId: currentUserId,
+   *       pushToken: await messaging().getToken(),
+   *       platform: Platform.OS === "ios" ? "ios" : "android",
+   *       provider: Platform.OS === "ios" ? "apns" : "fcm",
+   *     });
+   *     return;
+   *   }
+   *   // ...your normal handling
+   * });
+   * ```
+   */
+  public isResubscribeRequest(message: {
+    data?: Record<string, unknown> | null;
+  }): boolean {
+    return message?.data?.notifyx_action === "resubscribe";
+  }
+
+  /**
+   * Re-assert this device's registration: refreshes the push token, clears any
+   * server-side invalidation, and updates `lastSeenAt`.
+   *
+   * Call this on **every app launch**, not just first install. That single
+   * habit is what prevents the most common way users go dark — a device whose
+   * token rotated (reinstall, restore to a new handset, cleared app data) while
+   * the app only ever registered once. The server reuses the same device row
+   * via the persisted `externalDeviceId`, so history stays continuous.
+   */
+  public async syncRegistration(params: {
+    externalUserId: string;
+    pushToken: string;
+    platform: "ios" | "android" | "huawei";
+    provider: "fcm" | "apns" | "hms";
+    nickname?: string;
+    phone?: string;
+  }): Promise<{ user: NotifyXUser; device?: NotifyXDevice }> {
+    this.log("Syncing registration (launch/resubscribe)");
+    return this.init(params);
+  }
+
+  /**
+   * Tell the server this device is alive.
+   *
+   * Cheap by design — one request against your own API, no FCM/APNs traffic,
+   * so it can run on every app foreground without any risk of tripping a
+   * provider rate limit. This is what keeps `lastSeenAt` honest and lets the
+   * server distinguish "quiet user" from "uninstalled".
+   *
+   * Throttled to `heartbeatIntervalHours` (default 24h) using the SDK's
+   * persisted state; pass `{ force: true }` to bypass. Never throws — a failed
+   * heartbeat must not break app startup.
+   *
+   * When the server no longer recognises the device, or the push token has
+   * rotated, it replies `action: "register"`. Supply `pushToken`/`platform`/
+   * `provider` and this re-registers automatically.
+   */
+  public async heartbeat(params?: {
+    force?: boolean;
+    pushToken?: string;
+    platform?: "ios" | "android" | "huawei";
+    provider?: "fcm" | "apns" | "hms";
+  }): Promise<{ action?: string; revived?: boolean; skipped?: string }> {
+    try {
+      const state = (await this.getState()) || {};
+      const identity = this.toOptionalTrimmedString(state.externalDeviceId);
+      const deviceId = this.toOptionalTrimmedString(state.deviceId);
+      if (!identity && !deviceId) return { skipped: "not-registered" };
+
+      const intervalMs = this.heartbeatIntervalHours * 3600 * 1000;
+      const last = state.lastHeartbeatAt
+        ? Date.parse(String(state.lastHeartbeatAt))
+        : 0;
+      if (!params?.force && Date.now() - last < intervalMs) {
+        return { skipped: "throttled" };
+      }
+
+      const body: Record<string, unknown> = { appId: this.appId };
+      if (identity) body.externalDeviceId = identity;
+      else body.deviceId = deviceId;
+      if (params?.pushToken) body.pushToken = params.pushToken;
+
+      const response = await this.request("/api/v1/devices/heartbeat", {
+        method: "POST",
+        body,
+      });
+      const result = response.data || {};
+
+      await this.saveState({
+        ...state,
+        lastHeartbeatAt: new Date().toISOString(),
+      });
+
+      if (
+        result.action === "register" &&
+        params?.pushToken &&
+        params.platform &&
+        params.provider &&
+        state.externalUserId
+      ) {
+        this.log(`Server asked for re-registration: ${result.reason}`);
+        await this.syncRegistration({
+          externalUserId: String(state.externalUserId),
+          pushToken: params.pushToken,
+          platform: params.platform,
+          provider: params.provider,
+        });
+        return { ...result, reregistered: true } as any;
+      }
+
+      if (result.revived) {
+        this.log("Device was marked dead server-side and has been revived");
+      }
+      return result;
+    } catch (error: any) {
+      this.log("Heartbeat failed (ignored)", error?.message || error);
+      return { skipped: "error" };
+    }
+  }
+
+  /**
+   * Heartbeat now and on every return to the foreground.
+   *
+   * ```ts
+   * import { AppState } from "react-native";
+   * const stop = notifyX.startHeartbeat(AppState, () => ({
+   *   pushToken: currentToken,
+   *   platform: Platform.OS === "ios" ? "ios" : "android",
+   *   provider: Platform.OS === "ios" ? "apns" : "fcm",
+   * }));
+   * ```
+   *
+   * Returns a function that removes the listener.
+   */
+  public startHeartbeat(
+    appState: {
+      addEventListener: (
+        type: "change",
+        handler: (state: string) => void,
+      ) => { remove: () => void };
+    },
+    getContext?: () => {
+      pushToken?: string;
+      platform?: "ios" | "android" | "huawei";
+      provider?: "fcm" | "apns" | "hms";
+    },
+  ): () => void {
+    void this.heartbeat(getContext?.());
+
+    const subscription = appState.addEventListener("change", (next) => {
+      if (next === "active") void this.heartbeat(getContext?.());
+    });
+
+    return () => subscription.remove();
   }
 
   private async request(path: string, options: { method: string; body?: any }) {

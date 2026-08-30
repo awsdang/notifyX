@@ -38,6 +38,33 @@ it at `/notifyx-sw.js` on your site, or pass a matching `serviceWorkerPath`.
 
 `externalUserId` stays the stable identifier. `nickname` is an optional per-user display alias you can change without changing that identifier.
 
+## Heartbeat (keeps the server's view accurate)
+
+After `init()`, start the heartbeat once. It reports liveness to your own
+NotifyX API — **no push provider is involved**, so it cannot be rate-limited by
+FCM or Apple.
+
+```html
+<script>
+  await notifyX.init({ externalUserId: "web-user-123" });
+
+  // sends now, and again whenever the tab returns to the foreground
+  const stopHeartbeat = notifyX.startHeartbeat();
+</script>
+```
+
+Throttled to `heartbeatIntervalHours` (default 24, configurable in the
+constructor), so ordinary browsing costs at most one request a day. It never
+throws — a failed heartbeat will not break your page.
+
+If the server no longer recognises the device, or the push subscription has
+rotated, it replies `action: "register"` and the SDK transparently re-runs
+`init()`. A device wrongly marked dead by an earlier failed send is revived.
+
+**What a heartbeat proves:** the page was opened by a real browser holding a
+live subscription. **What silence does not prove:** that the subscription is
+gone — an infrequent visitor looks the same as someone who cleared site data.
+
 ## Security note
 
 For production, avoid exposing machine API keys in frontend code. Use your backend to mint short-lived registration/send tokens.

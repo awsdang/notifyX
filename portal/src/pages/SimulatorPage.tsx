@@ -1,5 +1,5 @@
-import { WebhookSimulator } from "../components/WebhookSimulator";
+import { Simulator } from "../components/simulator/Simulator";
 
 export function SimulatorPage() {
-  return <WebhookSimulator />;
+  return <Simulator />;
 }

@@ -12,6 +12,7 @@ import {
   getAppAccess,
   inviteAppAccess,
   revokeAppInvite,
+  simulateWebhookEvent,
 } from "./controllers/apps";
 import {
   registerUser,
@@ -24,6 +25,8 @@ import {
   activateDevice,
   deleteUser,
   setTestFavourites,
+  getReachability,
+  deviceHeartbeat,
 } from "./controllers/users";
 import {
   createNotification,
@@ -65,6 +68,7 @@ import {
   getAppStats,
   getNotificationTrend,
   getProviderStats,
+  getDashboardOverview,
 } from "./controllers/stats";
 import {
   createCredentialVersion,
@@ -198,6 +202,7 @@ import {
   registerDeviceSchema,
   updateUserNicknameSchema,
   setTestFavouritesSchema,
+  deviceHeartbeatSchema,
 } from "./schemas/users";
 import {
   createABTestSchema,
@@ -217,7 +222,7 @@ import { uploadFileWithUrls } from "./services/storage";
 import { AppError } from "./utils/response";
 import { logAudit } from "./services/audit";
 import { PERMISSIONS } from "./services/authz";
-import { authRateLimit } from "./middleware/rateLimit";
+import { authRateLimit, rateLimit } from "./middleware/rateLimit";
 
 // Upload configuration
 const upload = multer({
@@ -395,6 +400,14 @@ appRouter.post(
   canManageApp,
   testWebhookEndpoint,
 );
+// Signed, server-side delivery of a chosen event payload (DevX simulator).
+appRouter.post(
+  "/:id/webhook/simulate",
+  authenticateAdmin,
+  requireManager,
+  canManageApp,
+  simulateWebhookEvent,
+);
 appRouter.post(
   "/:id/env",
   authenticateAdmin,
@@ -534,6 +547,14 @@ appRouter.post(
 // ===========================================
 export const userRouter = Router();
 userRouter.get("/", authenticateAdmin, requireMarketing, cache(), getUsers);
+// Reachability breakdown — registered before "/:id" so it is not read as an id.
+userRouter.get(
+  "/reachability",
+  authenticateAdmin,
+  requireMarketing,
+  cache({ duration: 60 }),
+  getReachability,
+);
 // Favourite ("test") users — replace the whole set for an app. Registered
 // before "/:id" so the literal path is not captured as an id.
 userRouter.put(
@@ -561,6 +582,15 @@ userRouter.post(
 
 export const deviceRouter = Router();
 deviceRouter.get("/", authenticateAdmin, requireMarketing, cache(), getDevices);
+// SDK liveness ping. Deliberately cheap and high-volume-friendly: one indexed
+// update, no provider traffic. See `deviceHeartbeat` for what it can and
+// cannot prove.
+deviceRouter.post(
+  "/heartbeat",
+  rateLimit({ windowMs: 60000, max: 600 }),
+  validateRequest(deviceHeartbeatSchema),
+  deviceHeartbeat,
+);
 deviceRouter.patch(
   "/:id/deactivate",
   requireMarketingOrMachineAuth,
@@ -975,6 +1005,14 @@ statsRouter.get(
   requireMarketing,
   cache(),
   getDashboardStats,
+);
+// Structured dashboard payload (funnel, providers, trend, apps) in one call.
+statsRouter.get(
+  "/overview",
+  authenticateAdmin,
+  requireMarketing,
+  cache({ duration: 30 }),
+  getDashboardOverview,
 );
 statsRouter.get(
   "/apps",

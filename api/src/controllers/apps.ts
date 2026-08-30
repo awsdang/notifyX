@@ -12,7 +12,7 @@ import { sendSuccess, sendPaginated, AppError } from "../utils/response";
 import { appScopeFilter } from "../middleware/tenantScope";
 import { logAudit, extractRequestInfo } from "../services/audit";
 import { normalQueue, highQueue } from "../services/queue";
-import { testWebhook } from "../services/webhook";
+import { testWebhook, signPayload } from "../services/webhook";
 import { parseEnvironment } from "../utils/environment";
 
 // Helper to safely get a string from query params
@@ -184,6 +184,16 @@ export const createApp = async (
         platforms: data.platforms,
       },
     });
+
+    // Give the creator access to what they just created. Apps are created
+    // without an org, so without this row `computeAccessibleAppIds` would not
+    // include the new app and a non-super-admin would immediately lose sight
+    // of it (SUPER_ADMIN sees every app and needs no assignment).
+    if (adminUser && adminUser.role !== "SUPER_ADMIN") {
+      await prisma.appManager.create({
+        data: { adminUserId: adminUser.id, appId: app.id },
+      });
+    }
 
     // Bootstrap default environments so credentials/webhooks can be configured immediately.
     await prisma.appEnvironment.createMany({
@@ -408,6 +418,10 @@ export const inviteAppAccess = async (
           acceptedByAdminUserId: existingAdmin.id,
         },
       });
+
+      // The invitee's cached app list predates this grant.
+      await invalidateCache("/apps");
+      await invalidateCache("/onboarding-status");
 
       await logAudit({
         adminUserId: adminUser?.id,
@@ -887,6 +901,133 @@ export const createAppEnvironment = async (
     });
 
     sendSuccess(res, appEnvironment, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Deliver an arbitrary event payload to the app's configured webhook, signed
+ * with the app's real secret, and report exactly what came back.
+ *
+ * This runs server-side on purpose: a browser `fetch()` to a customer's
+ * webhook is blocked by CORS and cannot produce a valid HMAC signature, so the
+ * simulator was previously incapable of exercising a real endpoint.
+ */
+export const simulateWebhookEvent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { event, payload } = req.body as {
+      event?: unknown;
+      payload?: unknown;
+    };
+
+    const eventName =
+      typeof event === "string" && event.trim() ? event.trim() : "webhook.test";
+
+    if (payload !== undefined && (typeof payload !== "object" || payload === null || Array.isArray(payload))) {
+      throw new AppError(400, "payload must be a JSON object", "INVALID_PAYLOAD");
+    }
+
+    const app = await prisma.app.findFirst({
+      where: { id, ...appScopeFilter(req) },
+      select: { id: true, name: true, webhookUrl: true, webhookSecret: true, webhookEnabled: true },
+    });
+    if (!app) {
+      throw new AppError(404, "App not found");
+    }
+    if (!app.webhookUrl) {
+      throw new AppError(
+        400,
+        "No webhook URL configured for this app. Set one under DevX → Webhooks first.",
+        "NO_WEBHOOK_URL",
+      );
+    }
+
+    const timestamp = Date.now();
+    const body = JSON.stringify({
+      event: eventName,
+      timestamp: new Date(timestamp).toISOString(),
+      appId: app.id,
+      simulated: true,
+      data: (payload as Record<string, unknown>) ?? {},
+    });
+    const signature = signPayload(body, app.webhookSecret || "");
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const startedAt = Date.now();
+
+    let status = 0;
+    let statusText = "NETWORK_ERROR";
+    let responseBody = "";
+    const responseHeaders: Record<string, string> = {};
+
+    try {
+      const response = await fetch(app.webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "NotifyX-Webhook-Simulator/1.0",
+          "X-NotifyX-Event": eventName,
+          "X-NotifyX-Timestamp": String(timestamp),
+          "X-NotifyX-Signature": signature,
+        },
+        body,
+        signal: controller.signal,
+      });
+
+      status = response.status;
+      statusText = response.statusText;
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      // Cap the echoed body: a misconfigured URL can return a whole web page.
+      responseBody = (await response.text()).slice(0, 4000);
+    } catch (error: any) {
+      statusText =
+        error?.name === "AbortError" ? "TIMEOUT" : error?.message || "NETWORK_ERROR";
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const durationMs = Date.now() - startedAt;
+
+    await logAudit({
+      adminUserId: req.adminUser?.id,
+      action: "APP_UPDATED",
+      resource: "app",
+      resourceId: app.id,
+      appId: app.id,
+      details: { event: "webhook_simulated", webhookEvent: eventName, status },
+      ...extractRequestInfo(req),
+    });
+
+    sendSuccess(res, {
+      request: {
+        url: app.webhookUrl,
+        event: eventName,
+        headers: {
+          "Content-Type": "application/json",
+          "X-NotifyX-Event": eventName,
+          "X-NotifyX-Timestamp": String(timestamp),
+          "X-NotifyX-Signature": signature,
+        },
+        body: JSON.parse(body),
+      },
+      response: {
+        ok: status >= 200 && status < 300,
+        status,
+        statusText,
+        durationMs,
+        headers: responseHeaders,
+        body: responseBody,
+      },
+    });
   } catch (error) {
     next(error);
   }

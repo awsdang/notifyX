@@ -1,4 +1,4 @@
-import { SDKGenerator } from "../components/SDKGenerator";
+import { DeveloperHub } from "../components/devx/DeveloperHub";
 import { WebhookManager } from "../components/WebhookManager";
 import { useAppContext } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
@@ -9,7 +9,7 @@ export function DevXPage() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-      <SDKGenerator />
+      <DeveloperHub />
       <WebhookManager
         appId={selectedApp?.id || ""}
         appName={selectedApp?.name || ""}

@@ -1,10 +1,15 @@
-import { Smartphone, Globe, Apple } from 'lucide-react';
 import { clsx } from 'clsx';
+import {
+    AppleIcon,
+    FirebaseIcon,
+    HuaweiIcon,
+    WebPushIcon,
+} from '../ui/BrandIcons';
 
 export const PROVIDER_INFO = {
     fcm: {
         name: 'Firebase Cloud Messaging',
-        icon: Smartphone,
+        icon: FirebaseIcon,
         color: 'text-orange-500',
         bgColor: 'bg-orange-50',
         description: 'Android, iOS, and Web push via Firebase',
@@ -18,7 +23,7 @@ export const PROVIDER_INFO = {
     },
     apns: {
         name: 'Apple Push Notification Service',
-        icon: Apple,
+        icon: AppleIcon,
         color: 'text-gray-700',
         bgColor: 'bg-gray-100',
         description: 'Native iOS push notifications',
@@ -34,7 +39,7 @@ export const PROVIDER_INFO = {
     },
     hms: {
         name: 'Huawei Mobile Services',
-        icon: Smartphone,
+        icon: HuaweiIcon,
         color: 'text-red-500',
         bgColor: 'bg-red-50',
         description: 'Push for Huawei devices',
@@ -45,7 +50,7 @@ export const PROVIDER_INFO = {
     },
     web: {
         name: 'Web Push (VAPID)',
-        icon: Globe,
+        icon: WebPushIcon,
         color: 'text-blue-500',
         bgColor: 'bg-blue-50',
         description: 'Browser push notifications',

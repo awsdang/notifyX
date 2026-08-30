@@ -10,6 +10,15 @@ self.addEventListener("push", (event) => {
     };
   }
 
+  // Control message, not something to show the user: NotifyX asking this
+  // client to re-register because its record looks stale. Re-subscribing here
+  // is what stops a drifting subscription from silently going dark.
+  const action = payload.data?.notifyx_action || payload.notifyx_action;
+  if (action === "resubscribe") {
+    event.waitUntil(resubscribeNow());
+    return;
+  }
+
   const title = payload.title || "NotifyX";
   const options = {
     body: payload.body || "You have a new notification",
@@ -72,6 +81,9 @@ async function handleSubscriptionChange(event) {
     pushToken: JSON.stringify(subscription.toJSON()),
   };
   if (config.externalDeviceId) body.externalDeviceId = config.externalDeviceId;
+  if (subscription.expirationTime) {
+    body.tokenExpiresAt = new Date(subscription.expirationTime).toISOString();
+  }
 
   await fetch(`${config.baseUrl.replace(/\/$/, "")}/api/v1/users/device`, {
     method: "POST",
@@ -86,6 +98,53 @@ async function handleSubscriptionChange(event) {
 self.addEventListener("pushsubscriptionchange", (event) => {
   event.waitUntil(handleSubscriptionChange(event));
 });
+
+/**
+ * Re-register the current subscription with NotifyX without waiting for the
+ * page to be opened. Used by the `resubscribe` control push.
+ *
+ * Note this cannot resurrect a subscription the browser has already dropped —
+ * if the push arrived, the endpoint is by definition still alive. What it fixes
+ * is server-side state that has drifted (stale lastSeenAt, a device wrongly
+ * marked inactive after an earlier failure).
+ */
+async function resubscribeNow() {
+  const config = await readNotifyXConfig();
+  if (!config || !config.userId || !config.apiKey || !config.baseUrl) return;
+
+  try {
+    let subscription = await self.registration.pushManager.getSubscription();
+    if (!subscription && config.vapidPublicKey) {
+      subscription = await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(config.vapidPublicKey),
+      });
+    }
+    if (!subscription) return;
+
+    const body = {
+      userId: config.userId,
+      platform: "web",
+      provider: "web",
+      pushToken: JSON.stringify(subscription.toJSON()),
+    };
+    if (config.externalDeviceId) body.externalDeviceId = config.externalDeviceId;
+    if (subscription.expirationTime) {
+      body.tokenExpiresAt = new Date(subscription.expirationTime).toISOString();
+    }
+
+    await fetch(`${config.baseUrl.replace(/\/$/, "")}/api/v1/users/device`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": config.apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    /* nothing useful to do in a worker with no UI */
+  }
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

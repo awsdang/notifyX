@@ -32,6 +32,10 @@ class NotifyX {
   final String apiKey;
   final bool debug;
 
+  /// Minimum hours between heartbeat network calls. App resumes inside the
+  /// window are throttled and cost nothing.
+  final int heartbeatIntervalHours;
+
   late final NotifyXApiClient _apiClient;
   late final NotifyXStateManager _stateManager;
 
@@ -40,6 +44,7 @@ class NotifyX {
     required this.baseUrl,
     required this.apiKey,
     this.debug = false,
+    this.heartbeatIntervalHours = 24,
   }) {
     if (appId.trim().isEmpty ||
         baseUrl.trim().isEmpty ||
@@ -295,6 +300,138 @@ class NotifyX {
     _log('SDK initialized ✅ — state saved', state);
 
     return {'user': user, if (device != null) 'device': device};
+  }
+
+  /// Tells the server this device is alive.
+  ///
+  /// Cheap by design — one request against your own API, no FCM/APNs traffic,
+  /// so it can run on every app resume without any risk of tripping a provider
+  /// rate limit. This is what keeps `lastSeenAt` honest and lets the server
+  /// tell a quiet user apart from an uninstalled one.
+  ///
+  /// Throttled to [heartbeatIntervalHours]; pass `force: true` to bypass.
+  /// Never throws — a failed heartbeat must not break app startup.
+  ///
+  /// When the server no longer recognises the device, or the push token has
+  /// rotated, it replies with `action: "register"`. Supply [pushToken],
+  /// [platform] and [provider] and this re-registers automatically.
+  Future<Map<String, dynamic>> heartbeat({
+    bool force = false,
+    String? pushToken,
+    String? platform,
+    String? provider,
+  }) async {
+    try {
+      final state = await _stateManager.getState() ?? {};
+      final externalDeviceId = state['externalDeviceId']?.toString();
+      final deviceId = state['deviceId']?.toString();
+      if (externalDeviceId == null && deviceId == null) {
+        return {'skipped': 'not-registered'};
+      }
+
+      final lastRaw = state['lastHeartbeatAt']?.toString();
+      final last = lastRaw == null ? null : DateTime.tryParse(lastRaw);
+      if (!force && last != null) {
+        final elapsed = DateTime.now().difference(last).inHours;
+        if (elapsed < heartbeatIntervalHours) {
+          return {'skipped': 'throttled'};
+        }
+      }
+
+      final body = <String, dynamic>{'appId': appId};
+      if (externalDeviceId != null) {
+        body['externalDeviceId'] = externalDeviceId;
+      } else {
+        body['deviceId'] = deviceId;
+      }
+      if (pushToken != null) body['pushToken'] = pushToken;
+
+      final response =
+          await _apiClient.post('/api/v1/devices/heartbeat', body: body);
+      final result =
+          Map<String, dynamic>.from(response['data'] as Map? ?? const {});
+
+      await _stateManager.saveState({
+        ...state,
+        'lastHeartbeatAt': DateTime.now().toIso8601String(),
+      });
+
+      final externalUserId = state['externalUserId']?.toString();
+      if (result['action'] == 'register' &&
+          pushToken != null &&
+          platform != null &&
+          provider != null &&
+          externalUserId != null) {
+        _log('Server asked for re-registration: ${result['reason']}');
+        await syncRegistration(
+          externalUserId: externalUserId,
+          pushToken: pushToken,
+          platform: platform,
+          provider: provider,
+        );
+        return {...result, 'reregistered': true};
+      }
+
+      if (result['revived'] == true) {
+        _log('Device was marked dead server-side and has been revived');
+      }
+      return result;
+    } catch (error) {
+      _log('Heartbeat failed (ignored)', error);
+      return {'skipped': 'error'};
+    }
+  }
+
+  /// True when an incoming message is NotifyX asking this device to
+  /// re-register rather than something to show the user.
+  ///
+  /// Check it first in your background and foreground handlers and return
+  /// early so no UI is shown:
+  ///
+  /// ```dart
+  /// FirebaseMessaging.onBackgroundMessage((message) async {
+  ///   if (notifyX.isResubscribeRequest(message.data)) {
+  ///     await notifyX.syncRegistration(
+  ///       externalUserId: currentUserId,
+  ///       pushToken: (await FirebaseMessaging.instance.getToken())!,
+  ///       platform: Platform.isIOS ? 'ios' : 'android',
+  ///       provider: Platform.isIOS ? 'apns' : 'fcm',
+  ///     );
+  ///     return;
+  ///   }
+  ///   // ...your normal handling
+  /// });
+  /// ```
+  bool isResubscribeRequest(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    return data['notifyx_action']?.toString() == 'resubscribe';
+  }
+
+  /// Re-asserts this device's registration: refreshes the push token, clears
+  /// any server-side invalidation, and updates `lastSeenAt`.
+  ///
+  /// Call this on **every app launch**, not just first install. That single
+  /// habit prevents the most common way users go dark — a device whose token
+  /// rotated (reinstall, restore onto a new handset, cleared app data) while
+  /// the app only ever registered once. The server reuses the same device row
+  /// via the persisted `externalDeviceId`, so history stays continuous.
+  Future<Map<String, dynamic>> syncRegistration({
+    required String externalUserId,
+    required String pushToken,
+    required String platform,
+    required String provider,
+    String? nickname,
+    String? phone,
+  }) {
+    _log('Syncing registration (launch/resubscribe)');
+    return init(
+      externalUserId: externalUserId,
+      pushToken: pushToken,
+      platform: platform,
+      provider: provider,
+      nickname: nickname,
+      phone: phone,
+    );
   }
 
   /// Registers a user.

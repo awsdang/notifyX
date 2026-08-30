@@ -8,6 +8,22 @@ import { clearCorsOriginCache } from "../services/corsOrigins";
 import { invalidateCache } from "../middleware/cacheMiddleware";
 import { credentialSchemaMap } from "../schemas/credentials";
 import { parseEnvironment } from "../utils/environment";
+import { canAccessAppId } from "../middleware/tenantScope";
+
+/**
+ * Credential routes are guarded by permission only; the permission itself says
+ * nothing about *which* app the caller may touch. Every handler must therefore
+ * confirm the target app is inside the caller's tenant scope.
+ */
+function assertAppAccess(req: Request, appId: string): void {
+  if (!canAccessAppId(req, appId)) {
+    throw new AppError(
+      403,
+      "You do not have permission to manage credentials for this app",
+      "FORBIDDEN",
+    );
+  }
+}
 
 async function getOrCreateAppEnvironment(appId: string, env: "PROD" | "UAT") {
   const app = await prisma.app.findUnique({
@@ -66,6 +82,8 @@ export const createCredentialVersion = async (
       credentialData = result.data;
     }
     const adminUserId = req.adminUser?.id;
+
+    assertAppAccess(req, appId);
 
     // 1. Get or Create Credential Container
     const appEnv = await getOrCreateAppEnvironment(appId, parsedEnv);
@@ -147,6 +165,8 @@ export const getCredentials = async (
       );
     }
 
+    assertAppAccess(req, appId);
+
     await getOrCreateAppEnvironment(appId, parsedEnv);
     const appEnv = await prisma.appEnvironment.findUnique({
       where: { appId_env: { appId, env: parsedEnv } },
@@ -217,6 +237,8 @@ export const getWebSdkConfig = async (
       );
     }
 
+    assertAppAccess(req, appId);
+
     await getOrCreateAppEnvironment(appId, parsedEnv);
 
     const webCredential = await prisma.credential.findFirst({
@@ -285,12 +307,14 @@ export const testCredential = async (
 
     const version = await prisma.credentialVersion.findUnique({
       where: { id: credentialVersionId },
-      include: { credential: true },
+      include: { credential: { include: { appEnvironment: true } } },
     });
 
     if (!version) {
       throw new AppError(404, "Credential version not found");
     }
+
+    assertAppAccess(req, version.credential.appEnvironment.appId);
 
     const decryptedCreds = JSON.parse(decrypt(version.encryptedJson));
 
@@ -358,6 +382,8 @@ export const activateCredential = async (
     if (!version) {
       throw new AppError(404, "Credential version not found");
     }
+
+    assertAppAccess(req, version.credential.appEnvironment.appId);
 
     // Deactivate others, Activate this one in transaction
     await prisma.$transaction([
@@ -433,6 +459,8 @@ export const deactivateCredential = async (
       throw new AppError(404, "Credential not found", "NOT_FOUND");
     }
 
+    assertAppAccess(req, credential.appEnvironment.appId);
+
     const result = await prisma.credentialVersion.updateMany({
       where: {
         credentialId: credential.id,
@@ -503,6 +531,8 @@ export const deleteCredential = async (
     if (!credential) {
       throw new AppError(404, "Credential not found", "NOT_FOUND");
     }
+
+    assertAppAccess(req, credential.appEnvironment.appId);
 
     await prisma.credential.delete({ where: { id: credential.id } });
 

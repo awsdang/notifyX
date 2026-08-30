@@ -16,6 +16,8 @@ import {
   changePasswordSchema,
   updateAdminAppsSchema,
 } from "../schemas/admin";
+import { computeAccessibleAppIds } from "../middleware/tenantScope";
+import { invalidateCache } from "../middleware/cacheMiddleware";
 
 // Session duration: 24 hours
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -24,12 +26,31 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Apps a non-super-admin may act on. Mirrors `computeAccessibleAppIds` so the
+ * portal's client-side `canManageApp()` gate agrees with what the API will
+ * actually allow — org-based grants included, not just legacy AppManager rows.
+ */
 async function getManagedAppIds(adminUserId: string): Promise<string[]> {
-  const managed = await prisma.appManager.findMany({
-    where: { adminUserId },
-    select: { appId: true },
+  // Callers handle SUPER_ADMIN separately (they reach every app), so ask for a
+  // scoped resolution here — `computeAccessibleAppIds` returns null for
+  // SUPER_ADMIN, which is not a useful answer for this helper.
+  const appIds = await computeAccessibleAppIds({
+    id: adminUserId,
+    role: "APP_MANAGER",
   });
-  return managed.map((m) => m.appId);
+  return appIds ?? [];
+}
+
+/**
+ * Drop cached app lists/onboarding state after an access change, otherwise the
+ * affected user keeps seeing their old set of apps for the cache TTL.
+ */
+async function invalidateAppAccessCache(): Promise<void> {
+  await Promise.all([
+    invalidateCache("/apps"),
+    invalidateCache("/onboarding-status"),
+  ]);
 }
 
 /**
@@ -550,6 +571,8 @@ export const assignAppToManager = async (
       },
     });
 
+    await invalidateAppAccessCache();
+
     sendSuccess(res, assignment, 201);
   } catch (error) {
     next(error);
@@ -607,6 +630,8 @@ export const updateAdminApps = async (
       }
     });
 
+    await invalidateAppAccessCache();
+
     const managedApps = await prisma.appManager.findMany({
       where: { adminUserId },
       select: {
@@ -646,6 +671,8 @@ export const removeAppFromManager = async (
         where: { adminUserId_appId: { adminUserId, appId } },
       })
       .catch(() => null);
+
+    await invalidateAppAccessCache();
 
     sendSuccess(res, { message: "App removed from manager" });
   } catch (error) {
